@@ -1,0 +1,8 @@
+{
+  "name": "team-battle-fps",
+  "version": "1.0.0",
+  "description": "1인칭 팀전 웹 총게임",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}

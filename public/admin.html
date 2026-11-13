@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>관리자 - 팀 배틀 FPS</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0e1118; color: #eef1f7; font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 24px 16px; }
+  h1 { font-size: 24px; margin: 0 0 16px; }
+  .card { background: #181d29; border: 1px solid #2a3142; border-radius: 14px; padding: 18px; margin-bottom: 14px; }
+  .card h2 { font-size: 16px; margin: 0 0 12px; color: #aab3c7; }
+  input { padding: 10px 12px; border-radius: 9px; border: 1px solid #2f3749; background: #0f131c; color: #fff; font-size: 15px; }
+  button { padding: 10px 14px; border: 0; border-radius: 9px; font-size: 14px; font-weight: 700; cursor: pointer;
+    background: #2c3550; color: #fff; }
+  button:hover { filter: brightness(1.2); }
+  .blue { background: #4da3ff; color: #0b1020; }
+  .danger { background: #e04848; }
+  .green { background: #3cbf6a; color: #0b1020; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 8px 6px; text-align: left; border-bottom: 1px solid #252c3c; }
+  th { color: #8a93a8; font-weight: 600; }
+  .r { color: #ff7a7a; font-weight: 700; } .b { color: #6fb5ff; font-weight: 700; }
+  .status { font-size: 15px; display: flex; gap: 18px; flex-wrap: wrap; }
+  .pill { padding: 3px 10px; border-radius: 99px; font-weight: 700; font-size: 13px; }
+  .open { background: #1f4d30; color: #6fe39a; } .closed { background: #5a1f1f; color: #ff8a8a; }
+  .err { color: #ff7070; margin-top: 8px; min-height: 18px; }
+  #panel { display: none; }
+  td button { padding: 6px 10px; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🛠️ 관리자</h1>
+
+  <div class="card" id="login">
+    <h2>관리자 비밀번호</h2>
+    <form id="f-login" class="row">
+      <input id="pw" type="password" placeholder="관리자 비밀번호" autocomplete="current-password" style="flex:1">
+      <button class="blue">로그인</button>
+    </form>
+    <div class="err" id="err"></div>
+  </div>
+
+  <div id="panel">
+    <div class="card">
+      <div class="status">
+        <span>서버: <span id="st-open" class="pill open">열림</span></span>
+        <span>점수: <span class="r" id="st-r">0</span> : <span class="b" id="st-b">0</span></span>
+        <span>접속자: <b id="st-n">0</b>명</span>
+        <span>가입한 계정: <b id="st-acc">0</b>개</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>게임 관리</h2>
+      <div class="row" style="margin-bottom:10px">
+        <button onclick="cmd({t:'resetRound'})">🔄 라운드 리셋</button>
+        <span style="margin-left:8px">목표 킬</span>
+        <input id="target" type="number" min="1" max="200" style="width:80px">
+        <button onclick="cmd({t:'setTarget', n: +document.getElementById('target').value})">적용</button>
+      </div>
+      <form class="row" id="f-ann">
+        <input id="ann" placeholder="모두에게 보낼 공지 (100자까지)" maxlength="100" style="flex:1">
+        <button class="blue">📢 공지 보내기</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>접속 중인 플레이어</h2>
+      <table>
+        <thead><tr><th>이름</th><th>팀</th><th>킬/데스</th><th>체력</th><th></th></tr></thead>
+        <tbody id="list"></tbody>
+      </table>
+      <div id="empty" style="color:#6e7891;padding:10px 0">아직 아무도 없어요.</div>
+    </div>
+
+    <div class="card">
+      <h2>계정 삭제</h2>
+      <form class="row" id="f-del">
+        <input id="delname" placeholder="삭제할 아이디" style="flex:1">
+        <button class="danger">계정 삭제</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>전체 셧다운</h2>
+      <p style="color:#aab3c7;margin:0 0 10px;font-size:14px">셧다운하면 모든 플레이어가 나가지고, 다시 열 때까지 아무도 못 들어와요.</p>
+      <div class="row">
+        <button class="danger" id="btn-down">⛔ 전체 셧다운</button>
+        <button class="green" id="btn-open">✅ 서버 다시 열기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let ws, token = sessionStorage.getItem('adminToken');
+
+$('f-login').onsubmit = async e => {
+  e.preventDefault(); $('err').textContent = '';
+  const r = await fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: $('pw').value }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { $('err').textContent = j.error || '로그인 실패'; return; }
+  token = j.token; sessionStorage.setItem('adminToken', token); $('pw').value = '';
+  connect();
+};
+
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/admin-ws?token=${encodeURIComponent(token)}`);
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if (m.t === 'denied') { sessionStorage.removeItem('adminToken'); $('panel').style.display = 'none'; $('login').style.display = 'block'; return; }
+    if (m.t === 'admin') render(m);
+  };
+  ws.onclose = () => { if ($('panel').style.display === 'block') setTimeout(connect, 2000); };
+}
+
+let targetTouched = false;
+$('target').addEventListener('input', () => (targetTouched = true));
+function render(m) {
+  $('login').style.display = 'none'; $('panel').style.display = 'block';
+  $('st-open').textContent = m.shutdown ? '닫힘' : '열림';
+  $('st-open').className = 'pill ' + (m.shutdown ? 'closed' : 'open');
+  $('st-r').textContent = m.scores.red; $('st-b').textContent = m.scores.blue;
+  $('st-n').textContent = m.players.length; $('st-acc').textContent = m.accounts;
+  if (!targetTouched && document.activeElement !== $('target')) $('target').value = m.killTarget;
+  $('empty').style.display = m.players.length ? 'none' : 'block';
+  $('list').innerHTML = m.players.map(p => `
+    <tr>
+      <td>${esc(p.name)}</td>
+      <td class="${p.team[0]}">${p.team === 'red' ? '빨강' : '파랑'}</td>
+      <td>${p.kills} / ${p.deaths}</td>
+      <td>${p.alive ? p.hp : '💀'}</td>
+      <td class="row" style="justify-content:flex-end">
+        <button onclick="cmd({t:'setTeam', id:${p.id}, team:'${p.team === 'red' ? 'blue' : 'red'}'})">팀 바꾸기</button>
+        <button class="danger" onclick="if(confirm('${esc(p.name)} 님을 퇴장시킬까요?')) cmd({t:'kick', id:${p.id}})">퇴장</button>
+      </td>
+    </tr>`).join('');
+}
+function cmd(m) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); targetTouched = false; }
+
+$('f-ann').onsubmit = e => { e.preventDefault(); const t = $('ann').value.trim(); if (t) { cmd({ t: 'announce', text: t }); $('ann').value = ''; } };
+$('f-del').onsubmit = e => {
+  e.preventDefault(); const n = $('delname').value.trim();
+  if (n && confirm(`'${n}' 계정을 정말 삭제할까요? 되돌릴 수 없어요.`)) { cmd({ t: 'deleteAccount', name: n }); $('delname').value = ''; }
+};
+$('btn-down').onclick = () => { if (confirm('정말 전체 셧다운할까요? 모두 게임에서 나가져요.')) cmd({ t: 'shutdown' }); };
+$('btn-open').onclick = () => cmd({ t: 'reopen' });
+
+if (token) connect();
+</script>
+</body>
+</html>

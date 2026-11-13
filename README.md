@@ -1,0 +1,77 @@
+# 팀 배틀 FPS (1인칭 팀전 웹 총게임)
+
+빨강 팀과 파랑 팀으로 나뉘어 싸우는 1인칭 총게임이에요. 2~10명이 홈페이지 주소로 들어와서 함께 해요.
+
+## 들어가는 방법
+1. 홈페이지 접속 → 입장 비밀번호 입력
+2. 계정 만들기 또는 로그인
+3. 게임 시작! (화면 클릭)
+
+관리자 화면 주소는 `홈페이지주소/admin` 이에요.
+
+## 조작 (PC)
+| 키 | 기능 |
+|---|---|
+| W A S D | 이동 |
+| Space | 점프 |
+| Shift | 걷기 |
+| 마우스 | 조준 |
+| 왼쪽 클릭 | 사격 (누르고 있으면 연사) |
+| R | 재장전 |
+| Tab | 점수판 |
+| Esc | 마우스 풀기 |
+
+## 게임 규칙
+- 들어오면 인원이 적은 팀에 자동 배정돼요.
+- 체력 100. 몸 25, 머리 60 데미지.
+- 탄창 25발, 재장전 1.6초.
+- 죽으면 3초 뒤 부활. 부활 직후 2초는 무적이에요 (총을 쏘면 무적이 풀려요).
+- 먼저 목표 킬(기본 20)을 채우는 팀이 이기고, 6초 뒤 새 라운드가 시작돼요.
+
+## 관리자 기능
+- 접속자 목록 보기 (팀, 킬/데스, 체력)
+- 퇴장 (퇴장당한 사람은 1분 동안 다시 못 들어와요)
+- 팀 바꾸기
+- 라운드 리셋, 목표 킬 바꾸기
+- 모두에게 공지 보내기
+- 계정 삭제
+- 전체 셧다운 / 다시 열기
+
+---
+
+## 인터넷에 올리기 (Render 무료)
+
+### 1. GitHub에 올리기
+1. https://github.com 에서 가입 후 **New repository** 클릭
+2. 이름을 정하고 (예: `team-battle-fps`) **Create repository**
+3. **uploading an existing file** 을 눌러서 이 폴더 안의 파일들을 전부 끌어다 놓기
+   - `server.js`, `package.json`, `README.md`, `.gitignore`, 그리고 `public` 폴더째로
+4. **Commit changes** 클릭
+
+### 2. Render에서 서버 만들기
+1. https://render.com 에서 GitHub 계정으로 가입
+2. **New + → Web Service** → 방금 만든 저장소 선택
+3. 설정:
+   - **Runtime**: Node
+   - **Build Command**: 비워 두기 (또는 `echo ok`)
+   - **Start Command**: `node server.js`
+   - **Instance Type**: Free
+4. **Environment Variables**(환경변수)에 추가:
+   - `ADMIN_PASSWORD` = 관리자 비밀번호
+   - `ENTRY_PASSWORD` = `0602` (안 넣어도 기본값이 0602예요)
+5. **Create Web Service** → 몇 분 기다리면 `https://이름.onrender.com` 주소가 생겨요.
+
+> 관리자 비밀번호는 코드에 적혀 있지 않아요. Render 환경변수에만 넣기 때문에 GitHub 저장소가 공개여도 안전해요.
+
+### 알아 둘 점 (무료 서버)
+- 15분 동안 아무도 없으면 서버가 잠들어요. 다음 사람이 들어올 때 깨어나는 데 30초~1분쯤 걸려요.
+- **서버가 잠들었다 깨거나 다시 배포하면 가입한 계정이 지워져요.** 계정을 계속 유지하려면 나중에 무료 데이터베이스를 연결해야 해요.
+
+## 내 컴퓨터에서 테스트하기
+[Node.js](https://nodejs.org)를 설치한 뒤 이 폴더에서:
+```
+ADMIN_PASSWORD=원하는비번 node server.js
+```
+(윈도우 PowerShell은 `$env:ADMIN_PASSWORD="원하는비번"; node server.js`)
+
+그리고 브라우저에서 http://localhost:3000 접속.

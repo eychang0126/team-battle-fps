@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>팀 배틀 FPS</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0e1118; color: #eef1f7;
+    font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif; }
+  .screen { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; }
+  .screen.on { display: flex; }
+  .card { width: min(360px, 92vw); background: #181d29; border: 1px solid #2a3142; border-radius: 16px;
+    padding: 28px 24px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: -0.5px; }
+  h1 .r { color: #ff5a5a; } h1 .b { color: #4da3ff; }
+  .sub { margin: 0 0 20px; color: #8a93a8; font-size: 14px; }
+  input { width: 100%; padding: 12px 14px; margin: 6px 0; border-radius: 10px; border: 1px solid #2f3749;
+    background: #0f131c; color: #fff; font-size: 16px; outline: none; }
+  input:focus { border-color: #4da3ff; }
+  button { width: 100%; padding: 12px; margin-top: 10px; border: 0; border-radius: 10px; font-size: 16px;
+    font-weight: 700; cursor: pointer; background: #4da3ff; color: #0b1020; }
+  button:hover { filter: brightness(1.1); }
+  .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+  .tabs button { margin: 0; background: #232a3a; color: #9aa3b8; }
+  .tabs button.on { background: #4da3ff; color: #0b1020; }
+  .err { color: #ff7070; min-height: 20px; font-size: 14px; margin-top: 8px; }
+  .help { color: #6e7891; font-size: 12px; margin-top: 14px; line-height: 1.6; }
+
+  /* 게임 화면 */
+  #game { display: none; position: fixed; inset: 0; }
+  #game.on { display: block; }
+  #game canvas { display: block; }
+  #hud { position: fixed; inset: 0; pointer-events: none; }
+  #cross { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; transform: translate(-50%,-50%); }
+  #cross::before, #cross::after { content: ''; position: absolute; background: #fff; box-shadow: 0 0 2px #000; }
+  #cross::before { left: 10px; top: 0; width: 2px; height: 22px; }
+  #cross::after { top: 10px; left: 0; height: 2px; width: 22px; }
+  #hitmark { position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; transform: translate(-50%,-50%) rotate(45deg);
+    opacity: 0; transition: opacity .15s; }
+  #hitmark::before, #hitmark::after { content: ''; position: absolute; background: #fff; }
+  #hitmark::before { left: 16px; top: 0; width: 2px; height: 34px; }
+  #hitmark::after { top: 16px; left: 0; height: 2px; width: 34px; }
+  #hitmark.head::before, #hitmark.head::after { background: #ffd34d; }
+  #hitmark.kill::before, #hitmark.kill::after { background: #ff4040; }
+  #score { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px;
+    align-items: center; background: rgba(0,0,0,.45); padding: 6px 16px; border-radius: 10px; font-weight: 800; font-size: 22px; }
+  #score .r { color: #ff5a5a; } #score .b { color: #4da3ff; } #score .tg { font-size: 12px; color: #aab; font-weight: 500; }
+  #hpbox { position: absolute; left: 20px; bottom: 20px; width: 240px; }
+  #hptext { font-size: 28px; font-weight: 800; }
+  #hpbar { height: 10px; background: rgba(255,255,255,.15); border-radius: 6px; overflow: hidden; }
+  #hpfill { height: 100%; width: 100%; background: #4cdc7a; transition: width .15s; }
+  #teamtag { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  #ammo { position: absolute; right: 24px; bottom: 20px; font-size: 34px; font-weight: 800; text-align: right; }
+  #ammo small { font-size: 16px; color: #aab; }
+  #feed { position: absolute; right: 16px; top: 14px; display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+  #feed div { background: rgba(0,0,0,.5); padding: 4px 10px; border-radius: 6px; font-size: 14px; }
+  #feed .r { color: #ff7a7a; } #feed .b { color: #6fb5ff; }
+  #center { position: absolute; top: 34%; width: 100%; text-align: center; font-size: 30px; font-weight: 800;
+    text-shadow: 0 2px 8px #000; }
+  #announce { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); background: #ffd34d; color: #222;
+    padding: 8px 18px; border-radius: 8px; font-weight: 700; display: none; }
+  #dmg { position: absolute; inset: 0; box-shadow: inset 0 0 160px rgba(255,0,0,.8); opacity: 0; transition: opacity .3s; }
+  #board { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); background: rgba(10,12,20,.9);
+    border-radius: 14px; padding: 16px 20px; display: none; min-width: 460px; }
+  #board table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  #board td, #board th { padding: 5px 10px; text-align: left; }
+  #board .me { background: rgba(255,255,255,.08); }
+  #overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column;
+    background: rgba(5,8,14,.72); text-align: center; gap: 10px; }
+  #overlay h2 { margin: 0; font-size: 30px; }
+  #overlay p { margin: 0; color: #b6bfd2; line-height: 1.8; }
+  #overlay.hide { display: none; }
+  kbd { background: #2a3142; padding: 1px 7px; border-radius: 5px; font-family: inherit; }
+</style>
+</head>
+<body>
+
+<!-- 1단계: 입장 비밀번호 -->
+<div class="screen on" id="s-entry">
+  <div class="card">
+    <h1><span class="r">팀</span> 배틀 <span class="b">FPS</span></h1>
+    <p class="sub">입장 비밀번호를 입력하세요</p>
+    <form id="f-entry">
+      <input id="entry-code" type="password" inputmode="numeric" placeholder="입장 비밀번호" autocomplete="off">
+      <button type="submit">입장</button>
+      <div class="err" id="entry-err"></div>
+    </form>
+  </div>
+</div>
+
+<!-- 2단계: 로그인 / 회원가입 -->
+<div class="screen" id="s-auth">
+  <div class="card">
+    <h1>계정</h1>
+    <p class="sub">처음이면 계정을 만들고, 있으면 로그인하세요</p>
+    <div class="tabs">
+      <button type="button" id="tab-login" class="on">로그인</button>
+      <button type="button" id="tab-signup">계정 만들기</button>
+    </div>
+    <form id="f-auth">
+      <input id="auth-name" placeholder="아이디 (2~12글자)" autocomplete="username">
+      <input id="auth-pw" type="password" placeholder="비밀번호 (4글자 이상)" autocomplete="current-password">
+      <input id="auth-pw2" type="password" placeholder="비밀번호 확인" style="display:none" autocomplete="new-password">
+      <button type="submit" id="auth-btn">로그인</button>
+      <div class="err" id="auth-err"></div>
+    </form>
+    <div class="help">비밀번호는 서버에 암호화되어 저장돼요.<br>다른 사이트에서 쓰는 비밀번호는 쓰지 마세요.</div>
+  </div>
+</div>
+
+<!-- 3단계: 게임 -->
+<div id="game">
+  <div id="hud">
+    <div id="dmg"></div>
+    <div id="cross"></div>
+    <div id="hitmark"></div>
+    <div id="score"><span class="r" id="sc-r">0</span><span class="tg" id="sc-t">목표 20</span><span class="b" id="sc-b">0</span></div>
+    <div id="announce"></div>
+    <div id="feed"></div>
+    <div id="center"></div>
+    <div id="hpbox">
+      <div id="teamtag"></div>
+      <div id="hptext">100</div>
+      <div id="hpbar"><div id="hpfill"></div></div>
+    </div>
+    <div id="ammo">25 <small>/ 25</small></div>
+    <div id="board"></div>
+  </div>
+  <div id="overlay">
+    <h2 id="ov-title">클릭해서 시작</h2>
+    <p id="ov-text">
+      <kbd>W A S D</kbd> 이동 &nbsp; <kbd>Space</kbd> 점프 &nbsp; <kbd>Shift</kbd> 걷기<br>
+      <kbd>마우스</kbd> 조준 &nbsp; <kbd>왼쪽 클릭</kbd> 사격 &nbsp; <kbd>R</kbd> 재장전<br>
+      <kbd>Tab</kbd> 점수판 &nbsp; <kbd>Esc</kbd> 마우스 풀기
+    </p>
+  </div>
+</div>
+
+<script>
+// ---------- 입장 / 로그인 화면 ----------
+const $ = id => document.getElementById(id);
+let entryCode = sessionStorage.getItem('entryCode') || '';
+let mode = 'login';
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('on'));
+  if (id) $(id).classList.add('on');
+}
+async function post(url, data) {
+  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+  const j = await r.json().catch(() => ({ error: '서버 응답이 이상해요.' }));
+  if (!r.ok) throw new Error(j.error || '오류가 났어요.');
+  return j;
+}
+
+$('f-entry').onsubmit = async e => {
+  e.preventDefault();
+  $('entry-err').textContent = '';
+  const code = $('entry-code').value.trim();
+  try {
+    await post('/api/entry', { code });
+    entryCode = code; sessionStorage.setItem('entryCode', code);
+    show('s-auth'); $('auth-name').focus();
+  } catch (err) { $('entry-err').textContent = err.message; }
+};
+
+function setMode(m) {
+  mode = m;
+  $('tab-login').classList.toggle('on', m === 'login');
+  $('tab-signup').classList.toggle('on', m === 'signup');
+  $('auth-pw2').style.display = m === 'signup' ? 'block' : 'none';
+  $('auth-btn').textContent = m === 'signup' ? '계정 만들고 시작' : '로그인';
+  $('auth-pw').autocomplete = m === 'signup' ? 'new-password' : 'current-password';
+  $('auth-err').textContent = '';
+}
+$('tab-login').onclick = () => setMode('login');
+$('tab-signup').onclick = () => setMode('signup');
+
+$('f-auth').onsubmit = async e => {
+  e.preventDefault();
+  $('auth-err').textContent = '';
+  const username = $('auth-name').value.trim();
+  const password = $('auth-pw').value;
+  if (mode === 'signup' && password !== $('auth-pw2').value) {
+    $('auth-err').textContent = '비밀번호 확인이 달라요.'; return;
+  }
+  try {
+    const r = await post(mode === 'signup' ? '/api/signup' : '/api/login', { code: entryCode, username, password });
+    sessionStorage.setItem('token', r.token);
+    startGame(r.token);
+  } catch (err) {
+    $('auth-err').textContent = err.message;
+    if (err.message.includes('입장 비밀번호')) { sessionStorage.removeItem('entryCode'); show('s-entry'); }
+  }
+};
+
+async function startGame(token) {
+  show(null);
+  $('game').classList.add('on');
+  const mod = await import('./game.js');
+  mod.start(token);
+}
+
+if (entryCode) show('s-auth');
+</script>
+</body>
+</html>
