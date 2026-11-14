@@ -129,6 +129,8 @@
   .gpick label:has(input:checked) { border-color: #4da3ff; }
   #give-modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 30; }
   #give-modal.on { display: flex; }
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 30; }
+  .modal.on { display: flex; }
   #give-modal .card h1 { font-size: 22px; }
   .gbtn { width: auto !important; margin: 0 8px 0 0 !important; padding: 6px 12px !important; font-size: 13px !important;
     background: #3a2f10 !important; color: #ffd34d !important; border-radius: 99px !important; }
@@ -273,7 +275,7 @@
   <div class="lobby">
     <div class="lobby-top">
       <h1>🎮 게임 고르기</h1>
-      <div><span class="trophy" id="lobby-trophy">🏆 0</span><span class="coins" id="lobby-coins">🪙 0</span><button type="button" class="gbtn" id="btn-give">🎁 코인 보내기</button><span class="who" id="lobby-who"></span><button type="button" id="btn-logout">로그아웃</button></div>
+      <div><span class="trophy" id="lobby-trophy">🏆 0</span><span class="coins" id="lobby-coins">🪙 0</span><button type="button" class="gbtn" id="btn-give">🎁 코인 보내기</button><button type="button" class="gbtn" id="btn-toadmin">📨 관리자에게 문자</button><span class="who" id="lobby-who"></span><button type="button" id="btn-logout">로그아웃</button></div>
     </div>
     <div id="announce-lobby"></div>
     <div class="rooms" id="rooms"><div style="color:#8a93a8">불러오는 중…</div></div>
@@ -287,7 +289,7 @@
     <div class="lchat">
       <h2>💬 로비 채팅</h2>
       <div id="lchat-log"></div>
-      <form id="lchat-form"><input id="lchat-input" maxlength="100" placeholder="로비 채팅 · 코인 보내기: /코인 아이디 개수" autocomplete="off"><button>보내기</button></form>
+      <form id="lchat-form"><input id="lchat-input" maxlength="100" placeholder="로비 채팅 · /코인 아이디 개수 · /관리자 내용" autocomplete="off"><button>보내기</button></form>
     </div>
     </div>
     <div class="shop">
@@ -330,6 +332,21 @@
       <button type="submit">보내기</button>
       <button type="button" id="give-cancel" style="background:#232a3a;color:#9aa3b8">취소</button>
       <div class="err" id="give-msg"></div>
+    </form>
+  </div>
+</div>
+
+<!-- 관리자에게 문자 창 -->
+<div id="ta-modal" class="modal">
+  <div class="card">
+    <h1>📨 관리자에게 문자</h1>
+    <p class="sub">관리자만 볼 수 있어요. 버그 제보, 건의, 신고 등을 보내 주세요.</p>
+    <form id="f-ta">
+      <textarea id="ta-text" maxlength="200" rows="4" placeholder="내용 (200자까지)"
+        style="width:100%;padding:12px;border-radius:10px;border:1px solid #2f3749;background:#0f131c;color:#fff;font-size:15px;resize:vertical;font-family:inherit"></textarea>
+      <button type="submit">보내기</button>
+      <button type="button" id="ta-cancel" style="background:#232a3a;color:#9aa3b8">취소</button>
+      <div class="err" id="ta-msg"></div>
     </form>
   </div>
 </div>
@@ -463,6 +480,11 @@ function connect(token) {
     else if (m.t === 'lobby') { renderRooms(m.rooms); renderRank(m.top || []); }
     else if (m.t === 'notice') {
       $('lobby-notice').textContent = m.text; lchat(`⚠️ ${esc(m.text)}`, 'sys');
+      if (taWaiting) {
+        $('ta-msg').textContent = m.text;
+        if (m.text.includes('보냈어요')) { taWaiting = false; $('ta-text').value = ''; setTimeout(() => $('ta-modal').classList.remove('on'), 1200); }
+        else if (!m.text.startsWith('📩')) taWaiting = false;
+      }
       if (giveWaiting) {
         $('give-msg').textContent = m.text;
         if (m.text.includes('보냈어요')) { giveWaiting = false; $('give-n').value = ''; setTimeout(() => $('give-modal').classList.remove('on'), 1200); }
@@ -500,6 +522,19 @@ $('f-give').onsubmit = e => {
   if (!confirm(`${to} 님에게 🪙 ${n}코인을 보낼까요?`)) return;
   giveWaiting = true;
   ws.send(JSON.stringify({ t: 'give', to, n }));
+};
+
+// ---------- 관리자에게 문자 ----------
+let taWaiting = false;
+$('btn-toadmin').onclick = () => { $('ta-msg').textContent = ''; $('ta-modal').classList.add('on'); $('ta-text').focus(); };
+$('ta-cancel').onclick = () => $('ta-modal').classList.remove('on');
+$('ta-modal').onclick = e => { if (e.target.id === 'ta-modal') $('ta-modal').classList.remove('on'); };
+$('f-ta').onsubmit = e => {
+  e.preventDefault();
+  const text = $('ta-text').value.trim();
+  if (!text) { $('ta-msg').textContent = '내용을 써 주세요.'; return; }
+  taWaiting = true;
+  ws.send(JSON.stringify({ t: 'toAdmin', text }));
 };
 
 // ---------- 로비 채팅 ----------

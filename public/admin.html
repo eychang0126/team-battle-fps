@@ -87,6 +87,14 @@
     </div>
 
     <div class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:10px">
+        <h2 style="margin:0">📨 받은 문자 <span id="inbox-unread" style="color:#ff7070"></span></h2>
+        <button onclick="cmd({t:'inboxRead'})">모두 읽음</button>
+      </div>
+      <div id="inbox" style="max-height:360px;overflow-y:auto"></div>
+    </div>
+
+    <div class="card">
       <h2>💬 최근 채팅</h2>
       <div id="chatlog" style="max-height:260px;overflow-y:auto;font-size:14px;line-height:1.7"></div>
       <form class="row" id="f-mute" style="margin-top:10px">
@@ -176,6 +184,7 @@ function render(m) {
   if (!targetTouched && document.activeElement !== $('target')) $('target').value = fps.killTarget;
   $('empty').style.display = m.players.length ? 'none' : 'block';
   renderChat(m.chat || []);
+  renderInbox(m.inbox || []);
   renderAccounts(m.accountList || []);
   $('list').innerHTML = m.players.map(p => `
     <tr>
@@ -242,6 +251,28 @@ function renderAccounts(list) {
         <button class="danger" onclick="if(confirm('${n} 계정을 완전히 삭제할까요? 코인, 트로피, 산 물건이 모두 사라지고 되돌릴 수 없어요.')) cmd({t:'deleteAccount', name:'${n}'})">🗑 삭제</button>`}</td>
     </tr>`;
   }).join('') || '<tr><td colspan="6" style="color:#6e7891">계정이 없어요.</td></tr>';
+}
+let lastInboxKey = '';
+function renderInbox(list) {
+  const key = JSON.stringify(list);
+  if (key === lastInboxKey) return; lastInboxKey = key;
+  const unread = list.filter(m => !m.read).length;
+  $('inbox-unread').textContent = unread ? `(안 읽음 ${unread})` : '';
+  $('inbox').innerHTML = list.length ? list.map(m => `
+    <div style="padding:10px;border-radius:10px;margin-bottom:8px;background:${m.read ? '#141924' : '#1f2a44'};border:1px solid ${m.read ? '#252c3c' : '#4da3ff'}">
+      <div style="color:#8a93a8;font-size:12px">${new Date(m.time).toLocaleString('ko-KR')} · <b style="color:#fff">${esc(m.from)}</b> ${m.read ? '' : '<span style="color:#4da3ff">● 새 문자</span>'}</div>
+      <div style="margin:6px 0;white-space:pre-wrap;word-break:break-all">${esc(m.text)}</div>
+      ${m.replied ? `<div style="color:#6fe39a;font-size:13px">↪ 내 답장: ${esc(m.replied)}</div>` : ''}
+      <div class="row" style="margin-top:6px">
+        <button class="blue" onclick="replyTo('${esc(m.from)}','${m.id}')">↩ 답장</button>
+        ${m.read ? '' : `<button onclick="cmd({t:'inboxRead', id:'${m.id}'})">읽음</button>`}
+        <button class="danger" onclick="if(confirm('이 문자를 지울까요?')) cmd({t:'inboxDelete', id:'${m.id}'})">삭제</button>
+      </div>
+    </div>`).join('') : '<div style="color:#6e7891">아직 받은 문자가 없어요.</div>';
+}
+function replyTo(to, id) {
+  const text = prompt(`${to} 님에게 보낼 답장 (200자까지)`);
+  if (text && text.trim()) cmd({ t: 'reply', to, id, text: text.trim() });
 }
 let lastChatKey = '';
 function renderChat(list) {

@@ -804,8 +804,41 @@ function handleChat(c, msg) {
 }
 
 // 채팅 명령어: /코인 아이디 개수  (내 코인을 친구에게 보내기)
+// ---------- 관리자에게 문자 ----------
+function adminInbox() {
+  const a = acct(ADMIN_NAME);
+  if (!Array.isArray(a.inbox)) a.inbox = [];
+  return a.inbox;
+}
+function handleToAdmin(c, raw) {
+  const note = text => sendTo(c, { t: 'notice', text });
+  const text = String(raw || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+  if (!text) return note('보낼 내용을 써 주세요.');
+  if (isAdminName(c.name)) return note('관리자는 자기한테 문자를 보낼 수 없어요 😄');
+  const t = now();
+  if (c.lastToAdmin && t - c.lastToAdmin < 10000) return note('관리자 문자는 10초에 한 번만 보낼 수 있어요.');
+  c.lastToAdmin = t;
+  const inbox = adminInbox();
+  inbox.push({ id: crypto.randomBytes(5).toString('hex'), time: new Date().toISOString(), from: c.name, text, read: false });
+  while (inbox.length > 200) inbox.shift();
+  saveAccounts();
+  note('📨 관리자에게 문자를 보냈어요!');
+  for (const x of clients.values()) if (isAdminName(x.name)) sendTo(x, { t: 'notice', text: `📨 ${c.name} 님의 문자: ${text}` });
+}
+// 관리자 답장: 접속 중이면 바로, 아니면 다음 접속 때
+function deliverMail(name) {
+  const a = acct(name);
+  if (!a || !Array.isArray(a.mail) || !a.mail.length) return;
+  const online = [...clients.values()].filter(x => x.name === name);
+  if (!online.length) return;
+  for (const m of a.mail) for (const x of online) sendTo(x, { t: 'notice', text: `📩 관리자 답장: ${m.text}` });
+  a.mail = [];
+  saveAccounts();
+}
+
 function chatCommand(c, text) {
   const [cmd, who, num] = text.split(' ');
+  if (cmd === '/관리자' || cmd === '/admin') return handleToAdmin(c, text.slice(cmd.length));
   if (cmd === '/코인' || cmd === '/give') {
     const n = Math.floor(Number(num));
     const target = who && Object.keys(accounts).find(k => k.toLowerCase() === who.toLowerCase());
@@ -831,7 +864,7 @@ function chatCommand(c, text) {
     if (chatLog.length > 100) chatLog.shift();
     return;
   }
-  sendTo(c, { t: 'notice', text: '명령어: /코인 아이디 개수  (친구에게 코인 보내기)' });
+  sendTo(c, { t: 'notice', text: '명령어: /코인 아이디 개수 (코인 보내기) · /관리자 내용 (관리자에게 문자)' });
 }
 
 function kickClient(c, reason, block) {
@@ -902,6 +935,7 @@ function adminSnapshot() {
       coins: isAdminName(c.name) ? '∞' : coinsOf(c.name), muted: !!(acct(c.name) && acct(c.name).muted),
     })),
     chat: chatLog.slice(-40),
+    inbox: adminInbox().slice(-60).reverse(),
     accountList: (() => {
       const r = ranking(), online = new Set([...clients.values()].map(c => c.name));
       return Object.entries(accounts).map(([name, a]) => ({
@@ -1006,6 +1040,28 @@ function handleAdminCommand(ws, msg) {
       }
       break;
     }
+    case 'inboxRead': {
+      for (const m of adminInbox()) if (!msg.id || m.id === msg.id) m.read = true;
+      saveAccounts();
+      break;
+    }
+    case 'inboxDelete': {
+      const a = acct(ADMIN_NAME);
+      a.inbox = adminInbox().filter(m => m.id !== msg.id);
+      saveAccounts();
+      break;
+    }
+    case 'reply': {
+      const to = String(msg.to || ''), text = String(msg.text || '').trim().slice(0, 200);
+      const a = acct(to);
+      if (!a || !text) break;
+      if (!Array.isArray(a.mail)) a.mail = [];
+      a.mail.push({ time: new Date().toISOString(), text });
+      for (const m of adminInbox()) if (m.id === msg.id) { m.read = true; m.replied = text; }
+      saveAccounts();
+      deliverMail(to);
+      break;
+    }
     case 'setTrophies': {
       const a = acct(String(msg.name || ''));
       const n = Math.round(Number(msg.n));
@@ -1103,6 +1159,7 @@ function handlePlayer(ws, token, ip) {
   clients.set(c.id, c);
   ws.send({ t: 'hello', name, shop: SHOP, winCoins: WIN_COINS, adminName: ADMIN_NAME });
   ws.send(meInfo(name));
+  setTimeout(() => deliverMail(name), 500); // 못 받은 관리자 답장 보여 주기
   ws.send(lobbyInfo());
 
   ws.onmessage = raw => {
@@ -1111,6 +1168,7 @@ function handlePlayer(ws, token, ip) {
     if (msg.t === 'join') joinRoom(c, String(msg.room));
     else if (msg.t === 'buy' || msg.t === 'equip' || msg.t === 'gender') handleShop(c, msg);
     else if (msg.t === 'chat') handleChat(c, msg);
+    else if (msg.t === 'toAdmin') handleToAdmin(c, msg.text);
     else if (msg.t === 'vote') handleVote(c, String(msg.map));
     else if (msg.t === 'give') { // 코인 보내기 버튼
       const to = String(msg.to || '').trim().replace(/\s+/g, ''), n = Math.floor(Number(msg.n));
