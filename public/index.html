@@ -96,10 +96,42 @@
   .shop h2 { grid-column: 1 / -1; margin: 0; font-size: 20px; }
   .preview { background: #181d29; border: 1px solid #2a3142; border-radius: 16px; padding: 18px 10px; display: flex;
     flex-direction: column; align-items: center; gap: 0; }
-  .av-hat { font-size: 46px; height: 52px; line-height: 52px; }
-  .av-head { width: 74px; height: 74px; background: #f1c9a0; border-radius: 8px; position: relative; }
-  .av-visor { position: absolute; left: 10px; right: 10px; top: 26px; height: 14px; background: #222; border-radius: 3px; }
-  .av-body { width: 110px; height: 120px; background: #3d8bff; border-radius: 10px; margin-top: 6px; }
+  .av-hat { font-size: 46px; height: 46px; line-height: 52px; position: relative; z-index: 2; }
+  .av-head { width: 96px; height: 96px; background: #ffdcc0; border-radius: 50%; position: relative; z-index: 1;
+    box-shadow: inset -8px -8px 0 rgba(0,0,0,.06); }
+  .av-eye { position: absolute; top: 38px; width: 13px; height: 17px; background: #1b1b1b; border-radius: 50%; }
+  .av-eye::after { content: ''; position: absolute; top: 3px; right: 2px; width: 5px; height: 5px; background: #fff; border-radius: 50%; }
+  .av-eye.l { left: 27px; } .av-eye.r { right: 27px; }
+  .av-blush { position: absolute; top: 58px; width: 16px; height: 9px; background: #ff9bb3; border-radius: 50%; opacity: .8; }
+  .av-blush.l { left: 12px; } .av-blush.r { right: 12px; }
+  .av-mouth { position: absolute; top: 60px; left: 50%; width: 14px; height: 7px; margin-left: -7px;
+    border: 3px solid #5a2a2a; border-top: none; border-radius: 0 0 14px 14px; }
+  .av-visor { position: absolute; top: 30px; left: 14px; right: 14px; height: 32px; display: none; }
+  .av-visor::before, .av-visor::after { content: ''; position: absolute; top: 0; width: 26px; height: 26px; border-radius: 50%;
+    border: 5px solid currentColor; }
+  .av-visor::before { left: 0; } .av-visor::after { right: 0; }
+  .av-body { width: 84px; height: 88px; background: #3d8bff; border-radius: 50% 50% 46% 46%; margin-top: -8px; position: relative; }
+  .av-body::after { content: ''; position: absolute; left: 22px; right: 22px; top: 24px; bottom: 12px; background: rgba(255,255,255,.35); border-radius: 50%; }
+  .av-feet { display: flex; gap: 14px; margin-top: -10px; }
+  .av-feet span { width: 30px; height: 18px; background: #3d8bff; border-radius: 50%; filter: brightness(.9); }
+  .item .pr { word-break: break-all; }
+  #pv { width: 170px; height: 230px; cursor: grab; touch-action: none; }
+  #pv canvas { display: block; }
+  .gsel { display: flex; gap: 4px; margin-top: 10px; }
+  .gsel button { width: auto; margin: 0; padding: 6px 8px; font-size: 12px; background: #232a3a; color: #9aa3b8; }
+  .gsel button.on { background: #4da3ff; color: #0b1020; }
+  .stabs { flex-wrap: wrap; }
+  .gpick { display: flex; gap: 6px; margin: 4px 0 6px; }
+  .gpick label { flex: 1; text-align: center; background: #0f131c; border: 1px solid #2f3749; border-radius: 10px; padding: 9px 0;
+    cursor: pointer; font-size: 14px; color: #9aa3b8; }
+  .gpick input { display: none; }
+  .gpick input:checked + span { color: #4da3ff; font-weight: 800; }
+  .gpick label:has(input:checked) { border-color: #4da3ff; }
+  #give-modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 30; }
+  #give-modal.on { display: flex; }
+  #give-modal .card h1 { font-size: 22px; }
+  .gbtn { width: auto !important; margin: 0 8px 0 0 !important; padding: 6px 12px !important; font-size: 13px !important;
+    background: #3a2f10 !important; color: #ffd34d !important; border-radius: 99px !important; }
   .preview .cap { margin-top: 10px; color: #8a93a8; font-size: 12px; }
   .shop-right { min-width: 0; }
   .stabs { display: flex; gap: 6px; margin-bottom: 10px; }
@@ -223,6 +255,11 @@
       <input id="auth-name" placeholder="아이디 (2~12글자)" autocomplete="username">
       <input id="auth-pw" type="password" placeholder="비밀번호 (4글자 이상)" autocomplete="current-password">
       <input id="auth-pw2" type="password" placeholder="비밀번호 확인" style="display:none" autocomplete="new-password">
+      <div class="gpick" id="auth-gender" style="display:none">
+        <label><input type="radio" name="gender" value="m"><span>👦 남자</span></label>
+        <label><input type="radio" name="gender" value="f"><span>👧 여자</span></label>
+        <label><input type="radio" name="gender" value="n" checked><span>🧒 중성</span></label>
+      </div>
       <button type="submit" id="auth-btn">로그인</button>
       <div class="err" id="auth-err"></div>
     </form>
@@ -235,7 +272,7 @@
   <div class="lobby">
     <div class="lobby-top">
       <h1>🎮 게임 고르기</h1>
-      <div><span class="trophy" id="lobby-trophy">🏆 0</span><span class="coins" id="lobby-coins">🪙 0</span><span class="who" id="lobby-who"></span><button type="button" id="btn-logout">로그아웃</button></div>
+      <div><span class="trophy" id="lobby-trophy">🏆 0</span><span class="coins" id="lobby-coins">🪙 0</span><button type="button" class="gbtn" id="btn-give">🎁 코인 보내기</button><span class="who" id="lobby-who"></span><button type="button" id="btn-logout">로그아웃</button></div>
     </div>
     <div id="announce-lobby"></div>
     <div class="rooms" id="rooms"><div style="color:#8a93a8">불러오는 중…</div></div>
@@ -255,20 +292,40 @@
     <div class="shop">
       <h2>🛍️ 상점 · 캐릭터 꾸미기 <span style="font-size:13px;color:#8a93a8;font-weight:500" id="win-hint"></span></h2>
       <div class="preview">
-        <div class="av-hat" id="av-hat"></div>
-        <div class="av-head" id="av-head"><div class="av-visor" id="av-visor"></div></div>
-        <div class="av-body"></div>
-        <div class="cap">내 캐릭터</div>
+        <div id="pv"></div>
+        <div class="cap">내 캐릭터 · 드래그해서 돌려 보기</div>
+        <div class="gsel" id="gsel">
+          <button type="button" data-g="m">👦 남자</button>
+          <button type="button" data-g="f">👧 여자</button>
+          <button type="button" data-g="n">🧒 중성</button>
+        </div>
       </div>
       <div class="shop-right">
         <div class="stabs">
           <button type="button" data-type="hat" class="on">🎩 모자</button>
           <button type="button" data-type="visor">🥽 고글</button>
           <button type="button" data-type="skin">🎨 피부</button>
+          <button type="button" data-type="hair">💇 머리</button>
+          <button type="button" data-type="hcolor">🌈 머리 색</button>
         </div>
         <div class="items" id="items"></div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- 코인 보내기 창 -->
+<div id="give-modal">
+  <div class="card">
+    <h1>🎁 코인 보내기</h1>
+    <p class="sub">내 코인을 친구에게 선물해요</p>
+    <form id="f-give">
+      <input id="give-to" placeholder="받을 사람 아이디" autocomplete="off">
+      <input id="give-n" type="number" min="1" placeholder="보낼 코인 개수">
+      <button type="submit">보내기</button>
+      <button type="button" id="give-cancel" style="background:#232a3a;color:#9aa3b8">취소</button>
+      <div class="err" id="give-msg"></div>
+    </form>
   </div>
 </div>
 
@@ -346,6 +403,7 @@ function setMode(m) {
   $('tab-login').classList.toggle('on', m === 'login');
   $('tab-signup').classList.toggle('on', m === 'signup');
   $('auth-pw2').style.display = m === 'signup' ? 'block' : 'none';
+  $('auth-gender').style.display = m === 'signup' ? 'flex' : 'none';
   $('auth-btn').textContent = m === 'signup' ? '계정 만들고 시작' : '로그인';
   $('auth-pw').autocomplete = m === 'signup' ? 'new-password' : 'current-password';
   $('auth-err').textContent = '';
@@ -362,7 +420,8 @@ $('f-auth').onsubmit = async e => {
     $('auth-err').textContent = '비밀번호 확인이 달라요.'; return;
   }
   try {
-    const r = await post(mode === 'signup' ? '/api/signup' : '/api/login', { code: entryCode, username, password });
+    const gender = (document.querySelector('input[name="gender"]:checked') || {}).value || 'n';
+    const r = await post(mode === 'signup' ? '/api/signup' : '/api/login', { code: entryCode, username, password, gender });
     sessionStorage.setItem('token', r.token);
     connect(r.token);
   } catch (err) {
@@ -396,7 +455,13 @@ function connect(token) {
       renderShop();
     }
     else if (m.t === 'lobby') { renderRooms(m.rooms); renderRank(m.top || []); }
-    else if (m.t === 'notice') { $('lobby-notice').textContent = m.text; lchat(`⚠️ ${esc(m.text)}`, 'sys'); }
+    else if (m.t === 'notice') {
+      $('lobby-notice').textContent = m.text; lchat(`⚠️ ${esc(m.text)}`, 'sys');
+      if (giveWaiting) {
+        $('give-msg').textContent = m.text;
+        if (m.text.includes('보냈어요')) { giveWaiting = false; $('give-n').value = ''; setTimeout(() => $('give-modal').classList.remove('on'), 1200); }
+      }
+    }
     else if (m.t === 'chat') lchat(`<b>${crown(m.from)}${esc(m.from)}</b>: ${esc(m.text)}`);
     else if (m.t === 'announce') {
       const a = $('announce-lobby'); a.textContent = '📢 ' + m.text; a.style.display = 'block';
@@ -416,6 +481,21 @@ function connect(token) {
   };
 }
 
+// ---------- 코인 보내기 ----------
+let giveWaiting = false;
+$('btn-give').onclick = () => { $('give-msg').textContent = ''; $('give-modal').classList.add('on'); $('give-to').focus(); };
+$('give-cancel').onclick = () => $('give-modal').classList.remove('on');
+$('give-modal').onclick = e => { if (e.target.id === 'give-modal') $('give-modal').classList.remove('on'); };
+$('f-give').onsubmit = e => {
+  e.preventDefault();
+  const to = $('give-to').value.trim(), n = Math.floor(+$('give-n').value);
+  if (!to) { $('give-msg').textContent = '받을 사람 아이디를 써 주세요.'; return; }
+  if (!(n >= 1)) { $('give-msg').textContent = '1 이상의 숫자를 써 주세요.'; return; }
+  if (!confirm(`${to} 님에게 🪙 ${n}코인을 보낼까요?`)) return;
+  giveWaiting = true;
+  ws.send(JSON.stringify({ t: 'give', to, n }));
+};
+
 // ---------- 로비 채팅 ----------
 function lchat(html, cls = '') {
   const d = document.createElement('div'); d.className = cls; d.innerHTML = html;
@@ -432,26 +512,73 @@ $('lchat-form').onsubmit = e => {
 
 // ---------- 상점 ----------
 let shop = [], me = null, shopType = 'hat';
-const DEFAULT_SKIN = '#f1c9a0';
+const DEFAULT_SKIN = '#ffdcc0';
+const NONE = {
+  hat: { icon: '🚫', name: '없음' }, visor: { icon: '🚫', name: '없음' },
+  skin: { icon: `<div class="sw" style="background:${DEFAULT_SKIN}"></div>`, name: '기본 피부' },
+  hair: { icon: '✨', name: '기본 (성별에 맞게)' },
+  hcolor: { icon: '<div class="sw" style="background:#6b4423"></div>', name: '기본 갈색' },
+};
+document.querySelectorAll('#gsel button').forEach(b => b.onclick = () => ws && ws.send(JSON.stringify({ t: 'gender', g: b.dataset.g })));
+
+// ---------- 3D 미리보기 (게임 속 캐릭터와 똑같아요) ----------
+let pv = null, pvKey = '';
+async function initPreview() {
+  try {
+    const A = await import('./avatar.js');
+    const T = A.THREE, el = $('pv');
+    const r = new T.WebGLRenderer({ antialias: true, alpha: true });
+    r.setPixelRatio(Math.min(devicePixelRatio, 2)); r.setSize(170, 230); el.appendChild(r.domElement);
+    const sc = new T.Scene();
+    sc.add(new T.HemisphereLight(0xffffff, 0x667788, 1.1));
+    const d = new T.DirectionalLight(0xffffff, 0.9); d.position.set(2, 3, -3); sc.add(d);
+    const cam = new T.PerspectiveCamera(30, 170 / 230, 0.1, 50);
+    cam.position.set(0, 1.3, -5.2); cam.lookAt(0, 1.1, 0);
+    pv = { A, r, sc, cam, char: null, rot: 0.5, drag: null };
+    const down = x => (pv.drag = x), move = x => { if (pv.drag !== null) { pv.rot += (x - pv.drag) * 0.02; pv.drag = x; } }, up = () => (pv.drag = null);
+    el.addEventListener('mousedown', e => down(e.clientX)); addEventListener('mousemove', e => move(e.clientX)); addEventListener('mouseup', up);
+    el.addEventListener('touchstart', e => down(e.touches[0].clientX), { passive: true });
+    el.addEventListener('touchmove', e => move(e.touches[0].clientX), { passive: true }); el.addEventListener('touchend', up);
+    (function loop() {
+      if (inGame) return; // 게임 시작하면 미리보기는 멈춰요
+      requestAnimationFrame(loop);
+      if (pv.drag === null) pv.rot += 0.006;
+      if (pv.char) pv.char.rotation.y = pv.rot;
+      r.render(sc, cam);
+    })();
+    updatePreview();
+  } catch (e) { $('pv').textContent = '미리보기를 불러오지 못했어요'; console.error(e); }
+}
+function updatePreview() {
+  if (!pv || !me) return;
+  const e = me.equip;
+  const look = [e.hat || '', e.visor || '', e.skin || '', e.hair || '', e.hcolor || '', me.gender || 'n'];
+  const key = look.join(',');
+  if (key === pvKey) return; pvKey = key;
+  if (pv.char) pv.sc.remove(pv.char);
+  pv.char = pv.A.buildCharacter(look, { gun: false }).inner;
+  pv.char.rotation.y = pv.rot;
+  pv.sc.add(pv.char);
+}
+initPreview();
 document.querySelectorAll('.stabs button').forEach(b => b.onclick = () => {
   shopType = b.dataset.type;
   document.querySelectorAll('.stabs button').forEach(x => x.classList.toggle('on', x === b));
   renderShop();
 });
 const owns = it => it.price === 0 || me.owned.includes(it.id);
+const priceOf = it => it.priceText || String(it.price);
 function renderShop() {
   if (!me || !shop.length) return;
   const get = id => shop.find(i => i.id === id);
-  const hat = get(me.equip.hat), visor = get(me.equip.visor), skin = get(me.equip.skin);
-  $('av-hat').textContent = hat ? hat.icon : '';
-  $('av-visor').style.background = visor ? visor.color : '#222';
-  $('av-head').style.background = skin ? skin.color : DEFAULT_SKIN;
+  updatePreview();
+  document.querySelectorAll('#gsel button').forEach(b => b.classList.toggle('on', b.dataset.g === me.gender));
 
   const list = shop.filter(i => i.type === shopType);
   const noneEq = !me.equip[shopType];
   const noneCard = `<div class="item ${noneEq ? 'eq' : ''}">
-      <div class="ic">${shopType === 'skin' ? `<div class="sw" style="background:${DEFAULT_SKIN}"></div>` : '🚫'}</div>
-      <div class="nm">${shopType === 'skin' ? '기본 피부' : '없음'}</div><div class="pr">무료</div>
+      <div class="ic">${NONE[shopType].icon}</div>
+      <div class="nm">${NONE[shopType].name}</div><div class="pr">무료</div>
       <button type="button" class="${noneEq ? 'eqb' : 'own'}" data-act="equip" data-id="">${noneEq ? '착용 중' : '착용'}</button></div>`;
   $('items').innerHTML = noneCard + list.map(it => {
     const own = owns(it), eq = me.equip[it.type] === it.id;
@@ -459,16 +586,16 @@ function renderShop() {
     let btn;
     if (eq) btn = `<button type="button" class="eqb" disabled>착용 중</button>`;
     else if (own) btn = `<button type="button" class="own" data-act="equip" data-id="${it.id}">착용</button>`;
-    else if (me.coins >= it.price) btn = `<button type="button" data-act="buy" data-id="${it.id}">🪙 ${it.price} 사기</button>`;
-    else btn = `<button type="button" class="poor" disabled>🪙 ${it.price}</button>`;
+    else if (me.coins >= it.price) btn = `<button type="button" data-act="buy" data-id="${it.id}">🪙 ${priceOf(it)} 사기</button>`;
+    else btn = `<button type="button" class="poor" disabled>${it.priceText ? '너무 비싸요 😱' : '🪙 ' + it.price}</button>`;
     return `<div class="item ${eq ? 'eq' : ''}"><div class="ic">${icon}</div><div class="nm">${esc(it.name)}</div>
-      <div class="pr">${it.price === 0 ? '무료' : own ? '보유 중' : '🪙 ' + it.price}</div>${btn}</div>`;
+      <div class="pr">${it.price === 0 ? '무료' : own ? '보유 중' : '🪙 ' + priceOf(it)}</div>${btn}</div>`;
   }).join('');
   $('items').querySelectorAll('button[data-act]').forEach(b => b.onclick = () => {
     const id = b.dataset.id || null;
     if (b.dataset.act === 'buy') {
       const it = get(id);
-      if (!confirm(`${it.name}을(를) 🪙 ${it.price}코인에 살까요?`)) return;
+      if (!confirm(`${it.name}을(를) 🪙 ${priceOf(it)}코인에 살까요?`)) return;
       ws.send(JSON.stringify({ t: 'buy', item: id }));
     } else ws.send(JSON.stringify({ t: 'equip', type: shopType, item: id }));
   });

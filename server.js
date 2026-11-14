@@ -118,7 +118,7 @@ const SHOP = [
   { id: 'helmet', type: 'hat', name: '군인 헬멧', icon: '🪖', price: 80 },
   { id: 'tophat', type: 'hat', name: '신사 모자', icon: '🎩', price: 100 },
   { id: 'bunny', type: 'hat', name: '토끼 귀', icon: '🐰', price: 120 },
-  { id: 'crown', type: 'hat', name: '왕관', icon: '👑', price: 200 },
+  { id: 'crown', type: 'hat', name: '왕관', icon: '👑', price: 99999999999999999999999999, priceText: '99999999999999999999999999' },
   { id: 'v_red', type: 'visor', name: '빨간 고글', color: '#ff3b3b', price: 30 },
   { id: 'v_blue', type: 'visor', name: '파란 고글', color: '#3bb0ff', price: 30 },
   { id: 'v_pink', type: 'visor', name: '분홍 고글', color: '#ff7ad9', price: 30 },
@@ -129,6 +129,24 @@ const SHOP = [
   { id: 's_robot', type: 'skin', name: '로봇 은색', color: '#b8c2cc', price: 100 },
   { id: 's_alien', type: 'skin', name: '외계인 파랑', color: '#7fd4ff', price: 150 },
   { id: 's_gold', type: 'skin', name: '황금 피부', color: '#ffc83d', price: 300 },
+  // 머리 스타일 (모두 무료)
+  { id: 'h_short', type: 'hair', name: '짧은 머리', icon: '✂️', price: 0 },
+  { id: 'h_long', type: 'hair', name: '긴 머리', icon: '🌊', price: 0 },
+  { id: 'h_bob', type: 'hair', name: '단발', icon: '🍄', price: 0 },
+  { id: 'h_pony', type: 'hair', name: '포니테일', icon: '🎀', price: 0 },
+  { id: 'h_twin', type: 'hair', name: '양갈래', icon: '🎎', price: 0 },
+  { id: 'h_spiky', type: 'hair', name: '뾰족 머리', icon: '⚡', price: 0 },
+  { id: 'h_curly', type: 'hair', name: '뽀글 머리', icon: '☁️', price: 0 },
+  { id: 'h_bald', type: 'hair', name: '민머리', icon: '🥚', price: 0 },
+  // 머리 색
+  { id: 'hc_black', type: 'hcolor', name: '검정', color: '#2b2b2b', price: 0 },
+  { id: 'hc_blonde', type: 'hcolor', name: '금발', color: '#f2c94c', price: 0 },
+  { id: 'hc_red', type: 'hcolor', name: '빨강', color: '#b5452f', price: 0 },
+  { id: 'hc_pink', type: 'hcolor', name: '분홍', color: '#ff8fc8', price: 30 },
+  { id: 'hc_blue', type: 'hcolor', name: '파랑', color: '#4d9bff', price: 30 },
+  { id: 'hc_purple', type: 'hcolor', name: '보라', color: '#9b6bff', price: 30 },
+  { id: 'hc_mint', type: 'hcolor', name: '민트', color: '#6ee7c8', price: 30 },
+  { id: 'hc_silver', type: 'hcolor', name: '은색', color: '#d9dde3', price: 50 },
 ];
 const SHOP_BY_ID = new Map(SHOP.map(i => [i.id, i]));
 // 관리자 계정이 없으면 만들어 두기 (원래 있던 같은 이름 계정이면 그대로 관리자 계정으로 써요)
@@ -144,18 +162,21 @@ function acct(name) {
   if (typeof a.coins !== 'number') a.coins = 0;
   if (!Array.isArray(a.owned)) a.owned = [];
   if (!a.equip) a.equip = { hat: null, visor: null, skin: null };
+  if (!['m', 'f', 'n'].includes(a.gender)) a.gender = 'n';
   return a;
 }
-const owns = (a, item) => item.price === 0 || a.owned.includes(item.id);
+// 관리자는 상점 물건을 전부 가진 걸로 쳐요
+const owns = (a, item) => item.price === 0 || !!a.admin || a.owned.includes(item.id);
 const ADMIN_COINS = 999999; // 관리자는 코인 무한
 const coinsOf = name => isAdminName(name) ? ADMIN_COINS : (acct(name)?.coins ?? 0);
 function meInfo(name) {
   const a = acct(name);
-  return { t: 'me', coins: coinsOf(name), inf: isAdminName(name), owned: a.owned, equip: a.equip, trophies: a.trophies || 0, rank: rankOf(name) };
+  return { t: 'me', coins: coinsOf(name), inf: isAdminName(name), owned: a.admin ? SHOP.map(i => i.id) : a.owned, equip: a.equip, gender: a.gender, trophies: a.trophies || 0, rank: rankOf(name) };
 }
 function lookOf(name) {
   const a = acct(name);
-  return a ? [a.equip.hat || '', a.equip.visor || '', a.equip.skin || ''] : ['', '', ''];
+  return a ? [a.equip.hat || '', a.equip.visor || '', a.equip.skin || '', a.equip.hair || '', a.equip.hcolor || '', a.gender]
+    : ['', '', '', '', '', 'n'];
 }
 function handleShop(c, msg) {
   const a = acct(c.name);
@@ -169,9 +190,13 @@ function handleShop(c, msg) {
     a.equip[item.type] = item.id; // 사면 바로 착용
     saveAccounts();
     sendTo(c, { t: 'notice', text: `${item.name}을(를) 샀어요! 🎉` });
+  } else if (msg.t === 'gender') {
+    if (!['m', 'f', 'n'].includes(msg.g)) return;
+    a.gender = msg.g;
+    saveAccounts();
   } else if (msg.t === 'equip') {
     const type = String(msg.type);
-    if (!['hat', 'visor', 'skin'].includes(type)) return;
+    if (!['hat', 'visor', 'skin', 'hair', 'hcolor'].includes(type)) return;
     if (msg.item == null) a.equip[type] = null;
     else {
       const item = SHOP_BY_ID.get(String(msg.item));
@@ -674,7 +699,7 @@ function handleShoot(room, p, msg) {
   if (hitPlayer) {
     const q = hitPlayer;
     if (q.protectUntil > t) return;
-    const head = end[1] - q.y > 1.45;
+    const head = end[1] - q.y > 1.15; // 동글이 캐릭터는 머리가 커요
     q.hp -= head ? HEAD_DAMAGE : BODY_DAMAGE;
     sendTo(q, { t: 'hurt', from: p.name });
     const dead = q.hp <= 0;
@@ -1041,9 +1066,13 @@ function handlePlayer(ws, token, ip) {
     let msg; try { msg = JSON.parse(raw); } catch { return; }
     const room = c.room;
     if (msg.t === 'join') joinRoom(c, String(msg.room));
-    else if (msg.t === 'buy' || msg.t === 'equip') handleShop(c, msg);
+    else if (msg.t === 'buy' || msg.t === 'equip' || msg.t === 'gender') handleShop(c, msg);
     else if (msg.t === 'chat') handleChat(c, msg);
     else if (msg.t === 'vote') handleVote(c, String(msg.map));
+    else if (msg.t === 'give') { // 코인 보내기 버튼
+      const to = String(msg.to || '').trim().replace(/\s+/g, ''), n = Math.floor(Number(msg.n));
+      chatCommand(c, `/코인 ${to} ${n}`);
+    }
     else if (!room) return;
     else if (msg.t === 'move') handleMove(room, c, msg);
     else if (msg.t === 'shoot') handleShoot(room, c, msg);
@@ -1129,6 +1158,7 @@ async function api(req, res, pathname) {
     accounts[username] = {
       salt, hash: hashPassword(password, salt), created: new Date().toISOString(),
       coins: 0, owned: [], equip: { hat: null, visor: null, skin: null },
+      gender: ['m', 'f', 'n'].includes(body.gender) ? body.gender : 'n',
     };
     saveAccounts();
   } else if (pathname === '/api/login' && isAdminName(username)) {

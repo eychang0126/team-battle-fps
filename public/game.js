@@ -2,6 +2,7 @@
 //  1인칭 팀전 게임 화면 (three.js)
 // =====================================================
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import { buildCharacter } from './avatar.js';
 
 const $ = id => document.getElementById(id);
 const TEAM_COLOR = { red: 0xe84848, blue: 0x3d8bff, human: 0x3d8bff, zombie: 0x4f9a3a, runner: 0xff9f1c };
@@ -234,74 +235,16 @@ function nameSprite(text, color) {
   x.lineWidth = 6; x.strokeStyle = 'rgba(0,0,0,.7)'; x.strokeText(text, 128, 32);
   x.fillStyle = color; x.fillText(text, 128, 32);
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false }));
-  s.scale.set(1.6, 0.4, 1); s.position.y = 2.55; s.renderOrder = 10;
+  s.scale.set(1.6, 0.4, 1); s.position.y = 2.6; s.renderOrder = 10;
   return s;
 }
-// ---------- 꾸미기 (상점 아이템) ----------
-const VISOR_COLOR = { v_red: 0xff3b3b, v_blue: 0x3bb0ff, v_pink: 0xff7ad9, v_gold: 0xffd34d };
-const SKIN_COLOR = { s_1: 0xffe3cf, s_2: 0xc68a5a, s_3: 0x8a5a3a, s_robot: 0xb8c2cc, s_alien: 0x7fd4ff, s_gold: 0xffc83d };
-const lam = c => new THREE.MeshLambertMaterial({ color: c });
-function box(w, h, d, c, x, y, z) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), lam(c)); m.position.set(x, y, z); return m; }
-function makeHat(id) {
-  const g = new THREE.Group();
-  const top = 1.825; // 머리 꼭대기 높이
-  if (id === 'cap') {
-    g.add(box(0.5, 0.14, 0.5, 0xd03030, 0, top + 0.07, 0), box(0.46, 0.04, 0.26, 0xd03030, 0, top + 0.02, -0.34));
-  } else if (id === 'beanie') {
-    g.add(box(0.5, 0.2, 0.5, 0x3b6bd6, 0, top + 0.08, 0));
-    const pom = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 8), lam(0xffffff)); pom.position.y = top + 0.24; g.add(pom);
-  } else if (id === 'party') {
-    const c = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.45, 12), lam(0xff5cc8)); c.position.y = top + 0.22; g.add(c);
-    const s = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), lam(0xffe14d)); s.position.y = top + 0.47; g.add(s);
-  } else if (id === 'helmet') {
-    const h = new THREE.Mesh(new THREE.SphereGeometry(0.31, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), lam(0x556b2f)); h.position.y = top - 0.08; g.add(h);
-  } else if (id === 'tophat') {
-    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.33, 0.03, 16), lam(0x1a1a1a)); b.position.y = top + 0.02;
-    const t = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.38, 16), lam(0x1a1a1a)); t.position.y = top + 0.21;
-    const r = new THREE.Mesh(new THREE.CylinderGeometry(0.205, 0.205, 0.06, 16), lam(0xb02020)); r.position.y = top + 0.07;
-    g.add(b, t, r);
-  } else if (id === 'bunny') {
-    for (const sx of [-0.12, 0.12]) {
-      g.add(box(0.1, 0.42, 0.06, 0xffffff, sx, top + 0.22, 0), box(0.05, 0.32, 0.02, 0xffb6d5, sx, top + 0.22, -0.035));
-    }
-  } else if (id === 'crown') {
-    const c = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.14, 12, 1, true), new THREE.MeshLambertMaterial({ color: 0xffc83d, side: THREE.DoubleSide }));
-    c.position.y = top + 0.07; g.add(c);
-    for (let i = 0; i < 5; i++) {
-      const a = i / 5 * Math.PI * 2;
-      const sp = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.12, 6), lam(0xffc83d));
-      sp.position.set(Math.cos(a) * 0.2, top + 0.2, Math.sin(a) * 0.2); g.add(sp);
-    }
-    const gem = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), lam(0xe0245e)); gem.position.set(0, top + 0.08, -0.22); g.add(gem);
-  }
-  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
-  return g;
-}
-
-function makeAvatar(name, team, look = ['', '', '']) {
-  const [hatId, visorId, skinId] = look;
-  const zombie = team === 'zombie';
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.3, 0.45), new THREE.MeshLambertMaterial({ color: zombie ? 0x3f6b2e : TEAM_COLOR[team] }));
-  body.position.y = 0.65; body.castShadow = true;
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 0.45), new THREE.MeshLambertMaterial({ color: zombie ? 0x7cc35a : SKIN_COLOR[skinId] ?? 0xf1c9a0 }));
-  head.position.y = 1.6; head.castShadow = true;
-  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.1, 0.05), new THREE.MeshBasicMaterial({ color: zombie ? 0xff2020 : VISOR_COLOR[visorId] ?? 0x222222 }));
-  visor.position.set(0, 1.65, -0.23);
-  const arm = new THREE.Group(); arm.position.set(0, 1.25, 0);
-  if (zombie) {
-    for (const sx of [-0.25, 0.25]) {
-      const a = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.65), new THREE.MeshLambertMaterial({ color: 0x7cc35a }));
-      a.position.set(sx, 0, -0.35); a.castShadow = true; arm.add(a);
-    }
-  } else {
-    const rifle = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.6), gunMat);
-    rifle.position.set(0.25, 0, -0.35); rifle.castShadow = true;
-    arm.add(rifle);
-  }
+// ---------- 동글이 캐릭터 (avatar.js) ----------
+function makeAvatar(name, team, look = []) {
+  const { inner, arm, body } = buildCharacter(look, { zombie: team === 'zombie', bodyColor: TEAM_COLOR[team] });
   const label = nameSprite(name, TEAM_CSS[team] || '#fff');
-  const grp = new THREE.Group(); grp.add(body, head, visor, arm, label);
-  if (hatId) grp.add(makeHat(hatId));
-  return { group: grp, arm, label, body, team, look: look.join(','), swing: 0 };
+  label.position.y = 2.75;
+  const grp = new THREE.Group(); grp.add(inner, label);
+  return { group: grp, inner, arm, label, body, team, look: look.join(','), swing: 0, walk: 0 };
 }
 function syncOthers(list) {
   const seen = new Set();
@@ -836,6 +779,11 @@ function frame() {
     o.swing = Math.max(0, o.swing - dt * 5);
     o.arm.rotation.x = o.tpitch - Math.sin(o.swing * Math.PI) * 0.8;
     o.group.rotation.z = o.alive ? 0 : Math.PI / 2;
+    // 움직이면 통통 튀기
+    const moving = Math.hypot(o.tx - p.x, o.tz - p.z) > 0.03;
+    o.walk = moving ? o.walk + dt * 12 : 0;
+    o.inner.position.y = moving ? Math.abs(Math.sin(o.walk)) * 0.08 : o.inner.position.y * 0.8;
+    o.inner.rotation.z = moving ? Math.sin(o.walk) * 0.06 : 0;
     o.label.visible = o.alive && o.team === myTeam || o.alive && p.distanceTo(camera.position) < 25;
   }
 
