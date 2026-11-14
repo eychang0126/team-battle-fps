@@ -118,6 +118,8 @@ const SHOP = [
   { id: 'helmet', type: 'hat', name: '군인 헬멧', icon: '🪖', price: 80 },
   { id: 'tophat', type: 'hat', name: '신사 모자', icon: '🎩', price: 100 },
   { id: 'bunny', type: 'hat', name: '토끼 귀', icon: '🐰', price: 120 },
+  { id: 'halo', type: 'hat', name: '천사 링', icon: '😇', price: 80 },
+  { id: 'horns', type: 'hat', name: '악마 뿔', icon: '😈', price: 80 },
   { id: 'crown', type: 'hat', name: '왕관', icon: '👑', price: 99999999999999999999999999, priceText: '99999999999999999999999999' },
   { id: 'v_red', type: 'visor', name: '빨간 고글', color: '#ff3b3b', price: 30 },
   { id: 'v_blue', type: 'visor', name: '파란 고글', color: '#3bb0ff', price: 30 },
@@ -147,6 +149,22 @@ const SHOP = [
   { id: 'hc_purple', type: 'hcolor', name: '보라', color: '#9b6bff', price: 30 },
   { id: 'hc_mint', type: 'hcolor', name: '민트', color: '#6ee7c8', price: 30 },
   { id: 'hc_silver', type: 'hcolor', name: '은색', color: '#d9dde3', price: 50 },
+  // 옷 (팀 배틀 FPS에서는 팀 색으로 바뀌어요)
+  { id: 'o_hoodie', type: 'outfit', name: '후드티', icon: '🧥', price: 40 },
+  { id: 'o_sweater', type: 'outfit', name: '줄무늬 스웨터', icon: '🧶', price: 40 },
+  { id: 'o_overalls', type: 'outfit', name: '멜빵바지', icon: '👖', price: 50 },
+  { id: 'o_dress', type: 'outfit', name: '원피스', icon: '👗', price: 60 },
+  { id: 'o_suit', type: 'outfit', name: '정장', icon: '🤵', price: 80 },
+  { id: 'o_cape', type: 'outfit', name: '망토', icon: '🦸', price: 120 },
+  { id: 'o_astro', type: 'outfit', name: '우주복', icon: '🧑‍🚀', price: 200 },
+  // 날개
+  { id: 'w_angel', type: 'wing', name: '천사 날개', icon: '🕊️', price: 150 },
+  { id: 'w_devil', type: 'wing', name: '악마 날개', icon: '🦇', price: 150 },
+  { id: 'w_butterfly', type: 'wing', name: '나비 날개', icon: '🦋', price: 120 },
+  // 꼬리
+  { id: 't_devil', type: 'tail', name: '악마 꼬리', icon: '😈', price: 60 },
+  { id: 't_cat', type: 'tail', name: '고양이 꼬리', icon: '🐱', price: 50 },
+  { id: 't_dino', type: 'tail', name: '공룡 꼬리', icon: '🦖', price: 70 },
 ];
 const SHOP_BY_ID = new Map(SHOP.map(i => [i.id, i]));
 // 관리자 계정이 없으면 만들어 두기 (원래 있던 같은 이름 계정이면 그대로 관리자 계정으로 써요)
@@ -167,7 +185,7 @@ function acct(name) {
 }
 // 관리자는 상점 물건을 전부 가진 걸로 쳐요
 const owns = (a, item) => item.price === 0 || !!a.admin || a.owned.includes(item.id);
-const ADMIN_COINS = 999999; // 관리자는 코인 무한
+const ADMIN_COINS = Number.MAX_SAFE_INTEGER; // 관리자는 코인 무한
 const coinsOf = name => isAdminName(name) ? ADMIN_COINS : (acct(name)?.coins ?? 0);
 function meInfo(name) {
   const a = acct(name);
@@ -175,8 +193,8 @@ function meInfo(name) {
 }
 function lookOf(name) {
   const a = acct(name);
-  return a ? [a.equip.hat || '', a.equip.visor || '', a.equip.skin || '', a.equip.hair || '', a.equip.hcolor || '', a.gender]
-    : ['', '', '', '', '', 'n'];
+  return a ? [a.equip.hat || '', a.equip.visor || '', a.equip.skin || '', a.equip.hair || '', a.equip.hcolor || '', a.gender, a.equip.outfit || '', a.equip.wing || '', a.equip.tail || '']
+    : ['', '', '', '', '', 'n', '', '', ''];
 }
 function handleShop(c, msg) {
   const a = acct(c.name);
@@ -196,7 +214,7 @@ function handleShop(c, msg) {
     saveAccounts();
   } else if (msg.t === 'equip') {
     const type = String(msg.type);
-    if (!['hat', 'visor', 'skin', 'hair', 'hcolor'].includes(type)) return;
+    if (!['hat', 'visor', 'skin', 'hair', 'hcolor', 'outfit', 'wing', 'tail'].includes(type)) return;
     if (msg.item == null) a.equip[type] = null;
     else {
       const item = SHOP_BY_ID.get(String(msg.item));
@@ -770,8 +788,9 @@ function chatCommand(c, text) {
     if (!who || !Number.isFinite(n)) return sendTo(c, { t: 'notice', text: '사용법: /코인 아이디 개수  (예: /코인 철수 20)' });
     if (!target) return sendTo(c, { t: 'notice', text: `'${who}' 계정이 없어요.` });
     if (target === c.name) return sendTo(c, { t: 'notice', text: '나에게는 보낼 수 없어요.' });
-    if (n < 1 || n > 100000) return sendTo(c, { t: 'notice', text: '1 이상의 숫자를 써 주세요.' });
-    if (coinsOf(c.name) < n) return sendTo(c, { t: 'notice', text: `코인이 부족해요. (가진 코인: ${coinsOf(c.name)})` });
+    if (n < 1) return sendTo(c, { t: 'notice', text: '1 이상의 숫자를 써 주세요.' });
+    if (n > 1e12) return sendTo(c, { t: 'notice', text: '한 번에 1조 코인까지만 보낼 수 있어요.' });
+    if (!isAdminName(c.name) && coinsOf(c.name) < n) return sendTo(c, { t: 'notice', text: `코인이 부족해요. (가진 코인: ${coinsOf(c.name)})` });
     if (isAdminName(target)) return sendTo(c, { t: 'notice', text: '관리자는 코인이 무한이라 받을 필요가 없어요 😄' });
     if (!isAdminName(c.name)) acct(c.name).coins -= n;
     acct(target).coins += n;
@@ -936,7 +955,7 @@ function handleAdminCommand(ws, msg) {
       if (isAdminName(msg.name)) break;
       const a = acct(String(msg.name || ''));
       const n = Math.round(Number(msg.n));
-      if (a && Number.isFinite(n) && Math.abs(n) <= 100000) {
+      if (a && Number.isFinite(n) && Math.abs(n) <= 1e12) {
         a.coins = Math.max(0, a.coins + n); saveAccounts();
         for (const c of clients.values()) if (c.name === msg.name) { sendTo(c, meInfo(c.name)); sendTo(c, { t: 'coins', delta: n, coins: a.coins }); }
       }

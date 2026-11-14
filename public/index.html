@@ -194,6 +194,7 @@
   #btn-chat { right: 140px; top: 70px; width: 50px; height: 50px; font-size: 22px; }
   #btn-board { right: 82px; top: 70px; width: 50px; height: 50px; font-size: 22px; }
   #btn-menu { right: 24px; top: 70px; width: 50px; height: 50px; font-size: 22px; }
+  #btn-view { right: 198px; top: 70px; width: 50px; height: 50px; font-size: 22px; }
   body.touching #hpbox { left: 175px; bottom: 24px; width: 180px; }
   body.touching #ammo { right: 200px; bottom: 120px; font-size: 26px; }
   body.touching #chatlog { bottom: 175px; font-size: 13px; }
@@ -307,6 +308,9 @@
           <button type="button" data-type="skin">🎨 피부</button>
           <button type="button" data-type="hair">💇 머리</button>
           <button type="button" data-type="hcolor">🌈 머리 색</button>
+          <button type="button" data-type="outfit">👕 옷</button>
+          <button type="button" data-type="wing">🦋 날개</button>
+          <button type="button" data-type="tail">🐾 꼬리</button>
         </div>
         <div class="items" id="items"></div>
       </div>
@@ -357,6 +361,7 @@
     <div id="btn-chat" class="tbtn touchui">💬</div>
     <div id="btn-board" class="tbtn touchui">📋</div>
     <div id="btn-menu" class="tbtn touchui">⏸</div>
+    <div id="btn-view" class="tbtn touchui">👁</div>
   </div>
   <div id="rotate"><div class="ph">📱</div>화면을 가로로 돌려 주세요<br><small style="color:#8a93a8">(자동 회전이 꺼져 있으면 켜 주세요)</small></div>
   <div id="overlay">
@@ -364,7 +369,7 @@
     <p id="ov-text">
       <kbd>W A S D</kbd> 이동 &nbsp; <kbd>Space</kbd> 점프 &nbsp; <kbd>Shift</kbd> 걷기<br>
       <kbd>마우스</kbd> 조준 &nbsp; <kbd>왼쪽 클릭</kbd> 사격 &nbsp; <kbd>R</kbd> 재장전<br>
-      <kbd>Tab</kbd> 점수판 &nbsp; <kbd>Esc</kbd> 마우스 풀기
+      <kbd>Tab</kbd> 점수판 &nbsp; <kbd>V</kbd> 1인칭/3인칭 &nbsp; <kbd>Esc</kbd> 마우스 풀기
     </p>
     <button type="button" id="ov-lobby">🏠 로비로 나가기</button>
   </div>
@@ -518,6 +523,8 @@ const NONE = {
   skin: { icon: `<div class="sw" style="background:${DEFAULT_SKIN}"></div>`, name: '기본 피부' },
   hair: { icon: '✨', name: '기본 (성별에 맞게)' },
   hcolor: { icon: '<div class="sw" style="background:#6b4423"></div>', name: '기본 갈색' },
+  outfit: { icon: '👕', name: '기본 티셔츠' },
+  wing: { icon: '🚫', name: '없음' }, tail: { icon: '🚫', name: '없음' },
 };
 document.querySelectorAll('#gsel button').forEach(b => b.onclick = () => ws && ws.send(JSON.stringify({ t: 'gender', g: b.dataset.g })));
 
@@ -543,7 +550,7 @@ async function initPreview() {
       if (inGame) return; // 게임 시작하면 미리보기는 멈춰요
       requestAnimationFrame(loop);
       if (pv.drag === null) pv.rot += 0.006;
-      if (pv.char) pv.char.rotation.y = pv.rot;
+      if (pv.char) { pv.char.rotation.y = pv.rot; pv.A.animateExtras(pv.parts, performance.now()); }
       r.render(sc, cam);
     })();
     updatePreview();
@@ -552,11 +559,12 @@ async function initPreview() {
 function updatePreview() {
   if (!pv || !me) return;
   const e = me.equip;
-  const look = [e.hat || '', e.visor || '', e.skin || '', e.hair || '', e.hcolor || '', me.gender || 'n'];
+  const look = [e.hat || '', e.visor || '', e.skin || '', e.hair || '', e.hcolor || '', me.gender || 'n', e.outfit || '', e.wing || '', e.tail || ''];
   const key = look.join(',');
   if (key === pvKey) return; pvKey = key;
   if (pv.char) pv.sc.remove(pv.char);
-  pv.char = pv.A.buildCharacter(look, { gun: false }).inner;
+  pv.parts = pv.A.buildCharacter(look, { gun: false });
+  pv.char = pv.parts.inner;
   pv.char.rotation.y = pv.rot;
   pv.sc.add(pv.char);
 }

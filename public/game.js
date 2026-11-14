@@ -2,7 +2,7 @@
 //  1인칭 팀전 게임 화면 (three.js)
 // =====================================================
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-import { buildCharacter } from './avatar.js';
+import { buildCharacter, animateExtras } from './avatar.js';
 
 const $ = id => document.getElementById(id);
 const TEAM_COLOR = { red: 0xe84848, blue: 0x3d8bff, human: 0x3d8bff, zombie: 0x4f9a3a, runner: 0xff9f1c };
@@ -73,6 +73,15 @@ for (const sx of [-0.28, 0.28]) {
 claws.visible = false;
 camera.add(claws);
 const isZombie = () => mode === 'zombie' && myTeam === 'zombie';
+// ---------- 1인칭 / 3인칭 ----------
+let thirdPerson = false;
+try { thirdPerson = localStorage.getItem('view3') === '1'; } catch { }
+let meAv = null; // 3인칭에서 보이는 내 캐릭터
+function toggleView() {
+  thirdPerson = !thirdPerson;
+  try { localStorage.setItem('view3', thirdPerson ? '1' : '0'); } catch { }
+  center(thirdPerson ? '👁 3인칭 시점' : '👁 1인칭 시점', 1000);
+}
 const unarmed = () => mode === 'obby';
 
 // ---------- 맵 만들기 ----------
@@ -240,11 +249,12 @@ function nameSprite(text, color) {
 }
 // ---------- 동글이 캐릭터 (avatar.js) ----------
 function makeAvatar(name, team, look = []) {
-  const { inner, arm, body } = buildCharacter(look, { zombie: team === 'zombie', bodyColor: TEAM_COLOR[team] });
+  const teamColor = team === 'red' || team === 'blue' ? TEAM_COLOR[team] : undefined; // 팀전만 팀 색 옷
+  const { inner, arm, body, wings, tail } = buildCharacter(look, { zombie: team === 'zombie', teamColor });
   const label = nameSprite(name, TEAM_CSS[team] || '#fff');
   label.position.y = 2.75;
   const grp = new THREE.Group(); grp.add(inner, label);
-  return { group: grp, inner, arm, label, body, team, look: look.join(','), swing: 0, walk: 0 };
+  return { group: grp, inner, arm, label, body, wings, tail, team, look: look.join(','), swing: 0, walk: 0, phase: Math.random() * 6 };
 }
 function syncOthers(list) {
   const seen = new Set();
@@ -377,6 +387,7 @@ holdButton('btn-fire', () => { if (isZombie()) attack(); else if (!unarmed()) mo
 holdButton('btn-jump', () => (touchJump = true), () => (touchJump = false));
 holdButton('btn-reload', () => reload());
 holdButton('btn-chat', () => openChat(false));
+holdButton('btn-view', () => toggleView());
 holdButton('btn-board', () => { $('board').style.display = 'block'; renderBoard(); }, () => ($('board').style.display = 'none'));
 
 // ---------- 채팅 ----------
@@ -460,6 +471,7 @@ document.addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.code === 'Tab') { e.preventDefault(); $('board').style.display = 'block'; renderBoard(); }
   if (e.code === 'KeyR') reload();
+  if (e.code === 'KeyV') toggleView();
   if (/^Digit[1-9]$/.test(e.code) && voteState) { const m = voteState.maps[+e.code.slice(5) - 1]; if (m) vote(m.id); }
 });
 document.addEventListener('keyup', e => {
@@ -490,6 +502,10 @@ function fire() {
   lastFire = t; ammo--;
   const dir = new THREE.Vector3();
   camera.getWorldDirection(dir);
+  if (thirdPerson) { // 3인칭: 화면 가운데 조준점이 가리키는 곳으로 쏘기
+    const target = camera.position.clone().addScaledVector(dir, 40);
+    dir.copy(target).sub(new THREE.Vector3(me.x, me.y + EYE, me.z)).normalize();
+  }
   send({ t: 'shoot', dx: dir.x, dy: dir.y, dz: dir.z });
   flash.visible = true; setTimeout(() => (flash.visible = false), 40);
   recoil = 0.06;
@@ -548,7 +564,7 @@ function onMessage(m) {
       document.title = m.roomTitle;
       cpInfo = { i: 0, total: (map.checkpoints?.length || 5) - 1 };
       if (IS_TOUCH) {
-        $('ov-text').innerHTML = `왼쪽 조이스틱: 이동 &nbsp; 오른쪽 화면 드래그: 둘러보기<br>⬆️ 점프 &nbsp; 🔫 사격 &nbsp; 🔄 재장전 &nbsp; 💬 채팅 &nbsp; 📋 점수판<br>폰은 가로로 돌려서 하면 좋아요`;
+        $('ov-text').innerHTML = `왼쪽 조이스틱: 이동 &nbsp; 오른쪽 화면 드래그: 둘러보기<br>⬆️ 점프 &nbsp; 🔫 사격 &nbsp; 🔄 재장전 &nbsp; 💬 채팅 &nbsp; 📋 점수판 &nbsp; 👁 1인칭/3인칭<br>폰은 가로로 돌려서 하면 좋아요`;
       } else {
         $('ov-text').innerHTML += `<br><kbd>Enter</kbd> 전체 채팅 &nbsp; <kbd>T</kbd> 팀 채팅`;
       }
@@ -649,6 +665,13 @@ function onMessage(m) {
       }
       syncOthers(m.p);
       for (const p of m.p) if (p.id === myId) {
+        const lk = (p.lk || []).join(',');
+        if (!meAv || meAv.team !== p.tm || meAv.look !== lk) {
+          if (meAv) scene.remove(meAv.group);
+          meAv = makeAvatar(p.n, p.tm, p.lk || undefined);
+          meAv.label.visible = false;
+          scene.add(meAv.group);
+        }
         if (me.alive && !p.a) { me.alive = false; center(mode === 'zombie' ? '쓰러졌어요! 3초 후 다시 일어나요' : '죽었어요! 3초 후 부활', 0); }
         me.hp = p.hp;
       }
@@ -760,10 +783,37 @@ function frame() {
   }
 
   // 카메라
-  camera.position.set(me.x, me.y + (me.alive ? EYE : 0.4), me.z);
-  camera.rotation.set(me.pitch, me.yaw, me.alive ? 0 : 0.5);
-  gun.visible = me.alive && !isZombie() && !unarmed();
-  claws.visible = me.alive && isZombie();
+  const eye = new THREE.Vector3(me.x, me.y + (me.alive ? EYE : 0.4), me.z);
+  camera.rotation.set(me.pitch, me.yaw, me.alive || thirdPerson ? 0 : 0.5);
+  const tp = thirdPerson && map;
+  if (tp) {
+    // 어깨 뒤에서 보기 (오른쪽 0.6, 위 0.35, 뒤 3.2). 벽에 막히면 가까이 당겨요
+    const back = new THREE.Vector3(0.6, 0.35, 3.2).applyEuler(camera.rotation);
+    let f = 1;
+    for (let s = 1; s <= 16; s++) {
+      const k = s / 16, px = eye.x + back.x * k, py = eye.y + back.y * k, pz = eye.z + back.z * k;
+      if ((!map.noFloor && py < 0.15) || boxes.some(b => px > b.min[0] - 0.15 && px < b.max[0] + 0.15 && py > b.min[1] - 0.15 && py < b.max[1] + 0.15 && pz > b.min[2] - 0.15 && pz < b.max[2] + 0.15)) {
+        f = Math.max(0.1, (s - 1) / 16); break;
+      }
+    }
+    camera.position.copy(eye).addScaledVector(back, f);
+  } else camera.position.copy(eye);
+  gun.visible = !tp && me.alive && !isZombie() && !unarmed();
+  claws.visible = !tp && me.alive && isZombie();
+  if (meAv) {
+    meAv.group.visible = !!tp;
+    if (tp) {
+      const mp = meAv.group.position;
+      const moving = Math.hypot(me.x - mp.x, me.z - mp.z) > 0.005;
+      mp.set(me.x, me.y, me.z);
+      meAv.group.rotation.y = me.yaw;
+      meAv.group.rotation.z = me.alive ? 0 : Math.PI / 2;
+      meAv.walk = moving ? meAv.walk + dt * 12 : 0;
+      meAv.inner.position.y = moving ? Math.abs(Math.sin(meAv.walk)) * 0.08 : 0;
+      meAv.arm.rotation.x = me.pitch - Math.sin(swing * Math.PI) * 0.8;
+      animateExtras(meAv, t, meAv.phase);
+    }
+  }
   recoil *= 0.8;
   gun.position.z = -0.35 + recoil;
   swing = Math.max(0, swing - dt * 5);
@@ -778,6 +828,7 @@ function frame() {
     o.group.rotation.y = lerpAngle(o.group.rotation.y, o.tyaw, k);
     o.swing = Math.max(0, o.swing - dt * 5);
     o.arm.rotation.x = o.tpitch - Math.sin(o.swing * Math.PI) * 0.8;
+    animateExtras(o, t, o.phase);
     o.group.rotation.z = o.alive ? 0 : Math.PI / 2;
     // 움직이면 통통 튀기
     const moving = Math.hypot(o.tx - p.x, o.tz - p.z) > 0.03;
