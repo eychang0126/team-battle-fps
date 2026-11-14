@@ -162,6 +162,17 @@ const SHOP = [
   { id: 'e_red', type: 'ecolor', name: '빨강', color: '#d12b2b', price: 20 },
   { id: 'e_sky', type: 'ecolor', name: '하늘색', color: '#4dc3ff', price: 20 },
   { id: 'e_gold', type: 'ecolor', name: '금색', color: '#e0a800', price: 50 },
+  // 옷 색 (팀 배틀 FPS에서는 팀 색)
+  { id: 'b_red', type: 'bcolor', name: '빨강', color: '#e84848', price: 0 },
+  { id: 'b_orange', type: 'bcolor', name: '주황', color: '#ff9f1c', price: 0 },
+  { id: 'b_yellow', type: 'bcolor', name: '노랑', color: '#ffd43b', price: 0 },
+  { id: 'b_green', type: 'bcolor', name: '초록', color: '#3ccf6e', price: 0 },
+  { id: 'b_pink', type: 'bcolor', name: '분홍', color: '#ff8fc8', price: 0 },
+  { id: 'b_purple', type: 'bcolor', name: '보라', color: '#9b6bff', price: 0 },
+  { id: 'b_white', type: 'bcolor', name: '흰색', color: '#f4f4f6', price: 0 },
+  { id: 'b_black', type: 'bcolor', name: '검정', color: '#2d2f36', price: 0 },
+  { id: 'b_mint', type: 'bcolor', name: '민트', color: '#6ee7c8', price: 20 },
+  { id: 'b_gold', type: 'bcolor', name: '금색', color: '#e0b23a', price: 100 },
   // 날개
   { id: 'w_angel', type: 'wing', name: '천사 날개', icon: '🕊️', price: 150 },
   { id: 'w_devil', type: 'wing', name: '악마 날개', icon: '🦇', price: 150 },
@@ -206,8 +217,8 @@ function meInfo(name) {
 }
 function lookOf(name) {
   const a = acct(name);
-  return a ? [a.equip.hat || '', a.equip.face || '', a.equip.skin || '', a.equip.hair || '', a.equip.hcolor || '', a.gender, a.equip.ecolor || '', a.equip.wing || '', a.equip.tail || '']
-    : ['', '', '', '', '', 'n', '', '', ''];
+  return a ? [a.equip.hat || '', a.equip.face || '', a.equip.skin || '', a.equip.hair || '', a.equip.hcolor || '', a.gender, a.equip.ecolor || '', a.equip.wing || '', a.equip.tail || '', a.equip.bcolor || '']
+    : ['', '', '', '', '', 'n', '', '', '', ''];
 }
 function handleShop(c, msg) {
   const a = acct(c.name);
@@ -227,7 +238,7 @@ function handleShop(c, msg) {
     saveAccounts();
   } else if (msg.t === 'equip') {
     const type = String(msg.type);
-    if (!['hat', 'face', 'ecolor', 'skin', 'hair', 'hcolor', 'wing', 'tail'].includes(type)) return;
+    if (!['hat', 'face', 'ecolor', 'skin', 'hair', 'hcolor', 'wing', 'tail', 'bcolor'].includes(type)) return;
     if (msg.item == null) a.equip[type] = null;
     else {
       const item = SHOP_BY_ID.get(String(msg.item));

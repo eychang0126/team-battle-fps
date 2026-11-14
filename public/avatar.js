@@ -8,6 +8,10 @@ export const HEAD_Y = 1.42, HEAD_R = 0.4;
 const HY = HEAD_Y, R = HEAD_R;
 const FRONT = Math.PI * 1.5; // 구 모양에서 얼굴(앞, -z) 방향 각도
 
+export const BODY_COLOR = {
+  b_red: 0xe84848, b_orange: 0xff9f1c, b_yellow: 0xffd43b, b_green: 0x3ccf6e, b_pink: 0xff8fc8,
+  b_purple: 0x9b6bff, b_white: 0xf4f4f6, b_black: 0x2d2f36, b_mint: 0x6ee7c8, b_gold: 0xe0b23a,
+};
 export const EYE_COLOR = {
   e_brown: 0x6b3e1f, e_blue: 0x2f6fd6, e_green: 0x2f9e44, e_purple: 0x8a4fd8,
   e_red: 0xd12b2b, e_sky: 0x4dc3ff, e_gold: 0xe0a800,
@@ -442,13 +446,13 @@ function makeTail(id, hairColor) {
 }
 
 // ---------- 캐릭터 전체 ----------
-// look = [모자, 얼굴, 피부, 머리스타일, 머리색, 성별, 눈 색, 날개, 꼬리]
+// look = [모자, 얼굴, 피부, 머리스타일, 머리색, 성별, 눈 색, 날개, 꼬리, 옷 색]
 export function buildCharacter(look = [], opts = {}) {
-  const [hatId, faceId, skinId, hairId, hcolorId, gender = 'n', ecolorId = '', wingId = '', tailId = ''] = look;
+  const [hatId, faceId, skinId, hairId, hcolorId, gender = 'n', ecolorId = '', wingId = '', tailId = '', bcolorId = ''] = look;
   const zombie = !!opts.zombie;
   const skin = zombie ? 0x8fd16a : SKIN_COLOR[skinId] ?? DEFAULT_SKIN;
-  // 몸 색: 팀전에서는 팀 색
-  const bodyColor = zombie ? 0x4a7a35 : (opts.teamColor ?? opts.bodyColor ?? 0x3d8bff);
+  // 옷 색: 팀전에서는 팀 색, 나머지는 고른 색
+  const bodyColor = zombie ? 0x4a7a35 : (opts.teamColor ?? BODY_COLOR[bcolorId] ?? opts.bodyColor ?? 0x3d8bff);
   const hairColor = HAIR_COLOR[hcolorId] ?? DEFAULT_HAIR_COLOR;
   const hairStyle = hairId || DEFAULT_HAIR[gender] || 'h_bob';
   const inner = new THREE.Group();
