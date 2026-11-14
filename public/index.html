@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>팀 배틀 FPS</title>
 <style>
   * { box-sizing: border-box; }
@@ -30,7 +30,7 @@
   /* 게임 화면 */
   #game { display: none; position: fixed; inset: 0; }
   #game.on { display: block; }
-  #game canvas { display: block; }
+  #game canvas { display: block; touch-action: none; }
   #hud { position: fixed; inset: 0; pointer-events: none; }
   #cross { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; transform: translate(-50%,-50%); }
   #cross::before, #cross::after { content: ''; position: absolute; background: #fff; box-shadow: 0 0 2px #000; }
@@ -91,6 +91,107 @@
   .room button { margin-top: 6px; }
   .room.full { opacity: .5; cursor: not-allowed; }
   #lobby-notice { color: #ffc23d; min-height: 20px; margin-top: 12px; text-align: center; }
+  .coins { background: #2a2410; color: #ffd34d; padding: 6px 12px; border-radius: 99px; font-weight: 800; font-size: 15px; margin-right: 10px; }
+  .shop { margin-top: 26px; display: grid; grid-template-columns: 200px 1fr; gap: 16px; }
+  .shop h2 { grid-column: 1 / -1; margin: 0; font-size: 20px; }
+  .preview { background: #181d29; border: 1px solid #2a3142; border-radius: 16px; padding: 18px 10px; display: flex;
+    flex-direction: column; align-items: center; gap: 0; }
+  .av-hat { font-size: 46px; height: 52px; line-height: 52px; }
+  .av-head { width: 74px; height: 74px; background: #f1c9a0; border-radius: 8px; position: relative; }
+  .av-visor { position: absolute; left: 10px; right: 10px; top: 26px; height: 14px; background: #222; border-radius: 3px; }
+  .av-body { width: 110px; height: 120px; background: #3d8bff; border-radius: 10px; margin-top: 6px; }
+  .preview .cap { margin-top: 10px; color: #8a93a8; font-size: 12px; }
+  .shop-right { min-width: 0; }
+  .stabs { display: flex; gap: 6px; margin-bottom: 10px; }
+  .stabs button { width: auto; margin: 0; padding: 7px 14px; font-size: 14px; background: #232a3a; color: #9aa3b8; }
+  .stabs button.on { background: #4da3ff; color: #0b1020; }
+  .items { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+  .item { background: #181d29; border: 1px solid #2a3142; border-radius: 12px; padding: 12px 8px; text-align: center; }
+  .item.eq { border-color: #6fe39a; }
+  .item .ic { font-size: 34px; height: 42px; display: flex; align-items: center; justify-content: center; }
+  .item .sw { width: 34px; height: 34px; border-radius: 50%; border: 2px solid #fff3; }
+  .item .nm { font-size: 13px; margin: 6px 0 2px; }
+  .item .pr { font-size: 12px; color: #ffd34d; }
+  .item button { margin-top: 8px; padding: 7px; font-size: 13px; }
+  .item button.own { background: #2c3550; color: #fff; }
+  .item button.eqb { background: #1f4d30; color: #6fe39a; }
+  .item button.poor { background: #2a2f3a; color: #6e7891; cursor: not-allowed; }
+  @media (max-width: 600px) { .shop { grid-template-columns: 1fr; } }
+  #s-lobby { overflow-y: auto; align-items: flex-start; padding: 30px 0; }
+  #coinbox { position: absolute; left: 20px; top: 14px; background: rgba(0,0,0,.45); color: #ffd34d; padding: 6px 14px;
+    border-radius: 10px; font-weight: 800; font-size: 18px; }
+  /* 맵 투표 */
+  #votebox { position: absolute; left: 20px; top: 56px; background: rgba(0,0,0,.5); border-radius: 10px; padding: 8px 10px;
+    font-size: 13px; display: none; pointer-events: auto; max-width: 260px; z-index: 3; }
+  #votebox .vt { margin-bottom: 5px; } #votebox .ad { color: #ffd34d; font-size: 12px; }
+  #votebox .vo { padding: 4px 7px; border-radius: 6px; cursor: pointer; margin: 2px 0; }
+  #votebox .vo:hover { background: rgba(255,255,255,.12); }
+  #votebox .vo.mine { background: rgba(77,163,255,.35); }
+  #votebox .vh { color: #8a93a8; font-size: 11px; margin-top: 4px; }
+  #votebox kbd { font-size: 11px; padding: 0 5px; }
+  /* 게임 채팅 */
+  #chatlog { position: absolute; left: 16px; bottom: 120px; width: min(420px, 60vw); max-height: 34vh; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 3px; pointer-events: none; font-size: 14px; }
+  #chatlog .line { background: rgba(0,0,0,.45); padding: 3px 9px; border-radius: 6px; width: fit-content; max-width: 100%;
+    word-break: break-all; transition: opacity .6s; }
+  #chatlog .line.old { opacity: 0; }
+  #chatlog.open .line.old { opacity: 1; }
+  #chatlog .team { border-left: 3px solid #ffd34d; } #chatlog .tag { color: #ffd34d; }
+  #chatlog .sys { color: #ffc23d; }
+  #chatform { position: absolute; left: 16px; bottom: 82px; width: min(420px, 80vw); display: none; gap: 6px; pointer-events: auto; z-index: 5; }
+  #chatform input { margin: 0; padding: 9px 12px; font-size: 15px; background: rgba(10,14,22,.9); }
+  #chatform button { width: auto; margin: 0; padding: 0 14px; font-size: 14px; }
+  #chatmode { background: #2c3550 !important; color: #fff !important; white-space: nowrap; }
+  #chatmode.team { background: #5a4a10 !important; color: #ffd34d !important; }
+
+  /* 터치 조작 */
+  .touchui { display: none; }
+  body.touching .touchui { display: flex; }
+  body.touching #cross { width: 26px; height: 26px; }
+  #joy { position: absolute; left: 28px; bottom: 28px; width: 130px; height: 130px; border-radius: 50%;
+    background: rgba(255,255,255,.12); border: 2px solid rgba(255,255,255,.25); align-items: center; justify-content: center;
+    pointer-events: auto; touch-action: none; z-index: 4; }
+  #joy-knob { width: 56px; height: 56px; border-radius: 50%; background: rgba(255,255,255,.55); }
+  .tbtn { position: absolute; width: 64px; height: 64px; border-radius: 50%; background: rgba(255,255,255,.18);
+    border: 2px solid rgba(255,255,255,.3); align-items: center; justify-content: center; font-size: 28px;
+    pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; z-index: 4; }
+  .tbtn.down { background: rgba(255,255,255,.45); }
+  #btn-fire { right: 34px; bottom: 120px; width: 84px; height: 84px; font-size: 36px; }
+  #btn-jump { right: 130px; bottom: 34px; width: 74px; height: 74px; }
+  #btn-reload { right: 34px; bottom: 30px; width: 56px; height: 56px; font-size: 24px; }
+  #btn-chat { right: 140px; top: 70px; width: 50px; height: 50px; font-size: 22px; }
+  #btn-board { right: 82px; top: 70px; width: 50px; height: 50px; font-size: 22px; }
+  #btn-menu { right: 24px; top: 70px; width: 50px; height: 50px; font-size: 22px; }
+  body.touching #hpbox { left: 175px; bottom: 24px; width: 180px; }
+  body.touching #ammo { right: 200px; bottom: 120px; font-size: 26px; }
+  body.touching #chatlog { bottom: 175px; font-size: 13px; }
+  body.touching #chatform { bottom: auto; top: 60px; left: 50%; transform: translateX(-50%); }
+  #rotate { display: none; position: fixed; inset: 0; z-index: 50; background: #0e1118; color: #fff; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px; font-size: 20px; text-align: center; padding: 20px; }
+  #rotate .ph { font-size: 64px; animation: spin 1.6s ease-in-out infinite; }
+  @keyframes spin { 0%,30% { transform: rotate(0); } 60%,100% { transform: rotate(-90deg); } }
+  @media (orientation: portrait) { body.touching #rotate { display: flex; } }
+
+  /* 트로피 순위 */
+  .trophy { background: #2a1f10; color: #ffb84d; padding: 6px 12px; border-radius: 99px; font-weight: 800; font-size: 15px; margin-right: 8px; }
+  .lrow { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 22px; }
+  .lrow .lchat { margin-top: 0; }
+  @media (max-width: 640px) { .lrow { grid-template-columns: 1fr; } }
+  .rank { background: #181d29; border: 1px solid #2a3142; border-radius: 16px; padding: 14px; }
+  .rank h2 { margin: 0 0 8px; font-size: 18px; }
+  .rank ol { margin: 0; padding: 0; list-style: none; font-size: 15px; }
+  .rank li { display: flex; justify-content: space-between; padding: 5px 8px; border-radius: 8px; }
+  .rank li.me { background: rgba(77,163,255,.18); }
+  .rank .pos { width: 34px; display: inline-block; color: #8a93a8; }
+  .rank .myrank { margin-top: 8px; color: #8a93a8; font-size: 13px; }
+  /* 로비 채팅 */
+  .lchat { margin-top: 22px; background: #181d29; border: 1px solid #2a3142; border-radius: 16px; padding: 14px; }
+  .lchat h2 { margin: 0 0 8px; font-size: 18px; }
+  #lchat-log { height: 150px; overflow-y: auto; font-size: 14px; display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+  #lchat-log .sys { color: #ffc23d; }
+  #lchat-form { display: flex; gap: 8px; }
+  #lchat-form input { margin: 0; }
+  #lchat-form button { width: auto; margin: 0; padding: 0 18px; }
   #announce-lobby { background: #ffd34d; color: #222; padding: 8px 14px; border-radius: 8px; font-weight: 700; margin-bottom: 14px; display: none; }
 </style>
 </head>
@@ -134,11 +235,40 @@
   <div class="lobby">
     <div class="lobby-top">
       <h1>🎮 게임 고르기</h1>
-      <div><span class="who" id="lobby-who"></span><button type="button" id="btn-logout">로그아웃</button></div>
+      <div><span class="trophy" id="lobby-trophy">🏆 0</span><span class="coins" id="lobby-coins">🪙 0</span><span class="who" id="lobby-who"></span><button type="button" id="btn-logout">로그아웃</button></div>
     </div>
     <div id="announce-lobby"></div>
     <div class="rooms" id="rooms"><div style="color:#8a93a8">불러오는 중…</div></div>
     <div id="lobby-notice"></div>
+    <div class="lrow">
+    <div class="rank">
+      <h2>🏆 트로피 순위 <span style="font-size:12px;color:#8a93a8;font-weight:500">(이길 때마다 🏆 +1)</span></h2>
+      <ol id="rank-list"><li style="color:#8a93a8">불러오는 중…</li></ol>
+      <div class="myrank" id="my-rank"></div>
+    </div>
+    <div class="lchat">
+      <h2>💬 로비 채팅</h2>
+      <div id="lchat-log"></div>
+      <form id="lchat-form"><input id="lchat-input" maxlength="100" placeholder="로비 채팅 · 코인 보내기: /코인 아이디 개수" autocomplete="off"><button>보내기</button></form>
+    </div>
+    </div>
+    <div class="shop">
+      <h2>🛍️ 상점 · 캐릭터 꾸미기 <span style="font-size:13px;color:#8a93a8;font-weight:500" id="win-hint"></span></h2>
+      <div class="preview">
+        <div class="av-hat" id="av-hat"></div>
+        <div class="av-head" id="av-head"><div class="av-visor" id="av-visor"></div></div>
+        <div class="av-body"></div>
+        <div class="cap">내 캐릭터</div>
+      </div>
+      <div class="shop-right">
+        <div class="stabs">
+          <button type="button" data-type="hat" class="on">🎩 모자</button>
+          <button type="button" data-type="visor">🥽 고글</button>
+          <button type="button" data-type="skin">🎨 피부</button>
+        </div>
+        <div class="items" id="items"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -148,6 +278,8 @@
     <div id="dmg"></div>
     <div id="cross"></div>
     <div id="hitmark"></div>
+    <div id="coinbox">🪙 0</div>
+    <div id="votebox"></div>
     <div id="score"><span class="r" id="sc-r">0</span><span class="tg" id="sc-t">목표 20</span><span class="b" id="sc-b">0</span></div>
     <div id="announce"></div>
     <div id="feed"></div>
@@ -159,7 +291,17 @@
     </div>
     <div id="ammo">25 <small>/ 25</small></div>
     <div id="board"></div>
+    <div id="chatlog"></div>
+    <form id="chatform"><button type="button" id="chatmode">전체</button><input id="chatinput" maxlength="100" autocomplete="off" placeholder="메시지 입력 후 Enter"><button>보내기</button></form>
+    <div id="joy" class="touchui"><div id="joy-knob"></div></div>
+    <div id="btn-fire" class="tbtn touchui">🔫</div>
+    <div id="btn-jump" class="tbtn touchui">⬆️</div>
+    <div id="btn-reload" class="tbtn touchui">🔄</div>
+    <div id="btn-chat" class="tbtn touchui">💬</div>
+    <div id="btn-board" class="tbtn touchui">📋</div>
+    <div id="btn-menu" class="tbtn touchui">⏸</div>
   </div>
+  <div id="rotate"><div class="ph">📱</div>화면을 가로로 돌려 주세요<br><small style="color:#8a93a8">(자동 회전이 꺼져 있으면 켜 주세요)</small></div>
   <div id="overlay">
     <h2 id="ov-title">클릭해서 시작</h2>
     <p id="ov-text">
@@ -231,7 +373,8 @@ $('f-auth').onsubmit = async e => {
 
 // ---------- 로비 ----------
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-let ws, inGame = false, queue = [];
+let ws, inGame = false, queue = [], adminName = '';
+const crown = n => adminName && n.toLowerCase() === adminName.toLowerCase() ? '👑 ' : '';
 
 function connect(token) {
   show('s-lobby');
@@ -240,9 +383,21 @@ function connect(token) {
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
     if (inGame) { queue.push(m); return; }      // 게임 화면이 준비되는 동안 잠깐 모아 두기
-    if (m.t === 'hello') $('lobby-who').textContent = m.name + ' 님';
-    else if (m.t === 'lobby') renderRooms(m.rooms);
-    else if (m.t === 'notice') $('lobby-notice').textContent = m.text;
+    if (m.t === 'hello') {
+      adminName = m.adminName;
+      $('lobby-who').textContent = crown(m.name) + m.name + ' 님'; myName = m.name;
+      shop = m.shop; $('win-hint').textContent = `게임에서 이기면 🪙 ${m.winCoins}코인!`;
+      renderShop();
+    }
+    else if (m.t === 'me') {
+      me = m; $('lobby-coins').textContent = '🪙 ' + (m.inf ? '∞' : m.coins);
+      $('lobby-trophy').textContent = '🏆 ' + (m.trophies || 0);
+      $('my-rank').textContent = m.rank ? `내 순위: ${m.rank}등 · 🏆 ${m.trophies || 0}` : '';
+      renderShop();
+    }
+    else if (m.t === 'lobby') { renderRooms(m.rooms); renderRank(m.top || []); }
+    else if (m.t === 'notice') { $('lobby-notice').textContent = m.text; lchat(`⚠️ ${esc(m.text)}`, 'sys'); }
+    else if (m.t === 'chat') lchat(`<b>${crown(m.from)}${esc(m.from)}</b>: ${esc(m.text)}`);
     else if (m.t === 'announce') {
       const a = $('announce-lobby'); a.textContent = '📢 ' + m.text; a.style.display = 'block';
       setTimeout(() => (a.style.display = 'none'), 7000);
@@ -259,6 +414,74 @@ function connect(token) {
     if (inGame) return;
     $('lobby-notice').textContent = '서버와 연결이 끊겼어요. 새로고침해 보세요.';
   };
+}
+
+// ---------- 로비 채팅 ----------
+function lchat(html, cls = '') {
+  const d = document.createElement('div'); d.className = cls; d.innerHTML = html;
+  $('lchat-log').append(d);
+  while ($('lchat-log').children.length > 60) $('lchat-log').firstChild.remove();
+  $('lchat-log').scrollTop = 1e6;
+}
+$('lchat-form').onsubmit = e => {
+  e.preventDefault();
+  const text = $('lchat-input').value.trim();
+  if (text && ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'chat', text }));
+  $('lchat-input').value = '';
+};
+
+// ---------- 상점 ----------
+let shop = [], me = null, shopType = 'hat';
+const DEFAULT_SKIN = '#f1c9a0';
+document.querySelectorAll('.stabs button').forEach(b => b.onclick = () => {
+  shopType = b.dataset.type;
+  document.querySelectorAll('.stabs button').forEach(x => x.classList.toggle('on', x === b));
+  renderShop();
+});
+const owns = it => it.price === 0 || me.owned.includes(it.id);
+function renderShop() {
+  if (!me || !shop.length) return;
+  const get = id => shop.find(i => i.id === id);
+  const hat = get(me.equip.hat), visor = get(me.equip.visor), skin = get(me.equip.skin);
+  $('av-hat').textContent = hat ? hat.icon : '';
+  $('av-visor').style.background = visor ? visor.color : '#222';
+  $('av-head').style.background = skin ? skin.color : DEFAULT_SKIN;
+
+  const list = shop.filter(i => i.type === shopType);
+  const noneEq = !me.equip[shopType];
+  const noneCard = `<div class="item ${noneEq ? 'eq' : ''}">
+      <div class="ic">${shopType === 'skin' ? `<div class="sw" style="background:${DEFAULT_SKIN}"></div>` : '🚫'}</div>
+      <div class="nm">${shopType === 'skin' ? '기본 피부' : '없음'}</div><div class="pr">무료</div>
+      <button type="button" class="${noneEq ? 'eqb' : 'own'}" data-act="equip" data-id="">${noneEq ? '착용 중' : '착용'}</button></div>`;
+  $('items').innerHTML = noneCard + list.map(it => {
+    const own = owns(it), eq = me.equip[it.type] === it.id;
+    const icon = it.icon ? it.icon : `<div class="sw" style="background:${it.color}"></div>`;
+    let btn;
+    if (eq) btn = `<button type="button" class="eqb" disabled>착용 중</button>`;
+    else if (own) btn = `<button type="button" class="own" data-act="equip" data-id="${it.id}">착용</button>`;
+    else if (me.coins >= it.price) btn = `<button type="button" data-act="buy" data-id="${it.id}">🪙 ${it.price} 사기</button>`;
+    else btn = `<button type="button" class="poor" disabled>🪙 ${it.price}</button>`;
+    return `<div class="item ${eq ? 'eq' : ''}"><div class="ic">${icon}</div><div class="nm">${esc(it.name)}</div>
+      <div class="pr">${it.price === 0 ? '무료' : own ? '보유 중' : '🪙 ' + it.price}</div>${btn}</div>`;
+  }).join('');
+  $('items').querySelectorAll('button[data-act]').forEach(b => b.onclick = () => {
+    const id = b.dataset.id || null;
+    if (b.dataset.act === 'buy') {
+      const it = get(id);
+      if (!confirm(`${it.name}을(를) 🪙 ${it.price}코인에 살까요?`)) return;
+      ws.send(JSON.stringify({ t: 'buy', item: id }));
+    } else ws.send(JSON.stringify({ t: 'equip', type: shopType, item: id }));
+  });
+}
+
+let lastRankKey = '', myName = '';
+function renderRank(top) {
+  const key = JSON.stringify(top) + (me ? me.rank : '');
+  if (key === lastRankKey) return; lastRankKey = key;
+  const medal = i => ['🥇', '🥈', '🥉'][i] || `${i + 1}.`;
+  $('rank-list').innerHTML = top.length ? top.map((r, i) => `<li class="${r.name === myName ? 'me' : ''}">
+      <span><span class="pos">${medal(i)}</span>${crown(r.name)}${esc(r.name)}</span><b>🏆 ${r.trophies}</b></li>`).join('')
+    : '<li style="color:#8a93a8">아직 아무도 없어요</li>';
 }
 
 function renderRooms(rooms) {
@@ -279,6 +502,7 @@ function renderRooms(rooms) {
 
 async function enterGame(welcome) {
   inGame = true;
+  if (me) $('coinbox').textContent = '🪙 ' + (me.inf ? '∞' : me.coins);
   show(null);
   $('game').classList.add('on');
   const mod = await import('./game.js');
@@ -289,6 +513,11 @@ async function enterGame(welcome) {
 $('ov-lobby').onclick = e => { e.stopPropagation(); location.reload(); };
 $('btn-logout').onclick = () => { sessionStorage.removeItem('token'); location.reload(); };
 
+// 관리자 창에서 '관리자 계정으로 게임하기'를 누르면 주소 뒤에 #t=토큰 이 붙어서 와요
+if (location.hash.startsWith('#t=')) {
+  sessionStorage.setItem('token', decodeURIComponent(location.hash.slice(3)));
+  history.replaceState(null, '', '/');
+}
 const savedToken = sessionStorage.getItem('token');
 if (savedToken) connect(savedToken);
 else if (entryCode) show('s-auth');

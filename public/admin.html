@@ -54,11 +54,19 @@
     </div>
 
     <div class="card">
+      <h2>🎮 관리자 계정으로 게임하기</h2>
+      <p style="color:#aab3c7;margin:0 0 10px;font-size:14px">관리자 계정은 이름 옆에 👑가 붙고 코인이 무한이에요. 게임 첫 화면에서 아이디 <b>은영</b> + 관리자 비밀번호로 로그인해도 돼요.</p>
+      <button class="blue" id="btn-play">👑 관리자 계정으로 새 탭에서 게임 열기</button>
+    </div>
+
+    <div class="card">
       <h2>게임 관리</h2>
       <div id="roomstat" style="margin-bottom:12px;line-height:1.9"></div>
+      <div id="mapctl" style="margin-bottom:14px"></div>
       <div class="row" style="margin-bottom:10px">
         <button onclick="cmd({t:'resetRound', room:'fps'})">🔄 팀전 리셋</button>
         <button onclick="cmd({t:'resetRound', room:'zombie'})">🔄 좀비 모드 리셋</button>
+        <button onclick="cmd({t:'resetRound', room:'obby'})">🔄 점프맵 다시 시작</button>
         <span style="margin-left:8px">팀전 목표 킬</span>
         <input id="target" type="number" min="1" max="200" style="width:80px">
         <button onclick="cmd({t:'setTarget', n: +document.getElementById('target').value})">적용</button>
@@ -72,18 +80,44 @@
     <div class="card">
       <h2>접속 중인 플레이어</h2>
       <table>
-        <thead><tr><th>이름</th><th>있는 곳</th><th>팀</th><th>킬/데스</th><th>체력</th><th></th></tr></thead>
+        <thead><tr><th>이름</th><th>있는 곳</th><th>팀</th><th>킬/데스</th><th>체력</th><th>코인</th><th></th></tr></thead>
         <tbody id="list"></tbody>
       </table>
       <div id="empty" style="color:#6e7891;padding:10px 0">아직 아무도 없어요.</div>
     </div>
 
     <div class="card">
-      <h2>계정 삭제</h2>
-      <form class="row" id="f-del">
-        <input id="delname" placeholder="삭제할 아이디" style="flex:1">
-        <button class="danger">계정 삭제</button>
+      <h2>💬 최근 채팅</h2>
+      <div id="chatlog" style="max-height:260px;overflow-y:auto;font-size:14px;line-height:1.7"></div>
+      <form class="row" id="f-mute" style="margin-top:10px">
+        <input id="mutename" placeholder="아이디 (접속 안 해도 돼요)" style="flex:1">
+        <button type="button" class="danger" id="btn-mute">🔇 채팅 금지</button>
+        <button type="button" id="btn-unmute">🔈 채팅 허용</button>
       </form>
+    </div>
+
+    <div class="card">
+      <h2>코인 주기 / 빼기</h2>
+      <form class="row" id="f-coin">
+        <input id="coinname" placeholder="아이디" style="flex:1">
+        <input id="coinn" type="number" placeholder="코인 (빼려면 -20처럼)" style="width:200px">
+        <button class="blue">🪙 적용</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>👥 전체 계정 · 🏆 트로피 순위</h2>
+      <div class="row" style="margin-bottom:10px">
+        <input id="acc-search" placeholder="아이디 검색" style="flex:1">
+        <span id="acc-sum" style="color:#aab3c7;font-size:14px"></span>
+      </div>
+      <div style="max-height:460px;overflow-y:auto">
+        <table>
+          <thead><tr><th>순위</th><th>아이디</th><th>🏆 트로피</th><th>🪙 코인</th><th>상태</th><th></th></tr></thead>
+          <tbody id="acc-list"></tbody>
+        </table>
+      </div>
+      <p style="color:#6e7891;font-size:12px;margin:10px 0 0">트로피 숫자를 바꾸고 '저장'을 누르면 순위가 바뀌어요. 밴하면 그 계정으로 로그인할 수 없고, 삭제하면 계정이 완전히 없어져요.</p>
     </div>
 
     <div class="card">
@@ -124,7 +158,7 @@ function connect() {
 }
 
 let targetTouched = false;
-const TN = { red: '빨강', blue: '파랑', human: '인간', zombie: '좀비' };
+const TN = { red: '빨강', blue: '파랑', human: '인간', zombie: '좀비', runner: '러너' };
 const TC = { red: 'r', blue: 'b', human: 'b', zombie: 'z' };
 $('target').addEventListener('input', () => (targetTouched = true));
 function render(m) {
@@ -134,11 +168,15 @@ function render(m) {
   const ZP = { waiting: '사람 기다리는 중', countdown: '곧 시작', playing: '진행 중', ended: '라운드 끝' };
   $('roomstat').innerHTML = m.rooms.map(r => r.mode === 'fps'
     ? `🔫 <b>${esc(r.title)}</b> (${r.count}명) — <span class="r">${r.scores.red}</span> : <span class="b">${r.scores.blue}</span>`
-    : `🧟 <b>${esc(r.title)}</b> (${r.count}명) — ${ZP[r.phase]} · 인간 승리 ${r.wins.human} / 좀비 승리 ${r.wins.zombie}`).join('<br>');
+    : r.mode === 'zombie' ? `🧟 <b>${esc(r.title)}</b> (${r.count}명) — ${ZP[r.phase]} · 인간 승리 ${r.wins.human} / 좀비 승리 ${r.wins.zombie}`
+    : `🏃 <b>${esc(r.title)}</b> (${r.count}명) — ${ZP[r.phase]}`).join('<br>');
   const fps = m.rooms.find(r => r.id === 'fps');
+  renderMapCtl(m);
   $('st-n').textContent = m.players.length; $('st-acc').textContent = m.accounts;
   if (!targetTouched && document.activeElement !== $('target')) $('target').value = fps.killTarget;
   $('empty').style.display = m.players.length ? 'none' : 'block';
+  renderChat(m.chat || []);
+  renderAccounts(m.accountList || []);
   $('list').innerHTML = m.players.map(p => `
     <tr>
       <td>${esc(p.name)}</td>
@@ -146,8 +184,10 @@ function render(m) {
       <td class="${TC[p.team] || ''}">${TN[p.team] || '-'}</td>
       <td>${p.room ? p.kills + ' / ' + p.deaths : '-'}</td>
       <td>${!p.room ? '-' : p.alive ? p.hp : '💀'}</td>
+      <td>🪙 ${p.coins}</td>
       <td class="row" style="justify-content:flex-end">
         ${p.room === 'fps' ? `<button onclick="cmd({t:'setTeam', id:${p.id}, team:'${p.team === 'red' ? 'blue' : 'red'}'})">팀 바꾸기</button>` : ''}
+        <button onclick="cmd({t:'mute', name:'${esc(p.name)}', on:${!p.muted}})">${p.muted ? '🔈 채팅 허용' : '🔇 채팅 금지'}</button>
         <button class="danger" onclick="if(confirm('${esc(p.name)} 님을 퇴장시킬까요?')) cmd({t:'kick', id:${p.id}})">퇴장</button>
       </td>
     </tr>`).join('');
@@ -155,9 +195,71 @@ function render(m) {
 function cmd(m) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); targetTouched = false; }
 
 $('f-ann').onsubmit = e => { e.preventDefault(); const t = $('ann').value.trim(); if (t) { cmd({ t: 'announce', text: t }); $('ann').value = ''; } };
-$('f-del').onsubmit = e => {
-  e.preventDefault(); const n = $('delname').value.trim();
-  if (n && confirm(`'${n}' 계정을 정말 삭제할까요? 되돌릴 수 없어요.`)) { cmd({ t: 'deleteAccount', name: n }); $('delname').value = ''; }
+
+$('btn-mute').onclick = () => { const n = $('mutename').value.trim(); if (n) cmd({ t: 'mute', name: n, on: true }); };
+$('btn-unmute').onclick = () => { const n = $('mutename').value.trim(); if (n) cmd({ t: 'mute', name: n, on: false }); };
+let lastMapKey = '';
+function renderMapCtl(m) {
+  const vr = m.rooms.filter(r => r.vote);
+  const key = JSON.stringify(vr.map(r => r.vote));
+  if (key === lastMapKey) return; lastMapKey = key;
+  $('mapctl').innerHTML = '<div style="font-weight:700;margin-bottom:6px">🗺️ 맵 선택 (안 고르면 투표 다수결)</div>' + vr.map(r => {
+    const v = r.vote, cur = v.maps.find(x => x.id === v.current), next = v.maps.find(x => x.id === v.next);
+    return `<div class="row" style="margin:6px 0">
+      <b style="min-width:110px">${esc(r.title)}</b>
+      <span style="color:#aab3c7">지금 ${cur.icon} · 다음 ${next.icon} ${esc(next.name)} ${v.adminPick ? '(👑 관리자)' : '(투표 ' + v.maps.map(x => x.icon + x.count).join(' ') + ')'}</span>
+      ${v.maps.map(x => `<button onclick="cmd({t:'setMap', room:'${r.id}', map:'${x.id}'})" ${v.adminPick === x.id ? 'class="blue"' : ''}>${x.icon} ${esc(x.name)}</button>`).join('')}
+      <button onclick="cmd({t:'setMap', room:'${r.id}', map:null})" ${!v.adminPick ? 'class="blue"' : ''}>🗳️ 투표대로</button>
+      <button class="green" onclick="if(confirm('지금 바로 다음 맵으로 바꾸고 라운드를 다시 시작할까요?')) cmd({t:'setMap', room:'${r.id}', map:${v.adminPick ? `'${v.adminPick}'` : 'null'}, now:true})">⚡ 지금 바꾸기</button>
+    </div>`;
+  }).join('');
+}
+let lastAccKey = '', accData = [];
+$('acc-search').addEventListener('input', () => { lastAccKey = ''; renderAccounts(accData); });
+function renderAccounts(list) {
+  accData = list;
+  // 표 안에서 숫자를 입력하는 중이면 다시 그리지 않기
+  if ($('acc-list').contains(document.activeElement)) return;
+  const q = $('acc-search').value.trim().toLowerCase();
+  const key = JSON.stringify(list) + q;
+  if (key === lastAccKey) return; lastAccKey = key;
+  const total = list.filter(x => !x.admin).reduce((s, x) => s + (Number(x.coins) || 0), 0);
+  $('acc-sum').textContent = `계정 ${list.length}개 · 밴 ${list.filter(x => x.banned).length}개 · 전체 코인 🪙 ${total.toLocaleString()} (관리자 제외)`;
+  const rows = list.filter(x => !q || x.name.toLowerCase().includes(q));
+  $('acc-list').innerHTML = rows.map(x => {
+    const n = esc(x.name);
+    const status = [x.online ? '🟢 접속 중' : '', x.banned ? '⛔ 밴' : '', x.muted ? '🔇' : ''].filter(Boolean).join(' ') || '-';
+    return `<tr style="${x.banned ? 'opacity:.55' : ''}">
+      <td>${x.rank ? x.rank + '등' : '-'}</td>
+      <td>${x.admin ? '👑 ' : ''}${n}</td>
+      <td><input type="number" min="0" value="${x.trophies}" style="width:80px;padding:6px" id="tr-${n}">
+        <button onclick="cmd({t:'setTrophies', name:'${n}', n:+document.getElementById('tr-${n}').value})">저장</button></td>
+      <td>${x.coins}</td>
+      <td>${status}</td>
+      <td class="row" style="justify-content:flex-end">${x.admin ? '' : `
+        ${x.banned ? `<button class="green" onclick="cmd({t:'ban', name:'${n}', on:false})">밴 풀기</button>`
+                   : `<button onclick="if(confirm('${n} 계정을 밴할까요? 로그인을 못 하게 돼요.')) cmd({t:'ban', name:'${n}', on:true})">⛔ 밴</button>`}
+        <button class="danger" onclick="if(confirm('${n} 계정을 완전히 삭제할까요? 코인, 트로피, 산 물건이 모두 사라지고 되돌릴 수 없어요.')) cmd({t:'deleteAccount', name:'${n}'})">🗑 삭제</button>`}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" style="color:#6e7891">계정이 없어요.</td></tr>';
+}
+let lastChatKey = '';
+function renderChat(list) {
+  const key = list.length + (list.at(-1)?.time || '');
+  if (key === lastChatKey) return; lastChatKey = key;
+  $('chatlog').innerHTML = list.length ? list.map(c => `<div><span style="color:#6e7891">${new Date(c.time).toLocaleTimeString('ko-KR')} · ${esc(c.where)}</span> <b>${esc(c.from)}</b>: ${esc(c.text)}</div>`).join('')
+    : '<div style="color:#6e7891">아직 채팅이 없어요.</div>';
+  $('chatlog').scrollTop = 1e6;
+}
+$('btn-play').onclick = async () => {
+  const r = await fetch('/api/admin/play', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) return alert(j.error || '실패했어요');
+  window.open('/#t=' + encodeURIComponent(j.token), '_blank');
+};
+$('f-coin').onsubmit = e => {
+  e.preventDefault(); const name = $('coinname').value.trim(), n = +$('coinn').value;
+  if (name && n) { cmd({ t: 'giveCoins', name, n }); $('coinn').value = ''; }
 };
 $('btn-down').onclick = () => { if (confirm('정말 전체 셧다운할까요? 모두 게임에서 나가져요.')) cmd({ t: 'shutdown' }); };
 $('btn-open').onclick = () => cmd({ t: 'reopen' });
