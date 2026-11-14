@@ -55,7 +55,7 @@
   #ammo small { font-size: 16px; color: #aab; }
   #feed { position: absolute; right: 16px; top: 14px; display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
   #feed div { background: rgba(0,0,0,.5); padding: 4px 10px; border-radius: 6px; font-size: 14px; }
-  #feed .r { color: #ff7a7a; } #feed .b { color: #6fb5ff; }
+  #feed .r { color: #ff7a7a; } #feed .b { color: #6fb5ff; } #feed .z { color: #7fe05a; }
   #center { position: absolute; top: 34%; width: 100%; text-align: center; font-size: 30px; font-weight: 800;
     text-shadow: 0 2px 8px #000; }
   #announce { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); background: #ffd34d; color: #222;
@@ -72,6 +72,26 @@
   #overlay p { margin: 0; color: #b6bfd2; line-height: 1.8; }
   #overlay.hide { display: none; }
   kbd { background: #2a3142; padding: 1px 7px; border-radius: 5px; font-family: inherit; }
+  #ov-lobby { margin-top: 18px; width: auto; padding: 10px 22px; background: #2c3550; color: #fff; }
+
+  /* 로비 */
+  .lobby { width: min(760px, 94vw); }
+  .lobby-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .lobby-top h1 { margin: 0; }
+  .lobby-top .who { color: #8a93a8; font-size: 14px; }
+  .lobby-top button { width: auto; margin: 0 0 0 10px; padding: 8px 14px; font-size: 13px; background: #232a3a; color: #9aa3b8; }
+  .rooms { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+  .room { background: #181d29; border: 1px solid #2a3142; border-radius: 16px; padding: 20px; cursor: pointer;
+    transition: transform .12s, border-color .12s; display: flex; flex-direction: column; gap: 8px; }
+  .room:hover { transform: translateY(-3px); border-color: #4da3ff; }
+  .room .icon { font-size: 44px; }
+  .room .title { font-size: 20px; font-weight: 800; }
+  .room .desc { color: #9aa3b8; font-size: 14px; line-height: 1.5; flex: 1; }
+  .room .count { font-size: 13px; color: #6fe39a; font-weight: 700; }
+  .room button { margin-top: 6px; }
+  .room.full { opacity: .5; cursor: not-allowed; }
+  #lobby-notice { color: #ffc23d; min-height: 20px; margin-top: 12px; text-align: center; }
+  #announce-lobby { background: #ffd34d; color: #222; padding: 8px 14px; border-radius: 8px; font-weight: 700; margin-bottom: 14px; display: none; }
 </style>
 </head>
 <body>
@@ -109,7 +129,20 @@
   </div>
 </div>
 
-<!-- 3단계: 게임 -->
+<!-- 3단계: 로비 -->
+<div class="screen" id="s-lobby">
+  <div class="lobby">
+    <div class="lobby-top">
+      <h1>🎮 게임 고르기</h1>
+      <div><span class="who" id="lobby-who"></span><button type="button" id="btn-logout">로그아웃</button></div>
+    </div>
+    <div id="announce-lobby"></div>
+    <div class="rooms" id="rooms"><div style="color:#8a93a8">불러오는 중…</div></div>
+    <div id="lobby-notice"></div>
+  </div>
+</div>
+
+<!-- 4단계: 게임 -->
 <div id="game">
   <div id="hud">
     <div id="dmg"></div>
@@ -134,6 +167,7 @@
       <kbd>마우스</kbd> 조준 &nbsp; <kbd>왼쪽 클릭</kbd> 사격 &nbsp; <kbd>R</kbd> 재장전<br>
       <kbd>Tab</kbd> 점수판 &nbsp; <kbd>Esc</kbd> 마우스 풀기
     </p>
+    <button type="button" id="ov-lobby">🏠 로비로 나가기</button>
   </div>
 </div>
 
@@ -188,21 +222,76 @@ $('f-auth').onsubmit = async e => {
   try {
     const r = await post(mode === 'signup' ? '/api/signup' : '/api/login', { code: entryCode, username, password });
     sessionStorage.setItem('token', r.token);
-    startGame(r.token);
+    connect(r.token);
   } catch (err) {
     $('auth-err').textContent = err.message;
     if (err.message.includes('입장 비밀번호')) { sessionStorage.removeItem('entryCode'); show('s-entry'); }
   }
 };
 
-async function startGame(token) {
+// ---------- 로비 ----------
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let ws, inGame = false, queue = [];
+
+function connect(token) {
+  show('s-lobby');
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(token)}`);
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if (inGame) { queue.push(m); return; }      // 게임 화면이 준비되는 동안 잠깐 모아 두기
+    if (m.t === 'hello') $('lobby-who').textContent = m.name + ' 님';
+    else if (m.t === 'lobby') renderRooms(m.rooms);
+    else if (m.t === 'notice') $('lobby-notice').textContent = m.text;
+    else if (m.t === 'announce') {
+      const a = $('announce-lobby'); a.textContent = '📢 ' + m.text; a.style.display = 'block';
+      setTimeout(() => (a.style.display = 'none'), 7000);
+    }
+    else if (m.t === 'welcome') enterGame(m);
+    else if (m.t === 'kicked') {
+      sessionStorage.removeItem('token');
+      ws.onclose = null;
+      alert(m.reason);
+      show('s-auth');
+    }
+  };
+  ws.onclose = () => {
+    if (inGame) return;
+    $('lobby-notice').textContent = '서버와 연결이 끊겼어요. 새로고침해 보세요.';
+  };
+}
+
+function renderRooms(rooms) {
+  $('rooms').innerHTML = rooms.map(r => {
+    const full = r.count >= r.max;
+    return `<div class="room ${full ? 'full' : ''}" data-id="${esc(r.id)}">
+      <div class="icon">${r.icon}</div>
+      <div class="title">${esc(r.title)}</div>
+      <div class="desc">${esc(r.desc)}</div>
+      <div class="count">👥 ${r.count} / ${r.max}명</div>
+      <button type="button">${full ? '꽉 찼어요' : '들어가기'}</button>
+    </div>`;
+  }).join('');
+  document.querySelectorAll('.room:not(.full)').forEach(el => {
+    el.onclick = () => { $('lobby-notice').textContent = ''; ws.send(JSON.stringify({ t: 'join', room: el.dataset.id })); };
+  });
+}
+
+async function enterGame(welcome) {
+  inGame = true;
   show(null);
   $('game').classList.add('on');
   const mod = await import('./game.js');
-  mod.start(token);
+  mod.start(ws, welcome, queue);
 }
 
-if (entryCode) show('s-auth');
+// 로비로 나가기 = 새로고침하면 로비부터 다시 시작해요
+$('ov-lobby').onclick = e => { e.stopPropagation(); location.reload(); };
+$('btn-logout').onclick = () => { sessionStorage.removeItem('token'); location.reload(); };
+
+const savedToken = sessionStorage.getItem('token');
+if (savedToken) connect(savedToken);
+else if (entryCode) show('s-auth');
 </script>
 </body>
 </html>

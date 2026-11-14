@@ -134,53 +134,194 @@ function rayBox(o, d, min, max) {
   return tmin;
 }
 
-// =====================================================
-//  게임 상태
-// =====================================================
-const players = new Map(); // id -> player
-let nextId = 1;
-const game = { scores: { red: 0, blue: 0 }, killTarget: 20, roundOver: false };
+// 좀비 모드용 출발 위치
+const ZSPAWNS = {
+  human: [[-10, -4], [10, -4], [-10, 4], [10, 4], [0, -6], [0, 6], [-18, 0], [18, 0]].map(([x, z]) => ({ x, z, yaw: Math.random() * 6.28 })),
+  zombie: [...MAP.spawns.red, ...MAP.spawns.blue],
+};
+const ZOMBIE_HP = 250;
+const ZOMBIE_ROUND_MS = 3 * 60 * 1000;
+const ZOMBIE_COUNTDOWN_MS = 10 * 1000;
+const ZOMBIE_END_MS = 7 * 1000;
+const ATTACK_MS = 600;
+const ATTACK_RANGE = 2.0;
 
-function teamCount(team) { let n = 0; for (const p of players.values()) if (p.team === team) n++; return n; }
-function pickTeam() {
-  const r = teamCount('red'), b = teamCount('blue');
+// =====================================================
+//  방(게임) 목록
+// =====================================================
+const ROOM_DEFS = [
+  { id: 'fps', mode: 'fps', icon: '🔫', title: '팀 배틀 FPS', desc: '빨강 팀 vs 파랑 팀! 먼저 목표 킬을 채우는 팀이 이겨요.' },
+  { id: 'zombie', mode: 'zombie', icon: '🧟', title: '좀비 모드', desc: '좀비에게 잡히면 나도 좀비! 3분 동안 살아남으세요.' },
+];
+const rooms = new Map();
+for (const d of ROOM_DEFS) {
+  rooms.set(d.id, {
+    ...d, players: new Map(),
+    scores: { red: 0, blue: 0 }, killTarget: 20, roundOver: false,      // 팀전
+    phase: 'waiting', phaseEnd: 0, wins: { human: 0, zombie: 0 },       // 좀비
+  });
+}
+
+const clients = new Map(); // id -> 접속한 사람 (로비에 있거나 방 안에 있음)
+let nextId = 1;
+
+function sendTo(p, msg) { if (p.ws && p.ws.open) p.ws.send(msg); }
+function roomBroadcast(room, msg) { const s = JSON.stringify(msg); for (const p of room.players.values()) sendTo(p, s); }
+function broadcastAll(msg) { const s = JSON.stringify(msg); for (const c of clients.values()) sendTo(c, s); }
+function countTeam(room, team) { let n = 0; for (const p of room.players.values()) if (p.team === team) n++; return n; }
+
+function pickTeam(room) {
+  if (room.mode === 'zombie') return room.phase === 'playing' ? 'zombie' : 'human';
+  const r = countTeam(room, 'red'), b = countTeam(room, 'blue');
   if (r !== b) return r < b ? 'red' : 'blue';
   return Math.random() < 0.5 ? 'red' : 'blue';
 }
-function spawn(p) {
-  const list = MAP.spawns[p.team];
+
+function spawn(room, p) {
+  const list = room.mode === 'fps' ? MAP.spawns[p.team] : ZSPAWNS[p.team];
   const s = list[Math.floor(Math.random() * list.length)];
   p.x = s.x + (Math.random() - 0.5); p.y = 0; p.z = s.z; p.yaw = s.yaw; p.pitch = 0;
-  p.hp = MAX_HP; p.alive = true; p.protectUntil = now() + SPAWN_PROTECT_MS;
+  p.hp = p.team === 'zombie' ? ZOMBIE_HP : MAX_HP;
+  p.alive = true; p.protectUntil = now() + SPAWN_PROTECT_MS;
   p.ammo = MAG_SIZE; p.reloadUntil = 0; p.lastMoveAt = now();
-  sendTo(p, { t: 'respawn', x: p.x, y: p.y, z: p.z, yaw: p.yaw });
-}
-function sendTo(p, msg) { if (p.ws && p.ws.open) p.ws.send(msg); }
-function broadcast(msg) { const s = JSON.stringify(msg); for (const p of players.values()) sendTo(p, s); }
-
-function resetRound() {
-  game.scores = { red: 0, blue: 0 };
-  game.roundOver = false;
-  for (const p of players.values()) { p.kills = 0; p.deaths = 0; spawn(p); }
-  broadcast({ t: 'round' });
+  sendTo(p, { t: 'respawn', x: p.x, y: p.y, z: p.z, yaw: p.yaw, hp: p.hp });
 }
 
-function kill(victim, killer, head) {
+function setRole(p, role) {
+  p.team = role;
+  sendTo(p, { t: 'role', role });
+}
+
+// ---------- 방 들어가기 / 나가기 ----------
+function joinRoom(c, roomId) {
+  const room = rooms.get(roomId);
+  if (!room || c.room) return;
+  if (room.players.size >= MAX_PLAYERS) return sendTo(c, { t: 'notice', text: `방이 꽉 찼어요 (최대 ${MAX_PLAYERS}명).` });
+  c.room = room;
+  Object.assign(c, {
+    team: pickTeam(room), x: 0, y: 0, z: 0, yaw: 0, pitch: 0, hp: MAX_HP, alive: false,
+    kills: 0, deaths: 0, lastShot: 0, lastAttack: 0, ammo: MAG_SIZE, reloadUntil: 0,
+    respawnAt: 0, protectUntil: 0, lastMoveAt: now(),
+  });
+  room.players.set(c.id, c);
+  sendTo(c, {
+    t: 'welcome', id: c.id, name: c.name, team: c.team, map: MAP,
+    mode: room.mode, roomTitle: room.title,
+    cfg: { maxHp: MAX_HP, zombieHp: ZOMBIE_HP, mag: MAG_SIZE, reloadMs: RELOAD_MS, fireMs: FIRE_INTERVAL, attackMs: ATTACK_MS },
+  });
+  spawn(room, c);
+  roomBroadcast(room, { t: 'joined', name: c.name });
+}
+function leaveRoom(c) {
+  const room = c.room;
+  if (!room) return;
+  room.players.delete(c.id);
+  c.room = null;
+  roomBroadcast(room, { t: 'left', name: c.name });
+}
+
+// =====================================================
+//  팀전 규칙
+// =====================================================
+function resetFps(room) {
+  room.scores = { red: 0, blue: 0 };
+  room.roundOver = false;
+  for (const p of room.players.values()) { p.kills = 0; p.deaths = 0; spawn(room, p); }
+  roomBroadcast(room, { t: 'round' });
+}
+function fpsKill(room, victim, killer, head) {
   victim.alive = false; victim.hp = 0; victim.deaths++;
   victim.respawnAt = now() + RESPAWN_MS;
   killer.kills++;
-  game.scores[killer.team]++;
-  broadcast({ t: 'kill', killer: killer.name, kteam: killer.team, victim: victim.name, vteam: victim.team, head });
-  if (!game.roundOver && game.scores[killer.team] >= game.killTarget) {
-    game.roundOver = true;
-    broadcast({ t: 'win', team: killer.team });
-    setTimeout(resetRound, 6000);
+  room.scores[killer.team]++;
+  roomBroadcast(room, { t: 'kill', killer: killer.name, kteam: killer.team, victim: victim.name, vteam: victim.team, head });
+  if (!room.roundOver && room.scores[killer.team] >= room.killTarget) {
+    room.roundOver = true;
+    roomBroadcast(room, { t: 'win', team: killer.team });
+    setTimeout(() => resetFps(room), 6000);
   }
 }
 
-function handleShoot(p, msg) {
+// =====================================================
+//  좀비 모드 규칙
+// =====================================================
+function setPhase(room, phase, ms) {
+  room.phase = phase; room.phaseEnd = now() + (ms || 0);
+  roomBroadcast(room, { t: 'phase', phase });
+}
+function resetZombie(room) {
+  for (const p of room.players.values()) { setRole(p, 'human'); p.kills = 0; p.deaths = 0; spawn(room, p); }
+  if (room.players.size >= 2) setPhase(room, 'countdown', ZOMBIE_COUNTDOWN_MS);
+  else setPhase(room, 'waiting');
+}
+function startZombieRound(room) {
+  const list = [...room.players.values()];
+  for (const p of list) { setRole(p, 'human'); spawn(room, p); }
+  const k = Math.max(1, Math.floor(list.length / 5));
+  for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; }
+  for (const p of list.slice(0, k)) { setRole(p, 'zombie'); spawn(room, p); }
+  setPhase(room, 'playing', ZOMBIE_ROUND_MS);
+  roomBroadcast(room, { t: 'zstart', zombies: list.slice(0, k).map(p => p.name) });
+}
+function endZombie(room, winner) {
+  if (winner) room.wins[winner]++;
+  setPhase(room, 'ended', ZOMBIE_END_MS);
+  roomBroadcast(room, { t: 'win', team: winner });
+}
+function zombieTick(room, t) {
+  const n = room.players.size;
+  switch (room.phase) {
+    case 'waiting':
+      if (n >= 2) setPhase(room, 'countdown', ZOMBIE_COUNTDOWN_MS);
+      break;
+    case 'countdown':
+      if (n < 2) setPhase(room, 'waiting');
+      else if (t >= room.phaseEnd) startZombieRound(room);
+      break;
+    case 'playing': {
+      const humans = countTeam(room, 'human'), zombies = countTeam(room, 'zombie');
+      if (n < 2) endZombie(room, null);
+      else if (humans === 0) endZombie(room, 'zombie');
+      else if (zombies === 0 || t >= room.phaseEnd) endZombie(room, 'human');
+      break;
+    }
+    case 'ended':
+      if (t >= room.phaseEnd) resetZombie(room);
+      break;
+  }
+}
+function handleAttack(room, p) {
   const t = now();
-  if (!p.alive || game.roundOver) return;
+  if (room.mode !== 'zombie' || p.team !== 'zombie' || !p.alive || room.phase !== 'playing') return;
+  if (t - p.lastAttack < ATTACK_MS - 30) return;
+  p.lastAttack = t;
+  roomBroadcast(room, { t: 'swing', id: p.id });
+  const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw);
+  let best = null, bestD = ATTACK_RANGE;
+  for (const q of room.players.values()) {
+    if (q.team !== 'human' || !q.alive) continue;
+    const dx = q.x - p.x, dz = q.z - p.z, d = Math.hypot(dx, dz);
+    if (d > bestD || Math.abs(q.y - p.y) > 1.6) continue;
+    if (d > 0.9 && (dx * fx + dz * fz) / d < 0.2) continue; // 앞쪽에 있어야 해요
+    best = q; bestD = d;
+  }
+  if (!best) return;
+  best.deaths++; p.kills++;
+  setRole(best, 'zombie');
+  best.hp = ZOMBIE_HP; best.protectUntil = t + 1000;
+  sendTo(best, { t: 'hurt', from: p.name });
+  sendTo(p, { t: 'hitmark', head: false, kill: true });
+  roomBroadcast(room, { t: 'infect', zombie: p.name, human: best.name });
+}
+
+// =====================================================
+//  공통: 사격 / 이동
+// =====================================================
+function handleShoot(room, p, msg) {
+  const t = now();
+  if (!p.alive) return;
+  if (room.mode === 'fps' && room.roundOver) return;
+  if (room.mode === 'zombie' && p.team === 'zombie') return;
   if (t - p.lastShot < FIRE_INTERVAL - 15) return;
   if (p.reloadUntil && t >= p.reloadUntil) { p.ammo = MAG_SIZE; p.reloadUntil = 0; }
   if (p.reloadUntil || p.ammo <= 0) return;
@@ -190,21 +331,22 @@ function handleShoot(p, msg) {
   if (len < 0.5) return;
   d = d.map(v => v / len);
   p.lastShot = t; p.ammo--;
-  p.protectUntil = 0; // 쏘면 부활 보호 해제
+  p.protectUntil = 0;
 
+  const canHit = q => room.mode === 'fps' ? q.team !== p.team : (room.phase === 'playing' && q.team === 'zombie');
   const o = [p.x, p.y + 1.6, p.z];
   let best = 100, hitPlayer = null;
   for (const b of MAP.boxes) {
     const tt = rayBox(o, d, b.min, b.max);
     if (tt < best) best = tt;
   }
-  for (const q of players.values()) {
-    if (q === p || !q.alive || q.team === p.team) continue;
+  for (const q of room.players.values()) {
+    if (q === p || !q.alive || !canHit(q)) continue;
     const tt = rayBox(o, d, [q.x - 0.4, q.y, q.z - 0.4], [q.x + 0.4, q.y + 1.85, q.z + 0.4]);
     if (tt < best) { best = tt; hitPlayer = q; }
   }
   const end = [o[0] + d[0] * best, o[1] + d[1] * best, o[2] + d[2] * best];
-  broadcast({ t: 'shot', id: p.id, o, e: end });
+  roomBroadcast(room, { t: 'shot', id: p.id, o, e: end });
 
   if (hitPlayer) {
     const q = hitPlayer;
@@ -214,7 +356,13 @@ function handleShoot(p, msg) {
     sendTo(q, { t: 'hurt', from: p.name });
     const dead = q.hp <= 0;
     sendTo(p, { t: 'hitmark', head, kill: dead });
-    if (dead) kill(q, p, head);
+    if (dead) {
+      if (room.mode === 'fps') fpsKill(room, q, p, head);
+      else {
+        q.alive = false; q.hp = 0; q.deaths++; q.respawnAt = t + RESPAWN_MS; p.kills++;
+        roomBroadcast(room, { t: 'kill', killer: p.name, kteam: 'human', victim: q.name, vteam: 'zombie', head });
+      }
+    }
   }
 }
 
@@ -230,37 +378,58 @@ function handleMove(p, msg) {
   const dist = Math.hypot(x - p.x, z - p.z);
   const lim = MAP.size - 1;
   if (dist > maxStep || Math.abs(x) > lim || Math.abs(z) > lim || y < -0.5 || y > 8) {
-    sendTo(p, { t: 'correct', x: p.x, y: p.y, z: p.z }); // 너무 빠르면 되돌리기
+    sendTo(p, { t: 'correct', x: p.x, y: p.y, z: p.z });
   } else {
     p.x = x; p.y = y; p.z = z;
   }
   p.yaw = yaw; p.pitch = Math.max(-1.6, Math.min(1.6, pitch));
 }
 
-function kickPlayer(p, reason, block) {
-  if (block) kickBlocks.set(p.name, now() + KICK_BLOCK_MS);
-  sendTo(p, { t: 'kicked', reason });
-  setTimeout(() => p.ws.close(), 100);
+function kickClient(c, reason, block) {
+  if (block) kickBlocks.set(c.name, now() + KICK_BLOCK_MS);
+  sendTo(c, { t: 'kicked', reason });
+  setTimeout(() => c.ws.close(), 100);
+}
+
+function lobbyInfo() {
+  return {
+    t: 'lobby',
+    rooms: [...rooms.values()].map(r => ({ id: r.id, icon: r.icon, title: r.title, desc: r.desc, count: r.players.size, max: MAX_PLAYERS })),
+  };
 }
 
 // 주기적 업데이트
 setInterval(() => {
   const t = now();
-  for (const p of players.values()) {
-    if (!p.alive && !game.roundOver && t >= p.respawnAt) spawn(p);
+  for (const room of rooms.values()) {
+    if (room.mode === 'zombie') zombieTick(room, t);
+    for (const p of room.players.values()) {
+      if (!p.alive && t >= p.respawnAt && !(room.mode === 'fps' && room.roundOver)) spawn(room, p);
+    }
+    if (!room.players.size) continue;
+    const state = {
+      t: 'state',
+      p: [...room.players.values()].map(p => ({
+        id: p.id, n: p.name, tm: p.team,
+        x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2),
+        yw: +p.yaw.toFixed(3), pt: +p.pitch.toFixed(3),
+        hp: Math.max(0, p.hp), a: p.alive ? 1 : 0, k: p.kills, d: p.deaths,
+      })),
+    };
+    if (room.mode === 'fps') { state.s = room.scores; state.target = room.killTarget; }
+    else {
+      state.ph = room.phase; state.w = room.wins;
+      state.tl = Math.max(0, Math.ceil((room.phaseEnd - t) / 1000));
+    }
+    roomBroadcast(room, state);
   }
-  const state = {
-    t: 'state',
-    s: game.scores, target: game.killTarget,
-    p: [...players.values()].map(p => ({
-      id: p.id, n: p.name, tm: p.team,
-      x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2),
-      yw: +p.yaw.toFixed(3), pt: +p.pitch.toFixed(3),
-      hp: p.hp, a: p.alive ? 1 : 0, k: p.kills, d: p.deaths,
-    })),
-  };
-  broadcast(state);
 }, TICK_MS);
+
+// 로비 정보 (1초마다)
+setInterval(() => {
+  const s = JSON.stringify(lobbyInfo());
+  for (const c of clients.values()) if (!c.room) sendTo(c, s);
+}, 1000);
 
 // =====================================================
 //  관리자
@@ -270,11 +439,14 @@ function adminSnapshot() {
   return {
     t: 'admin',
     shutdown,
-    scores: game.scores, killTarget: game.killTarget,
     accounts: Object.keys(accounts).length,
-    players: [...players.values()].map(p => ({
-      id: p.id, name: p.name, team: p.team, kills: p.kills, deaths: p.deaths,
-      hp: p.hp, alive: p.alive, ip: p.ip,
+    rooms: [...rooms.values()].map(r => ({
+      id: r.id, title: r.title, mode: r.mode, count: r.players.size,
+      scores: r.scores, killTarget: r.killTarget, phase: r.phase, wins: r.wins,
+    })),
+    players: [...clients.values()].map(c => ({
+      id: c.id, name: c.name, room: c.room ? c.room.id : null, roomTitle: c.room ? c.room.title : '로비',
+      team: c.room ? c.team : null, kills: c.kills || 0, deaths: c.deaths || 0, hp: c.hp, alive: !!c.alive,
     })),
   };
 }
@@ -287,32 +459,36 @@ setInterval(() => {
 function handleAdminCommand(ws, msg) {
   switch (msg.t) {
     case 'kick': {
-      const p = players.get(Number(msg.id));
-      if (p) kickPlayer(p, '관리자가 퇴장시켰어요.', true);
+      const c = clients.get(Number(msg.id));
+      if (c) kickClient(c, '관리자가 퇴장시켰어요.', true);
       break;
     }
     case 'setTeam': {
-      const p = players.get(Number(msg.id));
-      if (p && (msg.team === 'red' || msg.team === 'blue') && p.team !== msg.team) {
-        p.team = msg.team; spawn(p);
-        sendTo(p, { t: 'team', team: p.team });
+      const c = clients.get(Number(msg.id));
+      if (c && c.room && c.room.mode === 'fps' && (msg.team === 'red' || msg.team === 'blue') && c.team !== msg.team) {
+        setRole(c, msg.team); spawn(c.room, c);
       }
       break;
     }
-    case 'resetRound': resetRound(); break;
+    case 'resetRound': {
+      const room = rooms.get(msg.room);
+      if (room) room.mode === 'fps' ? resetFps(room) : resetZombie(room);
+      break;
+    }
     case 'setTarget': {
       const n = Math.round(Number(msg.n));
-      if (n >= 1 && n <= 200) game.killTarget = n;
+      const room = rooms.get('fps');
+      if (n >= 1 && n <= 200) room.killTarget = n;
       break;
     }
     case 'announce': {
       const text = String(msg.text || '').slice(0, 100).trim();
-      if (text) broadcast({ t: 'announce', text });
+      if (text) broadcastAll({ t: 'announce', text });
       break;
     }
     case 'shutdown': {
       shutdown = true;
-      for (const p of players.values()) kickPlayer(p, '관리자가 서버를 닫았어요.', false);
+      for (const c of clients.values()) kickClient(c, '관리자가 서버를 닫았어요.', false);
       for (const tok of sessions.keys()) sessions.delete(tok);
       break;
     }
@@ -320,7 +496,7 @@ function handleAdminCommand(ws, msg) {
     case 'deleteAccount': {
       const name = String(msg.name || '');
       if (accounts[name]) {
-        for (const p of players.values()) if (p.name === name) kickPlayer(p, '계정이 삭제됐어요.', false);
+        for (const c of clients.values()) if (c.name === name) kickClient(c, '계정이 삭제됐어요.', false);
         delete accounts[name]; saveAccounts();
       }
       break;
@@ -394,6 +570,7 @@ class WS {
   }
 }
 
+
 function handlePlayer(ws, token, ip) {
   const fail = reason => { ws.send({ t: 'kicked', reason }); setTimeout(() => ws.close(), 100); };
   if (shutdown) return fail('서버가 닫혀 있어요.');
@@ -404,36 +581,29 @@ function handlePlayer(ws, token, ip) {
   const block = kickBlocks.get(name);
   if (block && block > now()) return fail('퇴장당해서 잠시 후에 다시 들어올 수 있어요.');
   // 같은 계정이 이미 접속 중이면 이전 접속을 끊기
-  for (const p of players.values()) if (p.name === name) kickPlayer(p, '다른 곳에서 같은 계정으로 접속했어요.', false);
-  if (players.size >= MAX_PLAYERS) return fail(`방이 꽉 찼어요 (최대 ${MAX_PLAYERS}명).`);
+  for (const c of clients.values()) if (c.name === name) kickClient(c, '다른 곳에서 같은 계정으로 접속했어요.', false);
+  if (clients.size >= MAX_PLAYERS * rooms.size) return fail('서버가 꽉 찼어요.');
 
-  const p = {
-    id: nextId++, name, ip, ws, team: pickTeam(),
-    x: 0, y: 0, z: 0, yaw: 0, pitch: 0, hp: MAX_HP, alive: false,
-    kills: 0, deaths: 0, lastShot: 0, ammo: MAG_SIZE, reloadUntil: 0,
-    respawnAt: 0, protectUntil: 0, lastMoveAt: now(),
-  };
-  players.set(p.id, p);
-  ws.send({
-    t: 'welcome', id: p.id, name, team: p.team, map: MAP,
-    cfg: { maxHp: MAX_HP, mag: MAG_SIZE, reloadMs: RELOAD_MS, fireMs: FIRE_INTERVAL },
-  });
-  spawn(p);
-  broadcast({ t: 'joined', name, team: p.team });
+  const c = { id: nextId++, name, ip, ws, room: null };
+  clients.set(c.id, c);
+  ws.send({ t: 'hello', name });
+  ws.send(lobbyInfo());
 
   ws.onmessage = raw => {
     let msg; try { msg = JSON.parse(raw); } catch { return; }
-    if (msg.t === 'move') handleMove(p, msg);
-    else if (msg.t === 'shoot') handleShoot(p, msg);
+    const room = c.room;
+    if (msg.t === 'join') joinRoom(c, String(msg.room));
+    else if (!room) return;
+    else if (msg.t === 'move') handleMove(c, msg);
+    else if (msg.t === 'shoot') handleShoot(room, c, msg);
+    else if (msg.t === 'attack') handleAttack(room, c);
     else if (msg.t === 'reload') {
-      if (!p.reloadUntil && p.ammo < MAG_SIZE) p.reloadUntil = now() + RELOAD_MS;
+      if (!c.reloadUntil && c.ammo < MAG_SIZE) c.reloadUntil = now() + RELOAD_MS;
     }
   };
   ws.onclose = () => {
-    if (players.get(p.id) === p) {
-      players.delete(p.id);
-      broadcast({ t: 'left', name });
-    }
+    leaveRoom(c);
+    if (clients.get(c.id) === c) clients.delete(c.id);
   };
 }
 

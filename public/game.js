@@ -4,14 +4,16 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
 const $ = id => document.getElementById(id);
-const TEAM_COLOR = { red: 0xe84848, blue: 0x3d8bff };
-const TEAM_NAME = { red: '빨강 팀', blue: '파랑 팀' };
+const TEAM_COLOR = { red: 0xe84848, blue: 0x3d8bff, human: 0x3d8bff, zombie: 0x4f9a3a };
+const TEAM_NAME = { red: '빨강 팀', blue: '파랑 팀', human: '인간', zombie: '좀비' };
+const TEAM_CSS = { red: '#ff7a7a', blue: '#6fb5ff', human: '#6fb5ff', zombie: '#7fe05a' };
 const R = 0.35, H = 1.8, EYE = 1.6;
 const RUN = 6.5, WALK = 3.2, JUMP = 6.5, GRAV = 18;
 
-let ws, myId, myTeam, myName, cfg, map;
+let ws, myId, myTeam, myName, cfg, map, mode = 'fps';
+let lastAttack = 0, swing = 0;
 let boxes = [];
-const me = { x: 0, y: 0, z: 0, vy: 0, yaw: 0, pitch: 0, onGround: true, alive: false, hp: 100 };
+const me = { x: 0, y: 0, z: 0, vy: 0, yaw: 0, pitch: 0, onGround: true, alive: false, hp: 100, maxHp: 100 };
 let ammo = 25, reloadUntil = 0, lastFire = 0, mouseDown = false, recoil = 0;
 const keys = {};
 const others = new Map(); // id -> { group, target, ... }
@@ -56,6 +58,18 @@ const flash = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), new THREE.Mes
 flash.position.set(0, 0.02, -0.7); flash.visible = false; gun.add(flash);
 gun.position.set(0.22, -0.2, -0.35);
 camera.add(gun);
+
+// 좀비 손 (화면에 보이는 것)
+const claws = new THREE.Group();
+const clawMat = new THREE.MeshLambertMaterial({ color: 0x5c9e3e });
+for (const sx of [-0.28, 0.28]) {
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.6), clawMat);
+  arm.position.set(sx, -0.25, -0.45);
+  claws.add(arm);
+}
+claws.visible = false;
+camera.add(claws);
+const isZombie = () => mode === 'zombie' && myTeam === 'zombie';
 
 // ---------- 맵 만들기 ----------
 function buildMap() {
@@ -108,19 +122,27 @@ function nameSprite(text, color) {
   return s;
 }
 function makeAvatar(name, team) {
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.3, 0.45), new THREE.MeshLambertMaterial({ color: TEAM_COLOR[team] }));
+  const zombie = team === 'zombie';
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.3, 0.45), new THREE.MeshLambertMaterial({ color: zombie ? 0x3f6b2e : TEAM_COLOR[team] }));
   body.position.y = 0.65; body.castShadow = true;
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 0.45), new THREE.MeshLambertMaterial({ color: 0xf1c9a0 }));
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 0.45), new THREE.MeshLambertMaterial({ color: zombie ? 0x7cc35a : 0xf1c9a0 }));
   head.position.y = 1.6; head.castShadow = true;
-  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.1, 0.05), new THREE.MeshBasicMaterial({ color: 0x222222 }));
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.1, 0.05), new THREE.MeshBasicMaterial({ color: zombie ? 0xff2020 : 0x222222 }));
   visor.position.set(0, 1.65, -0.23);
-  const arm = new THREE.Group(); arm.position.set(0.25, 1.25, 0);
-  const rifle = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.6), gunMat);
-  rifle.position.set(0, 0, -0.35); rifle.castShadow = true;
-  arm.add(rifle);
-  const label = nameSprite(name, team === 'red' ? '#ff8a8a' : '#8cc4ff');
+  const arm = new THREE.Group(); arm.position.set(0, 1.25, 0);
+  if (zombie) {
+    for (const sx of [-0.25, 0.25]) {
+      const a = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.65), new THREE.MeshLambertMaterial({ color: 0x7cc35a }));
+      a.position.set(sx, 0, -0.35); a.castShadow = true; arm.add(a);
+    }
+  } else {
+    const rifle = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.6), gunMat);
+    rifle.position.set(0.25, 0, -0.35); rifle.castShadow = true;
+    arm.add(rifle);
+  }
+  const label = nameSprite(name, TEAM_CSS[team] || '#fff');
   const grp = new THREE.Group(); grp.add(body, head, visor, arm, label);
-  return { group: grp, arm, label, body, team };
+  return { group: grp, arm, label, body, team, swing: 0 };
 }
 function syncOthers(list) {
   const seen = new Set();
@@ -176,7 +198,10 @@ document.addEventListener('mousemove', e => {
   me.pitch -= e.movementY * 0.0022;
   me.pitch = Math.max(-1.5, Math.min(1.5, me.pitch));
 });
-document.addEventListener('mousedown', e => { if (locked() && e.button === 0) mouseDown = true; });
+document.addEventListener('mousedown', e => {
+  if (!locked() || e.button !== 0) return;
+  if (isZombie()) attack(); else mouseDown = true;
+});
 document.addEventListener('mouseup', e => { if (e.button === 0) mouseDown = false; });
 document.addEventListener('keydown', e => {
   keys[e.code] = true;
@@ -188,7 +213,15 @@ document.addEventListener('keyup', e => {
   if (e.code === 'Tab') $('board').style.display = 'none';
 });
 
+function attack() {
+  const t = performance.now();
+  if (!me.alive || t - lastAttack < cfg.attackMs) return;
+  lastAttack = t; swing = 1;
+  send({ t: 'attack' });
+}
+
 function reload() {
+  if (isZombie()) return;
   if (reloadUntil || ammo >= cfg.mag || !me.alive) return;
   reloadUntil = performance.now() + cfg.reloadMs;
   send({ t: 'reload' });
@@ -198,7 +231,7 @@ function reload() {
 const ray = new THREE.Raycaster();
 function fire() {
   const t = performance.now();
-  if (!me.alive || reloadUntil || t - lastFire < cfg.fireMs) return;
+  if (!me.alive || isZombie() || reloadUntil || t - lastFire < cfg.fireMs) return;
   if (ammo <= 0) { reload(); return; }
   lastFire = t; ammo--;
   const dir = new THREE.Vector3();
@@ -228,6 +261,7 @@ function feed(html) {
   setTimeout(() => d.remove(), 6000);
 }
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const cls = t => ({ red: 'r', blue: 'b', human: 'b', zombie: 'z' }[t] || '');
 let centerTimer;
 function center(text, ms) {
   $('center').textContent = text;
@@ -235,32 +269,72 @@ function center(text, ms) {
   if (ms) centerTimer = setTimeout(() => ($('center').textContent = ''), ms);
 }
 function setTeamUI() {
-  $('teamtag').textContent = `${myName} · ${TEAM_NAME[myTeam]}`;
-  $('teamtag').style.color = myTeam === 'red' ? '#ff7a7a' : '#6fb5ff';
+  $('teamtag').textContent = `${myName} · ${TEAM_NAME[myTeam]}${myTeam === 'zombie' ? ' 🧟' : ''}`;
+  $('teamtag').style.color = TEAM_CSS[myTeam];
+  me.maxHp = myTeam === 'zombie' ? cfg.zombieHp : cfg.maxHp;
+  gun.visible = !isZombie(); claws.visible = isZombie();
+  $('ammo').style.display = isZombie() ? 'none' : 'block';
+  if (isZombie()) mouseDown = false;
 }
+const fmtTime = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+const PHASE_TEXT = { waiting: '2명 이상 모이면 시작해요', countdown: '곧 좀비가 나타나요!', playing: '', ended: '' };
 
 function onMessage(m) {
   switch (m.t) {
     case 'welcome':
-      myId = m.id; myTeam = m.team; myName = m.name; cfg = m.cfg; map = m.map;
+      myId = m.id; myTeam = m.team; myName = m.name; cfg = m.cfg; map = m.map; mode = m.mode;
       ammo = cfg.mag;
       buildMap(); setTeamUI();
-      center(`${TEAM_NAME[myTeam]}이에요!`, 2500);
+      document.title = m.roomTitle;
+      if (mode === 'zombie') {
+        $('ov-title').textContent = '🧟 좀비 모드 · 클릭해서 시작';
+        $('ov-text').innerHTML = `인간: 총으로 좀비를 막고 3분 동안 살아남기<br>좀비: <kbd>왼쪽 클릭</kbd>으로 인간을 잡아서 좀비로 만들기<br><br>` + $('ov-text').innerHTML;
+        scene.background.set(0x6f7f94); scene.fog.color.set(0x6f7f94);
+      } else {
+        center(`${TEAM_NAME[myTeam]}이에요!`, 2500);
+      }
       break;
+    case 'role':
+      myTeam = m.role; setTeamUI();
+      if (mode === 'zombie' && myTeam === 'zombie') center('🧟 좀비가 됐어요! 인간을 잡으세요!', 3000);
+      else if (mode === 'fps') center(`${TEAM_NAME[myTeam]}으로 옮겨졌어요`, 2500);
+      break;
+    case 'phase':
+      if (m.phase === 'countdown') center('곧 시작해요!', 2000);
+      if (m.phase === 'waiting') center('2명 이상 모이면 시작해요', 2500);
+      break;
+    case 'zstart':
+      center(myTeam === 'zombie' ? '🧟 당신이 첫 좀비예요! 인간을 잡으세요!' : `🧟 좀비 등장: ${m.zombies.join(', ')} · 도망쳐요!`, 3500);
+      break;
+    case 'infect':
+      feed(`<span class="z">${esc(m.zombie)}</span> 🧟 <span class="b">${esc(m.human)}</span> 감염`);
+      if (m.zombie === myName) center('잡았다! 🧟', 900);
+      break;
+    case 'swing': {
+      const o = others.get(m.id); if (o) o.swing = 1;
+      break;
+    }
     case 'respawn':
-      Object.assign(me, { x: m.x, y: m.y, z: m.z, yaw: m.yaw, pitch: 0, vy: 0, alive: true, hp: cfg.maxHp });
+      Object.assign(me, { x: m.x, y: m.y, z: m.z, yaw: m.yaw, pitch: 0, vy: 0, alive: true, hp: m.hp ?? cfg.maxHp });
       ammo = cfg.mag; reloadUntil = 0;
-      if ($('center').textContent.includes('부활')) center('', 0);
+      if (/부활|일어나요/.test($('center').textContent)) center('', 0);
       break;
     case 'correct':
       me.x = m.x; me.y = m.y; me.z = m.z; me.vy = 0;
       break;
     case 'state':
       lastState = m;
-      $('sc-r').textContent = m.s.red; $('sc-b').textContent = m.s.blue; $('sc-t').textContent = `목표 ${m.target}`;
+      if (mode === 'fps') {
+        $('sc-r').textContent = m.s.red; $('sc-b').textContent = m.s.blue; $('sc-t').textContent = `목표 ${m.target}`;
+      } else {
+        const humans = m.p.filter(p => p.tm === 'human').length, zombies = m.p.length - humans;
+        $('sc-r').textContent = `🧑 ${humans}`; $('sc-r').style.color = '#6fb5ff';
+        $('sc-b').textContent = `🧟 ${zombies}`; $('sc-b').style.color = '#7fe05a';
+        $('sc-t').textContent = m.ph === 'playing' ? `⏱ ${fmtTime(m.tl)}` : m.ph === 'countdown' ? `시작까지 ${m.tl}초` : PHASE_TEXT[m.ph] || '';
+      }
       syncOthers(m.p);
       for (const p of m.p) if (p.id === myId) {
-        if (me.alive && !p.a) { me.alive = false; center('죽었어요! 3초 후 부활', 0); }
+        if (me.alive && !p.a) { me.alive = false; center(mode === 'zombie' ? '쓰러졌어요! 3초 후 다시 일어나요' : '죽었어요! 3초 후 부활', 0); }
         me.hp = p.hp;
       }
       if ($('board').style.display === 'block') renderBoard();
@@ -278,17 +352,16 @@ function onMessage(m) {
       break;
     }
     case 'kill':
-      feed(`<span class="${m.kteam[0]}">${esc(m.killer)}</span> ${m.head ? '🎯' : '🔫'} <span class="${m.vteam[0]}">${esc(m.victim)}</span>`);
+      feed(`<span class="${cls(m.kteam)}">${esc(m.killer)}</span> ${m.head ? '🎯' : '🔫'} <span class="${cls(m.vteam)}">${esc(m.victim)}</span>`);
       if (m.killer === myName) center(m.head ? '헤드샷 킬!' : '킬!', 900);
       break;
     case 'win':
-      center(`${TEAM_NAME[m.team]} 승리! 🎉 곧 다음 라운드`, 0);
+      if (mode === 'zombie') {
+        center(m.team === 'human' ? '🧑 인간 승리! 끝까지 살아남았어요 🎉' : m.team === 'zombie' ? '🧟 좀비 승리! 모두 감염됐어요' : '인원이 부족해서 라운드가 끝났어요', 6000);
+      } else center(`${TEAM_NAME[m.team]} 승리! 🎉 곧 다음 라운드`, 0);
       break;
     case 'round':
       center('새 라운드 시작!', 2000);
-      break;
-    case 'team':
-      myTeam = m.team; setTeamUI(); center(`${TEAM_NAME[myTeam]}으로 옮겨졌어요`, 2500);
       break;
     case 'joined': feed(`${esc(m.name)} 님이 들어왔어요`); break;
     case 'left': feed(`${esc(m.name)} 님이 나갔어요`); break;
@@ -306,11 +379,13 @@ function onMessage(m) {
 
 function renderBoard() {
   if (!lastState) return;
+  const teams = mode === 'fps' ? ['red', 'blue'] : ['human', 'zombie'];
   const rows = team => lastState.p.filter(p => p.tm === team).sort((a, b) => b.k - a.k)
     .map(p => `<tr class="${p.id === myId ? 'me' : ''}"><td>${esc(p.n)}</td><td>${p.k}</td><td>${p.d}</td></tr>`).join('');
-  $('board').innerHTML = ['red', 'blue'].map(t => `
-    <div style="color:${t === 'red' ? '#ff7a7a' : '#6fb5ff'};font-weight:800;margin:6px 0">${TEAM_NAME[t]} — ${lastState.s[t]}점</div>
-    <table><tr><th>이름</th><th>킬</th><th>데스</th></tr>${rows(t)}</table>`).join('');
+  const head = t => mode === 'fps' ? `${TEAM_NAME[t]} — ${lastState.s[t]}점` : `${TEAM_NAME[t]} — 승리 ${lastState.w[t]}번`;
+  $('board').innerHTML = teams.map(t => `
+    <div style="color:${TEAM_CSS[t]};font-weight:800;margin:6px 0">${head(t)}</div>
+    <table><tr><th>이름</th><th>${mode === 'fps' ? '킬' : t === 'zombie' ? '감염' : '처치'}</th><th>데스</th></tr>${rows(t)}</table>`).join('');
 }
 
 // ---------- 매 프레임 ----------
@@ -326,7 +401,7 @@ function frame() {
 
   if (map && me.alive) {
     // 이동
-    const speed = keys.ShiftLeft || keys.ShiftRight ? WALK : RUN;
+    const speed = keys.ShiftLeft || keys.ShiftRight ? WALK : isZombie() ? 7.3 : RUN;
     let fx = 0, fz = 0;
     if (locked()) {
       if (keys.KeyW) fz -= 1; if (keys.KeyS) fz += 1;
@@ -361,9 +436,13 @@ function frame() {
   // 카메라
   camera.position.set(me.x, me.y + (me.alive ? EYE : 0.4), me.z);
   camera.rotation.set(me.pitch, me.yaw, me.alive ? 0 : 0.5);
-  gun.visible = me.alive;
+  gun.visible = me.alive && !isZombie();
+  claws.visible = me.alive && isZombie();
   recoil *= 0.8;
   gun.position.z = -0.35 + recoil;
+  swing = Math.max(0, swing - dt * 5);
+  claws.position.z = -Math.sin(swing * Math.PI) * 0.35;
+  claws.rotation.x = -Math.sin(swing * Math.PI) * 0.5;
 
   // 다른 플레이어 부드럽게 움직이기
   const k = Math.min(1, dt * 15);
@@ -371,7 +450,8 @@ function frame() {
     const p = o.group.position;
     p.x += (o.tx - p.x) * k; p.y += (o.ty - p.y) * k; p.z += (o.tz - p.z) * k;
     o.group.rotation.y = lerpAngle(o.group.rotation.y, o.tyaw, k);
-    o.arm.rotation.x = o.tpitch;
+    o.swing = Math.max(0, o.swing - dt * 5);
+    o.arm.rotation.x = o.tpitch - Math.sin(o.swing * Math.PI) * 0.8;
     o.group.rotation.z = o.alive ? 0 : Math.PI / 2;
     o.label.visible = o.alive && o.team === myTeam || o.alive && p.distanceTo(camera.position) < 25;
   }
@@ -384,18 +464,21 @@ function frame() {
 
   // HUD
   $('hptext').textContent = Math.max(0, me.hp);
-  $('hpfill').style.width = Math.max(0, me.hp) + '%';
-  $('hpfill').style.background = me.hp > 50 ? '#4cdc7a' : me.hp > 25 ? '#ffc23d' : '#ff4d4d';
+  const hpPct = Math.max(0, me.hp) / me.maxHp * 100;
+  $('hpfill').style.width = hpPct + '%';
+  $('hpfill').style.background = hpPct > 50 ? '#4cdc7a' : hpPct > 25 ? '#ffc23d' : '#ff4d4d';
   if (cfg) $('ammo').innerHTML = reloadUntil ? '재장전…' : `${ammo} <small>/ ${cfg.mag}</small>`;
 
   renderer.render(scene, camera);
 }
 
 // ---------- 시작 ----------
-export function start(token) {
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  ws = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(token)}`);
-  ws.onmessage = e => { try { onMessage(JSON.parse(e.data)); } catch (err) { console.error(err); } };
+export function start(socket, welcome, queued) {
+  ws = socket;
+  const handle = m => { try { onMessage(m); } catch (err) { console.error(err); } };
+  handle(welcome);
+  for (const m of queued.splice(0)) handle(m);
+  ws.onmessage = e => handle(JSON.parse(e.data));
   ws.onclose = () => { if (!ended) endGame('연결이 끊겼어요', '서버와 연결이 끊어졌어요.'); };
   frame();
 }

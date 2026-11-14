@@ -22,7 +22,7 @@
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   th, td { padding: 8px 6px; text-align: left; border-bottom: 1px solid #252c3c; }
   th { color: #8a93a8; font-weight: 600; }
-  .r { color: #ff7a7a; font-weight: 700; } .b { color: #6fb5ff; font-weight: 700; }
+  .r { color: #ff7a7a; font-weight: 700; } .b { color: #6fb5ff; font-weight: 700; } .z { color: #7fe05a; font-weight: 700; }
   .status { font-size: 15px; display: flex; gap: 18px; flex-wrap: wrap; }
   .pill { padding: 3px 10px; border-radius: 99px; font-weight: 700; font-size: 13px; }
   .open { background: #1f4d30; color: #6fe39a; } .closed { background: #5a1f1f; color: #ff8a8a; }
@@ -48,7 +48,6 @@
     <div class="card">
       <div class="status">
         <span>서버: <span id="st-open" class="pill open">열림</span></span>
-        <span>점수: <span class="r" id="st-r">0</span> : <span class="b" id="st-b">0</span></span>
         <span>접속자: <b id="st-n">0</b>명</span>
         <span>가입한 계정: <b id="st-acc">0</b>개</span>
       </div>
@@ -56,9 +55,11 @@
 
     <div class="card">
       <h2>게임 관리</h2>
+      <div id="roomstat" style="margin-bottom:12px;line-height:1.9"></div>
       <div class="row" style="margin-bottom:10px">
-        <button onclick="cmd({t:'resetRound'})">🔄 라운드 리셋</button>
-        <span style="margin-left:8px">목표 킬</span>
+        <button onclick="cmd({t:'resetRound', room:'fps'})">🔄 팀전 리셋</button>
+        <button onclick="cmd({t:'resetRound', room:'zombie'})">🔄 좀비 모드 리셋</button>
+        <span style="margin-left:8px">팀전 목표 킬</span>
         <input id="target" type="number" min="1" max="200" style="width:80px">
         <button onclick="cmd({t:'setTarget', n: +document.getElementById('target').value})">적용</button>
       </div>
@@ -71,7 +72,7 @@
     <div class="card">
       <h2>접속 중인 플레이어</h2>
       <table>
-        <thead><tr><th>이름</th><th>팀</th><th>킬/데스</th><th>체력</th><th></th></tr></thead>
+        <thead><tr><th>이름</th><th>있는 곳</th><th>팀</th><th>킬/데스</th><th>체력</th><th></th></tr></thead>
         <tbody id="list"></tbody>
       </table>
       <div id="empty" style="color:#6e7891;padding:10px 0">아직 아무도 없어요.</div>
@@ -123,23 +124,30 @@ function connect() {
 }
 
 let targetTouched = false;
+const TN = { red: '빨강', blue: '파랑', human: '인간', zombie: '좀비' };
+const TC = { red: 'r', blue: 'b', human: 'b', zombie: 'z' };
 $('target').addEventListener('input', () => (targetTouched = true));
 function render(m) {
   $('login').style.display = 'none'; $('panel').style.display = 'block';
   $('st-open').textContent = m.shutdown ? '닫힘' : '열림';
   $('st-open').className = 'pill ' + (m.shutdown ? 'closed' : 'open');
-  $('st-r').textContent = m.scores.red; $('st-b').textContent = m.scores.blue;
+  const ZP = { waiting: '사람 기다리는 중', countdown: '곧 시작', playing: '진행 중', ended: '라운드 끝' };
+  $('roomstat').innerHTML = m.rooms.map(r => r.mode === 'fps'
+    ? `🔫 <b>${esc(r.title)}</b> (${r.count}명) — <span class="r">${r.scores.red}</span> : <span class="b">${r.scores.blue}</span>`
+    : `🧟 <b>${esc(r.title)}</b> (${r.count}명) — ${ZP[r.phase]} · 인간 승리 ${r.wins.human} / 좀비 승리 ${r.wins.zombie}`).join('<br>');
+  const fps = m.rooms.find(r => r.id === 'fps');
   $('st-n').textContent = m.players.length; $('st-acc').textContent = m.accounts;
-  if (!targetTouched && document.activeElement !== $('target')) $('target').value = m.killTarget;
+  if (!targetTouched && document.activeElement !== $('target')) $('target').value = fps.killTarget;
   $('empty').style.display = m.players.length ? 'none' : 'block';
   $('list').innerHTML = m.players.map(p => `
     <tr>
       <td>${esc(p.name)}</td>
-      <td class="${p.team[0]}">${p.team === 'red' ? '빨강' : '파랑'}</td>
-      <td>${p.kills} / ${p.deaths}</td>
-      <td>${p.alive ? p.hp : '💀'}</td>
+      <td>${esc(p.roomTitle)}</td>
+      <td class="${TC[p.team] || ''}">${TN[p.team] || '-'}</td>
+      <td>${p.room ? p.kills + ' / ' + p.deaths : '-'}</td>
+      <td>${!p.room ? '-' : p.alive ? p.hp : '💀'}</td>
       <td class="row" style="justify-content:flex-end">
-        <button onclick="cmd({t:'setTeam', id:${p.id}, team:'${p.team === 'red' ? 'blue' : 'red'}'})">팀 바꾸기</button>
+        ${p.room === 'fps' ? `<button onclick="cmd({t:'setTeam', id:${p.id}, team:'${p.team === 'red' ? 'blue' : 'red'}'})">팀 바꾸기</button>` : ''}
         <button class="danger" onclick="if(confirm('${esc(p.name)} 님을 퇴장시킬까요?')) cmd({t:'kick', id:${p.id}})">퇴장</button>
       </td>
     </tr>`).join('');
