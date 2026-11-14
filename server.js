@@ -160,7 +160,7 @@ const SHOP = [
   // 날개
   { id: 'w_angel', type: 'wing', name: '천사 날개', icon: '🕊️', price: 150 },
   { id: 'w_devil', type: 'wing', name: '악마 날개', icon: '🦇', price: 150 },
-  { id: 'w_butterfly', type: 'wing', name: '나비 날개', icon: '🦋', price: 120 },
+  { id: 'w_fairy', type: 'wing', name: '요정 날개', icon: '🧚', price: 120 },
   // 꼬리
   { id: 't_devil', type: 'tail', name: '악마 꼬리', icon: '😈', price: 60 },
   { id: 't_cat', type: 'tail', name: '고양이 꼬리', icon: '🐱', price: 50 },
@@ -181,6 +181,9 @@ function acct(name) {
   if (!Array.isArray(a.owned)) a.owned = [];
   if (!a.equip) a.equip = { hat: null, visor: null, skin: null };
   if (!['m', 'f', 'n'].includes(a.gender)) a.gender = 'n';
+  // 예전 나비 날개는 요정 날개로 바꿔 주기
+  if (a.owned.includes('w_butterfly')) a.owned = a.owned.map(x => x === 'w_butterfly' ? 'w_fairy' : x);
+  if (a.equip.wing === 'w_butterfly') a.equip.wing = 'w_fairy';
   return a;
 }
 // 관리자는 상점 물건을 전부 가진 걸로 쳐요

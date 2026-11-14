@@ -276,33 +276,108 @@ function addOutfit(g, id, main) {
 }
 
 // ---------- 날개 ----------
-// 등(뒤쪽 +z)에 붙어요. 좌우 날개를 따로 돌려서 파닥이게 해요
+// 등(뒤쪽 +z)에 붙어요. 왼쪽 날개를 만들고 오른쪽은 거울처럼 뒤집어요.
+// 날개 좌표: x = 바깥쪽, y = 위쪽 (뿌리가 0,0)
+const shapeMesh = (shape, mat, z = 0) => { const m = new THREE.Mesh(new THREE.ShapeGeometry(shape, 24), mat); m.position.z = z; return m; };
+const lineOf = (pts, color, z = 0.004, opacity = 1) => {
+  const geo = new THREE.BufferGeometry().setFromPoints(pts.map(([x, y]) => new THREE.Vector3(x, y, z)));
+  return new THREE.Line(geo, new THREE.LineBasicMaterial({ color, transparent: opacity < 1, opacity }));
+};
+
+// 요정 날개: 길고 뾰족한 윗날개 + 작고 꼬리가 긴 아랫날개, 진주빛 반투명
+function fairyWing(wg) {
+  const up = new THREE.Shape();
+  up.moveTo(0, 0);
+  up.bezierCurveTo(0.05, 0.25, 0.3, 0.62, 0.56, 0.86);   // 위쪽 가장자리 → 뾰족한 끝
+  up.bezierCurveTo(0.62, 0.62, 0.5, 0.28, 0.06, -0.02);  // 바깥 가장자리 → 뿌리
+  const low = new THREE.Shape();
+  low.moveTo(0, -0.03);
+  low.bezierCurveTo(0.26, -0.05, 0.42, -0.22, 0.34, -0.4);
+  low.bezierCurveTo(0.33, -0.5, 0.36, -0.62, 0.42, -0.74); // 길게 빠진 꼬리
+  low.bezierCurveTo(0.28, -0.6, 0.12, -0.36, 0, -0.06);
+  const mk = (col, op) => lam(col, { side: THREE.DoubleSide, transparent: true, opacity: op, depthWrite: false });
+  for (const sh of [up, low]) {
+    wg.add(shapeMesh(sh, mk(0xe9f3ff, 0.5), 0));
+    const inner = shapeMesh(sh, mk(0xffd9f4, 0.35), 0.003); inner.scale.set(0.82, 0.82, 1); wg.add(inner); // 안쪽은 분홍빛
+    const core = shapeMesh(sh, mk(0xd9ccff, 0.3), 0.006); core.scale.set(0.55, 0.55, 1); wg.add(core);    // 뿌리 쪽은 보랏빛
+  }
+  // 테두리와 날개맥
+  wg.add(lineOf(up.getPoints(30).map(p => [p.x, p.y]), 0xc9b8ff));
+  wg.add(lineOf(low.getPoints(30).map(p => [p.x, p.y]), 0xc9b8ff));
+  for (const [x, y] of [[0.5, 0.74], [0.42, 0.5], [0.3, 0.3], [0.18, 0.14]]) wg.add(lineOf([[0.02, 0], [x * 0.55, y * 0.55], [x, y]], 0xe0d4ff, 0.008, 0.8));
+  for (const [x, y] of [[0.36, -0.62], [0.3, -0.36], [0.18, -0.2]]) wg.add(lineOf([[0.02, -0.04], [x, y]], 0xe0d4ff, 0.008, 0.8));
+  wg.position.z = 0.02;
+}
+
+// 천사 날개: 위로 솟은 날개뼈 + 비늘처럼 겹친 짧은 깃털 + 아래로 펼쳐진 긴 깃털
+function angelWing(wg) {
+  // 날개뼈(앞 가장자리) 곡선: 뿌리 → 위/바깥 끝
+  const arm = t => [0.05 + 0.75 * t, 0.06 + 0.62 * Math.sin(t * Math.PI * 0.62)];
+  const feather = (cx, cy, len, wid, ang, col, z) => {
+    const f = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), lam(col));
+    f.scale.set(len / 2, wid, 0.018); f.rotation.z = ang;
+    f.position.set(cx, cy, z); wg.add(f); return f;
+  };
+  // 긴 깃털(아래로 부채꼴)
+  const N = 9;
+  for (let i = 0; i < N; i++) {
+    const t = 0.18 + (i / (N - 1)) * 0.82;
+    const [ax, ay] = arm(t);
+    const L = 0.32 + 0.3 * t;
+    const ang = -Math.PI / 2 + 0.25 + t * 0.85; // 안쪽은 아래로, 바깥쪽은 바깥으로
+    feather(ax + Math.cos(ang) * L / 2, ay + Math.sin(ang) * L / 2, L, 0.055, ang, i % 2 ? 0xffffff : 0xf1f1f4, 0);
+  }
+  // 짧은 깃털 두 줄 (뒤에서 보면 위에 겹쳐 보여요)
+  for (const [row, L, off] of [[0, 0.2, 0.08], [1, 0.12, 0.03]]) {
+    for (let i = 0; i < 7; i++) {
+      const t = 0.08 + i * 0.13;
+      const [ax, ay] = arm(t);
+      const ang = -Math.PI / 2 + 0.35 + t * 0.6;
+      feather(ax + Math.cos(ang) * (L / 2 + off), ay + Math.sin(ang) * (L / 2 + off), L, 0.06, ang, row ? 0xffffff : 0xf6f6f8, 0.02 + row * 0.015);
+    }
+  }
+  // 날개뼈를 따라 둥근 깃털 줄
+  for (let i = 0; i <= 8; i++) {
+    const [ax, ay] = arm(i / 8);
+    ball(wg, 0.055 - i * 0.003, 0xffffff, ax, ay, 0.03, 1.4, 1, 0.5);
+  }
+}
+
+// 악마(박쥐) 날개: 위쪽 뼈 + 갈고리 발톱 + 손가락뼈 사이 물결치는 막
+function devilWing(wg) {
+  const wrist = [0.3, 0.5], fingers = [[0.7, -0.38], [0.44, -0.6], [0.2, -0.46]];
+  const sh = new THREE.Shape();
+  sh.moveTo(0, 0.02);
+  sh.quadraticCurveTo(0.08, 0.34, wrist[0], wrist[1]);
+  sh.quadraticCurveTo(0.66, 0.32, fingers[0][0], fingers[0][1]);   // 바깥 가장자리
+  sh.quadraticCurveTo(0.5, -0.28, fingers[1][0], fingers[1][1]);   // 물결 1
+  sh.quadraticCurveTo(0.34, -0.3, fingers[2][0], fingers[2][1]);   // 물결 2
+  sh.quadraticCurveTo(0.1, -0.18, 0, -0.06);                       // 물결 3 → 뿌리
+  wg.add(shapeMesh(sh, lam(0x2c2a33, { side: THREE.DoubleSide })));
+  const inner = shapeMesh(sh, lam(0x3d3a47, { side: THREE.DoubleSide }), 0.004); inner.scale.set(0.7, 0.7, 1); inner.position.x = 0.06; wg.add(inner);
+  // 뼈 (원기둥으로 두 점 잇기)
+  const bone = (a, b, r) => {
+    const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.8, len, 8), lam(0x151419));
+    m.position.set((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 0.012); m.rotation.z = Math.atan2(dy, dx) - Math.PI / 2; wg.add(m);
+  };
+  bone([0, 0.02], [0.12, 0.3], 0.03); bone([0.12, 0.3], wrist, 0.028);
+  for (const f of fingers) bone(wrist, f, 0.016);
+  ball(wg, 0.04, 0x151419, wrist[0], wrist[1], 0.012);
+  // 위쪽 갈고리 발톱
+  const claw = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.14, 8), lam(0x0d0c10));
+  claw.position.set(wrist[0] - 0.05, wrist[1] + 0.08, 0.012); claw.rotation.z = 0.9; wg.add(claw);
+}
+
 function makeWings(id) {
-  const root = new THREE.Group(); root.position.set(0, 0.86, 0.3);
+  const root = new THREE.Group(); root.position.set(0, 0.88, 0.3);
   const pivots = [];
   for (const s of [-1, 1]) {
-    const p = new THREE.Group(); p.position.x = s * 0.08; root.add(p); pivots.push(p);
-    const wg = new THREE.Group(); wg.scale.x = s; p.add(wg); // 오른쪽은 왼쪽을 거울처럼
-    if (id === 'w_angel') {
-      const feathers = [[0.18, 0.12, 0.2, 0.62, 0.95], [0.3, 0.02, 0.17, 0.55, 0.7], [0.38, -0.1, 0.14, 0.45, 0.45], [0.42, -0.22, 0.11, 0.38, 0.2]];
-      for (const [x, y, r, sx, rz] of feathers) {
-        const f = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 10), lam(0xffffff)); f.position.set(x, y, 0.05); f.scale.set(1 / sx, 1, 0.25); f.rotation.z = rz; wg.add(f);
-      }
-    } else if (id === 'w_devil') {
-      const mat = lam(0x4a1f5c, { side: THREE.DoubleSide });
-      const bone = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.5, 6), lam(0x2a0f35));
-      bone.position.set(0.22, 0.12, 0.04); bone.rotation.z = -1.1; wg.add(bone);
-      for (const [x, a, len] of [[0.12, -0.2, 0.42], [0.25, -0.45, 0.46], [0.36, -0.75, 0.4]]) { // 박쥐 날개 막
-        const m = new THREE.Mesh(new THREE.ConeGeometry(0.11, len, 3), mat);
-        m.position.set(x, 0.02, 0.04); m.rotation.z = a; m.scale.z = 0.12; wg.add(m);
-      }
-    } else if (id === 'w_butterfly') {
-      const top = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 12), lam(0xff7ad9, { transparent: true, opacity: 0.85 }));
-      top.position.set(0.22, 0.12, 0.04); top.scale.set(1, 0.85, 0.12); wg.add(top);
-      const bot = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 12), lam(0x7ad9ff, { transparent: true, opacity: 0.85 }));
-      bot.position.set(0.17, -0.15, 0.04); bot.scale.set(1, 0.9, 0.12); wg.add(bot);
-      for (const [x, y] of [[0.26, 0.14], [0.18, -0.15]]) ball(wg, 0.04, 0xffffff, x, y, 0.07, 1, 1, 0.4, true);
-    }
+    const p = new THREE.Group(); p.position.x = s * 0.06; root.add(p); pivots.push(p);
+    const wg = new THREE.Group(); wg.scale.x = s; p.add(wg);
+    if (id === 'w_angel') angelWing(wg);
+    else if (id === 'w_devil') devilWing(wg);
+    else fairyWing(wg); // w_fairy (예전 나비 날개도 요정 날개로)
   }
   shadow(root);
   return { root, pivots };
