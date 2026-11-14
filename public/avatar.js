@@ -8,7 +8,10 @@ export const HEAD_Y = 1.42, HEAD_R = 0.4;
 const HY = HEAD_Y, R = HEAD_R;
 const FRONT = Math.PI * 1.5; // 구 모양에서 얼굴(앞, -z) 방향 각도
 
-export const VISOR_COLOR = { v_red: 0xff3b3b, v_blue: 0x3bb0ff, v_pink: 0xff7ad9, v_gold: 0xffd34d };
+export const EYE_COLOR = {
+  e_brown: 0x6b3e1f, e_blue: 0x2f6fd6, e_green: 0x2f9e44, e_purple: 0x8a4fd8,
+  e_red: 0xd12b2b, e_sky: 0x4dc3ff, e_gold: 0xe0a800,
+};
 export const SKIN_COLOR = { s_1: 0xffe3cf, s_2: 0xc68a5a, s_3: 0x8a5a3a, s_robot: 0xb8c2cc, s_alien: 0x7fd4ff, s_gold: 0xffc83d };
 export const HAIR_COLOR = {
   hc_black: 0x2b2b2b, hc_brown: 0x6b4423, hc_blonde: 0xf2c94c, hc_red: 0xb5452f,
@@ -197,81 +200,109 @@ export function makeHat(id) {
   return g;
 }
 
-// ---------- 옷 ----------
-export const OUTFIT_COLOR = {
-  o_tee: 0x3d8bff, o_hoodie: 0x8e9aaf, o_suit: 0x2c3e50, o_dress: 0xff8fc8,
-  o_overalls: 0xf4f4f4, o_sweater: 0xc0392b, o_cape: 0x3d8bff, o_astro: 0xf2f4f7,
-};
-// 몸통(가운데 y 0.72, 반지름 약 0.36) 위에 옷 장식을 붙여요
-function addOutfit(g, id, main) {
-  const box = (w, h, d, c, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), lam(c)); m.position.set(x, y, z); g.add(m); return m; };
-  const ring = (r, t, c, y, sx = 1, sz = 0.9) => { const m = new THREE.Mesh(new THREE.TorusGeometry(r, t, 8, 28), lam(c)); m.rotation.x = Math.PI / 2; m.position.y = y; m.scale.set(sx, sz / 0.9 * 0.9, 1); g.add(m); return m; };
-  // 몸통 표면 앞쪽 z (높이 y에서)
-  const frontZ = y => -0.9 * 0.36 * Math.sqrt(Math.max(0, 1 - ((y - 0.72) / (0.36 * 1.08)) ** 2));
-  const widthAt = y => 0.36 * Math.sqrt(Math.max(0, 1 - ((y - 0.72) / (0.36 * 1.08)) ** 2));
-  const dark = new THREE.Color(main).multiplyScalar(0.75).getHex();
-  switch (id) {
-    case 'o_hoodie': {
-      ball(g, 0.3, main, 0, 1.1, 0.2, 1.15, 0.55, 0.75); // 등 뒤에 접힌 후드 모자
-      box(0.32, 0.13, 0.04, dark, 0, 0.56, frontZ(0.56) - 0.005); // 주머니
-      for (const x of [-0.07, 0.07]) {
-        const st = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.18, 6), lam(0xffffff));
-        st.position.set(x, 0.93, frontZ(0.93) - 0.02); g.add(st);
-        ball(g, 0.022, 0xffffff, x, 0.84, frontZ(0.84) - 0.02);
+// ---------- 얼굴 ----------
+// 얼굴 부품은 머리 구의 앞쪽 표면에 딱 붙여요
+const faceZ = (x, y) => -Math.sqrt(Math.max(0, R * R - x * x - (y - HY) ** 2)) - 0.004;
+const basic = c => new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide });
+function onFace(g, mesh, x, y, rz = 0) { mesh.position.set(x, y, faceZ(x, y)); mesh.rotation.z = rz; g.add(mesh); return mesh; }
+function heartShape(s) {
+  const h = new THREE.Shape();
+  h.moveTo(0, -s);
+  h.bezierCurveTo(-s * 1.4, -s * 0.2, -s * 0.9, s * 1.1, 0, s * 0.45);
+  h.bezierCurveTo(s * 0.9, s * 1.1, s * 1.4, -s * 0.2, 0, -s);
+  return h;
+}
+function starShape(s) {
+  const st = new THREE.Shape();
+  for (let i = 0; i < 10; i++) {
+    const a = Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? s * 0.45 : s;
+    i ? st.lineTo(Math.cos(a) * r, Math.sin(a) * r) : st.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  return st;
+}
+export function makeFace(g, face, gender, eyeColor) {
+  const EY = HY + 0.03, MY = HY - 0.11, DARK = 0x1b1b1b;
+  const arc = (r, t, c, up) => { const m = new THREE.Mesh(new THREE.TorusGeometry(r, t, 6, 14, Math.PI), basic(c)); if (!up) m.rotation.z = Math.PI; return m; };
+  // 동그란 눈 (눈동자 색 + 반짝이)
+  const dotEye = (x, sy = 1.25) => {
+    const e = ball(g, 0.065, eyeColor, x, EY, faceZ(x, EY) + 0.025, 1, sy, 0.6, true);
+    if (sy > 0.8) ball(g, 0.022, 0xffffff, x + 0.025, EY + 0.04, faceZ(x + 0.025, EY + 0.04) + 0.006, 1, 1, 1, true);
+    return e;
+  };
+  const closedEye = (x, up = true) => onFace(g, arc(0.05, 0.014, DARK, up), x, EY - (up ? 0.02 : -0.02));
+  const smile = () => onFace(g, arc(0.05, 0.012, 0x5a2a2a, false), 0, MY + 0.02);
+  const bigSmile = (tongue = true) => {
+    const sh = new THREE.Shape(); sh.moveTo(-0.07, 0); sh.quadraticCurveTo(0, -0.13, 0.07, 0); sh.lineTo(-0.07, 0);
+    const m = onFace(g, new THREE.Mesh(new THREE.ShapeGeometry(sh, 12), basic(0x7a2030)), 0, MY + 0.03);
+    if (tongue) ball(g, 0.03, 0xff7a8a, 0, MY - 0.02, faceZ(0, MY - 0.02) - 0.002, 1.1, 0.6, 0.3, true);
+    return m;
+  };
+  const brow = (s, ang, thick, col, y = HY + 0.15) => {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(0.11, thick, 0.01), basic(col));
+    return onFace(g, b, s * 0.14, y, s * ang);
+  };
+  const blush = () => {
+    for (const sx of [-0.24, 0.24]) {
+      const b = ball(g, 0.06, gender === 'f' ? 0xff8aa8 : 0xff9bb3, sx, HY - 0.08, faceZ(sx, HY - 0.08) + 0.02, 1.2, 0.7, 0.3, true);
+      b.material.transparent = true; b.material.opacity = 0.75;
+    }
+  };
+
+  if (face === 'zombie') {
+    for (const sx of [-0.14, 0.14]) ball(g, 0.065, 0xff2a2a, sx, EY, faceZ(sx, EY) + 0.025, 1, 1.25, 0.6, true);
+    onFace(g, new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.03, 0.02), basic(0x2a3a1a)), 0, MY - 0.02, 0.15);
+    return;
+  }
+  // 성별에 따른 눈썹/속눈썹 (화난 얼굴은 화난 눈썹)
+  if (face === 'f_angry') {
+    for (const s of [-1, 1]) brow(s, 0.45, 0.032, 0x2b2b2b, HY + 0.13);
+  } else {
+    for (const s of [-1, 1]) {
+      if (gender === 'f') {
+        for (const k of [0, 1]) {
+          const lash = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.014, 0.01), basic(DARK));
+          onFace(g, lash, s * (0.2 + k * 0.012), HY + 0.09 - k * 0.025, s * (0.5 + k * 0.3));
+        }
+      } else brow(s, -0.12, gender === 'm' ? 0.03 : 0.018, gender === 'm' ? 0x2b2b2b : 0x7a5a48);
+    }
+  }
+  if (face !== 'f_angry' && face !== 'f_cool') blush();
+
+  switch (face) {
+    case 'f_happy': closedEye(-0.14); closedEye(0.14); bigSmile(true); break;
+    case 'f_wink': dotEye(-0.14); onFace(g, arc(0.05, 0.014, DARK, true), 0.14, EY - 0.02); bigSmile(true); break;
+    case 'f_sleepy':
+      for (const x of [-0.14, 0.14]) onFace(g, new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.016, 0.01), basic(DARK)), x, EY - 0.01);
+      onFace(g, new THREE.Mesh(new THREE.TorusGeometry(0.025, 0.01, 6, 14), basic(0x5a2a2a)), 0, MY);
+      break;
+    case 'f_angry':
+      dotEye(-0.14, 1); dotEye(0.14, 1);
+      onFace(g, arc(0.045, 0.012, 0x5a2a2a, true), 0, MY - 0.02);
+      break;
+    case 'f_cool':
+      for (const x of [-0.14, 0.14]) {
+        dotEye(x, 0.7);
+        onFace(g, new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.02, 0.01), basic(DARK)), x, EY + 0.045); // 반쯤 감은 눈꺼풀
+      }
+      onFace(g, arc(0.045, 0.012, 0x5a2a2a, false), 0.04, MY + 0.02, Math.PI - 0.35); // 비스듬한 미소
+      break;
+    case 'f_cat':
+      dotEye(-0.14); dotEye(0.14);
+      for (const sx of [-0.035, 0.035]) onFace(g, arc(0.035, 0.011, 0x5a2a2a, false), sx, MY + 0.02); // ω 입
+      for (const s of [-1, 1]) for (const k of [-1, 0, 1]) {
+        onFace(g, new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.008, 0.005), basic(0x5a3a2a)), s * 0.27, MY + 0.03 + k * 0.03, s * k * 0.15);
       }
       break;
-    }
-    case 'o_suit': {
-      const shirt = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.3, 3), lam(0xffffff));
-      shirt.rotation.z = Math.PI; shirt.rotation.y = Math.PI; shirt.position.set(0, 0.93, frontZ(0.93) + 0.01); shirt.scale.z = 0.3; g.add(shirt);
-      box(0.06, 0.24, 0.02, 0xd12b2b, 0, 0.84, frontZ(0.84) - 0.03); // 넥타이
-      ball(g, 0.035, 0xd12b2b, 0, 0.98, frontZ(0.98) - 0.03);
-      for (const y of [0.62, 0.5]) ball(g, 0.022, 0x111111, 0.07, y, frontZ(y) - 0.01);
+    case 'f_star':
+      for (const x of [-0.14, 0.14]) onFace(g, new THREE.Mesh(new THREE.ShapeGeometry(starShape(0.08)), basic(0xffd34d)), x, EY);
+      bigSmile(false);
       break;
-    }
-    case 'o_dress': {
-      const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.47, 0.34, 28, 1, true), lam(main, { side: THREE.DoubleSide }));
-      skirt.position.y = 0.42; g.add(skirt);
-      const frill = new THREE.Mesh(new THREE.TorusGeometry(0.47, 0.025, 6, 32), lam(0xffffff));
-      frill.rotation.x = Math.PI / 2; frill.position.y = 0.25; g.add(frill);
-      const collar = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.035, 8, 24), lam(0xffffff));
-      collar.rotation.x = Math.PI / 2; collar.position.y = 1.06; g.add(collar);
-      ball(g, 0.05, 0xffffff, -0.05, 0.62, frontZ(0.62) - 0.01, 1, 0.7, 0.5); // 리본
-      ball(g, 0.05, 0xffffff, 0.05, 0.62, frontZ(0.62) - 0.01, 1, 0.7, 0.5);
+    case 'f_heart':
+      for (const x of [-0.14, 0.14]) onFace(g, new THREE.Mesh(new THREE.ShapeGeometry(heartShape(0.065)), basic(0xff4d88)), x, EY);
+      smile();
       break;
-    }
-    case 'o_overalls': {
-      const denim = 0x3b6fb6;
-      const pants = ball(g, 0.37, denim, 0, 0.6, 0, 1, 0.72, 0.92); // 아래쪽 바지
-      box(0.28, 0.22, 0.03, denim, 0, 0.82, frontZ(0.82) - 0.005); // 앞판
-      for (const x of [-0.12, 0.12]) {
-        const strap = box(0.05, 0.36, 0.03, denim, x, 0.98, -0.12); strap.rotation.x = 0.9;
-        ball(g, 0.025, 0xffd34d, x, 0.92, frontZ(0.92) - 0.02);
-      }
-      pants.castShadow = true;
-      break;
-    }
-    case 'o_sweater': {
-      for (const y of [0.55, 0.72, 0.89]) ring(widthAt(y) + 0.005, 0.025, 0xffffff, y);
-      ring(0.16, 0.06, main, 1.07); // 목폴라
-      break;
-    }
-    case 'o_cape': {
-      const cape = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.48, 0.85, 24, 1, true, -1.25, 2.5), lam(0xc0392b, { side: THREE.DoubleSide }));
-      cape.position.set(0, 0.62, 0.04); g.add(cape);
-      const collar = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.04, 8, 24), lam(0xffd34d));
-      collar.rotation.x = Math.PI / 2; collar.position.y = 1.05; g.add(collar);
-      ball(g, 0.05, 0xffd34d, 0, 1.0, frontZ(1.0) - 0.02); // 브로치
-      break;
-    }
-    case 'o_astro': {
-      box(0.24, 0.15, 0.04, 0x8e9aaf, 0, 0.78, frontZ(0.78) - 0.01); // 가슴 판
-      [0xff3b3b, 0xffd34d, 0x3ccf6e].forEach((c, i) => ball(g, 0.025, c, -0.07 + i * 0.07, 0.78, frontZ(0.78) - 0.04, 1, 1, 1, true));
-      box(0.42, 0.46, 0.2, 0xdfe3ea, 0, 0.76, 0.34); // 배낭
-      ring(widthAt(0.5) + 0.01, 0.04, 0x8e9aaf, 0.5); // 허리띠
-      ring(0.17, 0.05, 0x8e9aaf, 1.07);
-      break;
-    }
+    default: // 기본 얼굴
+      dotEye(-0.14); dotEye(0.14); smile();
   }
 }
 
@@ -411,13 +442,13 @@ function makeTail(id, hairColor) {
 }
 
 // ---------- 캐릭터 전체 ----------
-// look = [모자, 고글, 피부, 머리스타일, 머리색, 성별]
+// look = [모자, 얼굴, 피부, 머리스타일, 머리색, 성별, 눈 색, 날개, 꼬리]
 export function buildCharacter(look = [], opts = {}) {
-  const [hatId, visorId, skinId, hairId, hcolorId, gender = 'n', outfitId = '', wingId = '', tailId = ''] = look;
+  const [hatId, faceId, skinId, hairId, hcolorId, gender = 'n', ecolorId = '', wingId = '', tailId = ''] = look;
   const zombie = !!opts.zombie;
   const skin = zombie ? 0x8fd16a : SKIN_COLOR[skinId] ?? DEFAULT_SKIN;
-  // 옷 색: 팀전에서는 팀 색, 나머지는 옷 원래 색
-  const bodyColor = zombie ? 0x4a7a35 : (opts.teamColor ?? OUTFIT_COLOR[outfitId] ?? opts.bodyColor ?? 0x3d8bff);
+  // 몸 색: 팀전에서는 팀 색
+  const bodyColor = zombie ? 0x4a7a35 : (opts.teamColor ?? opts.bodyColor ?? 0x3d8bff);
   const hairColor = HAIR_COLOR[hcolorId] ?? DEFAULT_HAIR_COLOR;
   const hairStyle = hairId || DEFAULT_HAIR[gender] || 'h_bob';
   const inner = new THREE.Group();
@@ -430,49 +461,10 @@ export function buildCharacter(look = [], opts = {}) {
   for (const sx of [-0.16, 0.16]) { const f = sph(0.13, bodyColor, sx, 0.13, -0.04); f.scale.set(1, 0.7, 1.25); }
   // 머리
   sph(R, skin, 0, HY, 0);
-  // 눈
-  for (const sx of [-0.14, 0.14]) {
-    const eye = sph(0.065, zombie ? 0xff2a2a : 0x1b1b1b, sx, HY + 0.03, -R + 0.03, true);
-    eye.scale.set(1, 1.25, 0.6);
-    if (!zombie) sph(0.022, 0xffffff, sx + 0.025, HY + 0.07, -R + 0.005, true);
-  }
-  if (!zombie) {
-    // 성별에 따라: 여자는 속눈썹, 남자는 진한 눈썹, 중성은 연한 눈썹
-    for (const s of [-1, 1]) {
-      if (gender === 'f') {
-        for (const k of [0, 1]) {
-          const lash = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.014, 0.01), new THREE.MeshBasicMaterial({ color: 0x1b1b1b }));
-          lash.position.set(s * (0.2 + k * 0.012), HY + 0.09 - k * 0.025, -R + 0.07); lash.rotation.z = s * (0.5 + k * 0.3); inner.add(lash);
-        }
-      } else {
-        const brow = new THREE.Mesh(new THREE.BoxGeometry(0.11, gender === 'm' ? 0.03 : 0.018, 0.01),
-          new THREE.MeshBasicMaterial({ color: gender === 'm' ? 0x2b2b2b : 0x7a5a48 }));
-        brow.position.set(s * 0.14, HY + 0.15, -R + 0.07); brow.rotation.z = s * -0.12; inner.add(brow);
-      }
-    }
-    // 볼터치, 웃는 입
-    for (const sx of [-0.24, 0.24]) {
-      const b = sph(0.06, gender === 'f' ? 0xff8aa8 : 0xff9bb3, sx, HY - 0.08, -R + 0.07, true);
-      b.scale.set(1.2, 0.7, 0.3); b.material.transparent = true; b.material.opacity = 0.75;
-    }
-    const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.012, 6, 12, Math.PI), new THREE.MeshBasicMaterial({ color: 0x5a2a2a }));
-    mouth.position.set(0, HY - 0.11, -R + 0.02); mouth.rotation.z = Math.PI; inner.add(mouth);
-  } else {
-    const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.03, 0.02), new THREE.MeshBasicMaterial({ color: 0x2a3a1a }));
-    mouth.position.set(0, HY - 0.13, -R + 0.03); mouth.rotation.z = 0.15; inner.add(mouth);
-  }
+  // 얼굴 (눈썹, 볼터치, 눈, 입)
+  makeFace(inner, zombie ? 'zombie' : faceId, gender, EYE_COLOR[ecolorId] ?? 0x1b1b1b);
   // 머리카락
   inner.add(makeHair(hairStyle, hairColor, hatId));
-  // 고글
-  if (visorId && !zombie) {
-    const gm = new THREE.MeshBasicMaterial({ color: VISOR_COLOR[visorId] ?? 0x222222 });
-    for (const sx of [-0.14, 0.14]) {
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.025, 8, 18), gm);
-      ring.position.set(sx, HY + 0.03, -R + 0.02); inner.add(ring);
-    }
-    const strap = new THREE.Mesh(new THREE.TorusGeometry(R + 0.04, 0.02, 6, 30), gm);
-    strap.rotation.x = Math.PI / 2; strap.position.y = HY + 0.03; inner.add(strap);
-  }
   // 팔 (총이나 좀비 팔)
   const arm = new THREE.Group(); arm.position.set(0, 0.85, 0);
   if (zombie) {
@@ -491,11 +483,6 @@ export function buildCharacter(look = [], opts = {}) {
     }
   }
   inner.add(arm);
-  if (outfitId && outfitId !== 'o_tee') {
-    const og = new THREE.Group();
-    addOutfit(og, outfitId, bodyColor);
-    inner.add(og);
-  }
   if (hatId) inner.add(makeHat(hatId));
   let wings = null, tail = null;
   if (wingId) { const w = makeWings(wingId); inner.add(w.root); wings = w.pivots; }

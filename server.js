@@ -121,10 +121,6 @@ const SHOP = [
   { id: 'halo', type: 'hat', name: '천사 링', icon: '😇', price: 80 },
   { id: 'horns', type: 'hat', name: '악마 뿔', icon: '😈', price: 80 },
   { id: 'crown', type: 'hat', name: '왕관', icon: '👑', price: 99999999999999999999999999, priceText: '99999999999999999999999999' },
-  { id: 'v_red', type: 'visor', name: '빨간 고글', color: '#ff3b3b', price: 30 },
-  { id: 'v_blue', type: 'visor', name: '파란 고글', color: '#3bb0ff', price: 30 },
-  { id: 'v_pink', type: 'visor', name: '분홍 고글', color: '#ff7ad9', price: 30 },
-  { id: 'v_gold', type: 'visor', name: '금색 고글', color: '#ffd34d', price: 80 },
   { id: 's_1', type: 'skin', name: '피부색 1', color: '#ffe3cf', price: 0 },
   { id: 's_2', type: 'skin', name: '피부색 2', color: '#c68a5a', price: 0 },
   { id: 's_3', type: 'skin', name: '피부색 3', color: '#8a5a3a', price: 0 },
@@ -149,14 +145,23 @@ const SHOP = [
   { id: 'hc_purple', type: 'hcolor', name: '보라', color: '#9b6bff', price: 30 },
   { id: 'hc_mint', type: 'hcolor', name: '민트', color: '#6ee7c8', price: 30 },
   { id: 'hc_silver', type: 'hcolor', name: '은색', color: '#d9dde3', price: 50 },
-  // 옷 (팀 배틀 FPS에서는 팀 색으로 바뀌어요)
-  { id: 'o_hoodie', type: 'outfit', name: '후드티', icon: '🧥', price: 40 },
-  { id: 'o_sweater', type: 'outfit', name: '줄무늬 스웨터', icon: '🧶', price: 40 },
-  { id: 'o_overalls', type: 'outfit', name: '멜빵바지', icon: '👖', price: 50 },
-  { id: 'o_dress', type: 'outfit', name: '원피스', icon: '👗', price: 60 },
-  { id: 'o_suit', type: 'outfit', name: '정장', icon: '🤵', price: 80 },
-  { id: 'o_cape', type: 'outfit', name: '망토', icon: '🦸', price: 120 },
-  { id: 'o_astro', type: 'outfit', name: '우주복', icon: '🧑‍🚀', price: 200 },
+  // 얼굴
+  { id: 'f_happy', type: 'face', name: '웃는 눈', icon: '😊', price: 0 },
+  { id: 'f_wink', type: 'face', name: '윙크', icon: '😉', price: 20 },
+  { id: 'f_sleepy', type: 'face', name: '졸린 눈', icon: '😪', price: 20 },
+  { id: 'f_angry', type: 'face', name: '화난 얼굴', icon: '😠', price: 20 },
+  { id: 'f_cool', type: 'face', name: '쿨', icon: '😎', price: 30 },
+  { id: 'f_cat', type: 'face', name: '고양이 입', icon: '😺', price: 30 },
+  { id: 'f_star', type: 'face', name: '반짝 눈', icon: '🤩', price: 40 },
+  { id: 'f_heart', type: 'face', name: '하트 눈', icon: '😍', price: 40 },
+  // 눈 색
+  { id: 'e_brown', type: 'ecolor', name: '갈색', color: '#6b3e1f', price: 0 },
+  { id: 'e_blue', type: 'ecolor', name: '파랑', color: '#2f6fd6', price: 0 },
+  { id: 'e_green', type: 'ecolor', name: '초록', color: '#2f9e44', price: 0 },
+  { id: 'e_purple', type: 'ecolor', name: '보라', color: '#8a4fd8', price: 20 },
+  { id: 'e_red', type: 'ecolor', name: '빨강', color: '#d12b2b', price: 20 },
+  { id: 'e_sky', type: 'ecolor', name: '하늘색', color: '#4dc3ff', price: 20 },
+  { id: 'e_gold', type: 'ecolor', name: '금색', color: '#e0a800', price: 50 },
   // 날개
   { id: 'w_angel', type: 'wing', name: '천사 날개', icon: '🕊️', price: 150 },
   { id: 'w_devil', type: 'wing', name: '악마 날개', icon: '🦇', price: 150 },
@@ -171,7 +176,7 @@ const SHOP_BY_ID = new Map(SHOP.map(i => [i.id, i]));
 function ensureAdminAccount() {
   const existing = Object.keys(accounts).find(isAdminName);
   if (existing && existing !== ADMIN_NAME) { accounts[ADMIN_NAME] = accounts[existing]; delete accounts[existing]; }
-  if (!accounts[ADMIN_NAME]) accounts[ADMIN_NAME] = { created: new Date().toISOString(), coins: 0, owned: [], equip: { hat: 'crown', visor: null, skin: null } };
+  if (!accounts[ADMIN_NAME]) accounts[ADMIN_NAME] = { created: new Date().toISOString(), coins: 0, owned: [], equip: { hat: 'crown', face: null, skin: null } };
   accounts[ADMIN_NAME].admin = true;
 }
 function acct(name) {
@@ -179,8 +184,13 @@ function acct(name) {
   if (!a) return null;
   if (typeof a.coins !== 'number') a.coins = 0;
   if (!Array.isArray(a.owned)) a.owned = [];
-  if (!a.equip) a.equip = { hat: null, visor: null, skin: null };
+  if (!a.equip) a.equip = { hat: null, face: null, skin: null };
   if (!['m', 'f', 'n'].includes(a.gender)) a.gender = 'n';
+  // 없어진 고글/옷은 산 값을 돌려주기
+  const REFUND = { v_red: 30, v_blue: 30, v_pink: 30, v_gold: 80, o_hoodie: 40, o_sweater: 40, o_overalls: 50, o_dress: 60, o_suit: 80, o_cape: 120, o_astro: 200 };
+  for (const id of a.owned.filter(x => REFUND[x] !== undefined)) a.coins += REFUND[id];
+  a.owned = a.owned.filter(x => REFUND[x] === undefined);
+  delete a.equip.visor; delete a.equip.outfit;
   // 예전 나비 날개는 요정 날개로 바꿔 주기
   if (a.owned.includes('w_butterfly')) a.owned = a.owned.map(x => x === 'w_butterfly' ? 'w_fairy' : x);
   if (a.equip.wing === 'w_butterfly') a.equip.wing = 'w_fairy';
@@ -196,7 +206,7 @@ function meInfo(name) {
 }
 function lookOf(name) {
   const a = acct(name);
-  return a ? [a.equip.hat || '', a.equip.visor || '', a.equip.skin || '', a.equip.hair || '', a.equip.hcolor || '', a.gender, a.equip.outfit || '', a.equip.wing || '', a.equip.tail || '']
+  return a ? [a.equip.hat || '', a.equip.face || '', a.equip.skin || '', a.equip.hair || '', a.equip.hcolor || '', a.gender, a.equip.ecolor || '', a.equip.wing || '', a.equip.tail || '']
     : ['', '', '', '', '', 'n', '', '', ''];
 }
 function handleShop(c, msg) {
@@ -217,7 +227,7 @@ function handleShop(c, msg) {
     saveAccounts();
   } else if (msg.t === 'equip') {
     const type = String(msg.type);
-    if (!['hat', 'visor', 'skin', 'hair', 'hcolor', 'outfit', 'wing', 'tail'].includes(type)) return;
+    if (!['hat', 'face', 'ecolor', 'skin', 'hair', 'hcolor', 'wing', 'tail'].includes(type)) return;
     if (msg.item == null) a.equip[type] = null;
     else {
       const item = SHOP_BY_ID.get(String(msg.item));
@@ -1179,7 +1189,7 @@ async function api(req, res, pathname) {
     const salt = crypto.randomBytes(16).toString('hex');
     accounts[username] = {
       salt, hash: hashPassword(password, salt), created: new Date().toISOString(),
-      coins: 0, owned: [], equip: { hat: null, visor: null, skin: null },
+      coins: 0, owned: [], equip: { hat: null, face: null, skin: null },
       gender: ['m', 'f', 'n'].includes(body.gender) ? body.gender : 'n',
     };
     saveAccounts();
@@ -1237,6 +1247,8 @@ process.on('SIGTERM', async () => {
 
 loadAccounts().then(() => {
   ensureAdminAccount();
+  for (const name of Object.keys(accounts)) acct(name); // 없어진 아이템 환불 등 정리
+  saveAccounts();
   server.listen(PORT, () => {
     console.log(`게임 서버 실행 중: http://localhost:${PORT}`);
     if (!ADMIN_PASSWORD) console.log('⚠️  ADMIN_PASSWORD 환경변수가 없어서 관리자 로그인이 꺼져 있어요.');
