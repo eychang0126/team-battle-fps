@@ -154,10 +154,11 @@ function cycleWeapon(dir = 1) {
   send({ t: 'weapon', w: myWList[(i + dir + myWList.length) % myWList.length] });
 }
 // ---------- 무기 고르기 창 ----------
-let pickerOpen = false, pickTimer = null;
+let pickerOpen = false, pickTimer = null, pickerTimed = false;
 function openPicker(withTimer) {
   if (unarmed() || isZombie() || myWList.length < 1) return;
-  pickerOpen = true; mouseDown = false;
+  pickerOpen = true; pickerTimed = !!withTimer; mouseDown = false;
+  if (locked()) document.exitPointerLock(); // 마우스 화살표가 보이게 (화면이 안 돌아가요)
   const el = $('wpick');
   let left = 10;
   const draw = () => {
@@ -166,10 +167,14 @@ function openPicker(withTimer) {
         const w = cfg.weapons[id];
         return `<button type="button" class="wp-card ${id === curW ? 'on' : ''}" data-w="${id}"><span class="wp-n">${i + 1}</span><span class="wp-i">${w.icon}</span>${w.name}</button>`;
       }).join('')}</div>
-      <div class="wp-help">${IS_TOUCH ? '누르면 바로 바뀌어요' : '숫자 키 또는 클릭으로 고르기'} · 게임 중에도 ${IS_TOUCH ? '🔁 버튼' : keyLabel(ctrlKeys.pick) + ' 키'}로 바꿀 수 있어요</div>
+      ${voteState && startVoting() && mode === 'fps' ? `<div class="wp-title" style="font-size:18px">🗳️ 맵 투표 <span class="wp-time">${Math.max(0, Math.ceil((voteEndsAt - performance.now()) / 1000))}초</span></div>
+        <div class="wp-grid" style="max-height:none">${voteState.maps.map(mp => `<button type="button" class="wp-card wp-map ${myVote === mp.id ? 'on' : ''}" data-m="${mp.id}"><span class="wp-i">${mp.icon}</span>${mp.name}<small style="color:#9aa3b8">${mp.count}표${voteState.next === mp.id ? ' ⭐' : ''}</small></button>`).join('')}</div>
+        ${voteState.adminPick ? '<div class="wp-help">👑 관리자가 맵을 정했어요</div>' : ''}` : ''}
+      <div class="wp-help">${IS_TOUCH ? '누르면 바로 바뀌어요' : '마우스로 클릭하거나 숫자 키로 고르기' + (withTimer ? ' · Enter = 시작' : '')} · 게임 중에도 ${IS_TOUCH ? '🔁 버튼' : keyLabel(ctrlKeys.pick) + ' 키'}로 바꿀 수 있어요</div>
       <button type="button" class="wp-go" id="wp-go">✅ ${withTimer ? '이걸로 시작!' : '닫기'}</button>`;
-    el.querySelectorAll('.wp-card').forEach(b => b.onclick = e => { e.stopPropagation(); pickWeapon(b.dataset.w, !withTimer); });
-    $('wp-go').onclick = e => { e.stopPropagation(); closePicker(); if (withTimer) startPlaying(); };
+    el.querySelectorAll('.wp-card[data-w]').forEach(b => b.onclick = e => { e.stopPropagation(); pickWeapon(b.dataset.w, !withTimer); });
+    el.querySelectorAll('.wp-map').forEach(b => b.onclick = e => { e.stopPropagation(); vote(b.dataset.m); draw(); });
+    $('wp-go').onclick = e => { e.stopPropagation(); closePicker(true); };
   };
   draw();
   el.style.display = 'flex';
@@ -180,13 +185,15 @@ function openPicker(withTimer) {
 function pickWeapon(id, closeAfter) {
   if (id !== curW) send({ t: 'weapon', w: id });
   curW = id; // 화면에 바로 표시 (서버가 확인해서 다시 알려 줘요)
-  if (closeAfter) closePicker(); else $('wpick')._redraw?.();
+  if (closeAfter) closePicker(true); else $('wpick')._redraw?.();
 }
-function closePicker() {
+// resume = 클릭/키로 닫았으면 바로 게임으로 돌아가기 (시간이 다 돼서 닫히면 '클릭해서 시작' 화면)
+function closePicker(resume) {
   if (!pickerOpen) return;
   pickerOpen = false; clearInterval(pickTimer);
   $('wpick').style.display = 'none';
   send({ t: 'ready' });
+  if (resume && !ended) startPlaying();
 }
 const keyLabel = c => !c ? '?' : c.startsWith('Key') ? c.slice(3) : c.startsWith('Digit') ? c.slice(5) : c;
 function setZoom(on) {
@@ -664,7 +671,7 @@ const canvas = renderer.domElement;
 let touchActive = false;  // 폰/태블릿에서 게임 중인지
 let chatOpen = false;
 const locked = () => document.pointerLockElement === canvas;
-const controlsOn = () => (locked() || touchActive) && !chatOpen;
+const controlsOn = () => (locked() || touchActive) && !chatOpen && !pickerOpen; // 무기 고르는 동안은 화면/몸이 안 움직여요
 
 async function goLandscape() {
   try { await document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }); } catch { }
@@ -750,7 +757,7 @@ holdButton('btn-fire', () => { if (isZombie()) attack(); else if (!unarmed()) mo
 holdButton('btn-jump', () => { touchJump = true; jumpQueued = true; }, () => (touchJump = false));
 holdButton('btn-reload', () => reload());
 holdButton('btn-crouch', () => { touchCrouch = !touchCrouch; $('btn-crouch').classList.toggle('on', touchCrouch); });
-holdButton('btn-weapon', () => (pickerOpen ? closePicker() : openPicker(false)));
+holdButton('btn-weapon', () => (pickerOpen ? closePicker(true) : openPicker(false)));
 holdButton('btn-alt', () => { if (WP().zoom) setZoom(!zoomed); else altAction(true); }); // 폰: 조준경은 누를 때마다 켜고 끄기
 holdButton('btn-chat', () => openChat(false));
 holdButton('btn-view', () => toggleView());
@@ -798,15 +805,19 @@ $('chatmode').addEventListener('click', () => {
 });
 // ---------- 맵 투표 ----------
 let voteState = null, myVote = null;
+let voteEndsAt = 0; // 처음 시작 투표가 끝나는 시간
+const startVoting = () => voteEndsAt > performance.now();
+setInterval(() => { if (voteEndsAt) { renderVote(); if (pickerOpen && voteEndsAt > performance.now()) $('wpick')._redraw?.(); if (voteEndsAt < performance.now()) voteEndsAt = 0; } }, 1000);
 function renderVote() {
   const box = $('votebox');
   if (!voteState || unarmed()) { box.style.display = 'none'; return; }
   box.style.display = 'block';
   const next = voteState.maps.find(m => m.id === voteState.next);
   const isAdmin = crown(myName) !== '';
-  box.innerHTML = `<div class="vt">🗳️ 다음 맵: <b>${next.icon} ${next.name}</b>${voteState.adminPick ? ' <span class="ad">👑 관리자 결정</span>' : ''}</div>` +
+  const left = Math.ceil((voteEndsAt - performance.now()) / 1000);
+  box.innerHTML = (startVoting() ? `<div class="vt" style="color:#ffd43b">🗳️ 맵 투표 중! ${left}초 뒤 시작</div>` : '') + `<div class="vt">🗳️ ${startVoting() ? '시작할 맵' : '다음 맵'}: <b>${next.icon} ${next.name}</b>${voteState.adminPick ? ' <span class="ad">👑 관리자 결정</span>' : ''}</div>` +
     voteState.maps.map((m, i) => `<div class="vo ${myVote === m.id ? 'mine' : ''}" data-id="${m.id}">${IS_TOUCH ? '' : `<kbd>${i + 1}</kbd> `}${m.icon} ${m.name} · ${m.count}표${m.id === voteState.current ? ' (지금)' : ''}</div>`).join('') +
-    `<div class="vh">${isAdmin ? '👑 관리자가 고르면 그 맵으로 정해져요' : '다음 라운드에 다수결로 바뀌어요'}</div>`;
+    `<div class="vh">${isAdmin ? '👑 관리자가 고르면 그 맵으로 정해져요' : startVoting() ? '다수결로 정해져요 (관리자가 고르면 그 맵으로)' : '다음 라운드에 다수결로 바뀌어요'}</div>`;
   box.querySelectorAll('.vo').forEach(el => el.onclick = () => vote(el.dataset.id));
 }
 function vote(id) {
@@ -823,7 +834,7 @@ function addChat(html, cls = '') {
   setTimeout(() => d.classList.add('old'), 9000);
 }
 document.addEventListener('mousemove', e => {
-  if (!locked()) return;
+  if (!locked() || pickerOpen) return;
   const sens = zoomed ? 0.0022 * 0.3 : 0.0022;
   me.yaw -= e.movementX * sens;
   me.pitch -= e.movementY * sens;
@@ -846,8 +857,9 @@ document.addEventListener('keydown', e => {
   if (e.code === 'KeyV') toggleView();
   if (e.code === 'Space' && !e.repeat) jumpQueued = true;
   if (e.code === 'KeyQ') cycleWeapon(1);
-  if (e.code === ctrlKeys.pick) { pickerOpen ? closePicker() : openPicker(false); }
-  if (pickerOpen && /^Digit[1-9]$/.test(e.code)) { const id = myWList[+e.code.slice(5) - 1]; if (id) pickWeapon(id, true); return; }
+  if (e.code === ctrlKeys.pick) { pickerOpen ? closePicker(true) : openPicker(false); }
+  if (pickerOpen && /^Digit[1-9]$/.test(e.code)) { const id = myWList[+e.code.slice(5) - 1]; if (id) pickWeapon(id, !pickerTimed); return; } // 처음 창에서는 고르기만 (맵 투표도 해야 하니까)
+  if (pickerOpen && e.code === 'Enter') { e.preventDefault(); closePicker(true); return; }
   if (e.code.startsWith('Arrow')) e.preventDefault(); // 화살표로 화면 돌리기 (아래 매 프레임에서)
   if (!e.repeat && e.code === ctrlKeys.fire && controlsOn()) { if (isZombie()) attack(); else if (!unarmed()) mouseDown = true; }
   if (!e.repeat && e.code === ctrlKeys.alt && controlsOn() && !isZombie() && !unarmed()) altAction(true);
@@ -1023,7 +1035,9 @@ function onMessage(m) {
       center(`🗺️ 맵이 바뀌었어요: ${m.name}`, 3000);
       break;
     case 'vote':
-      voteState = m; renderVote();
+      voteState = m; if (m.vt) voteEndsAt = performance.now() + m.vt * 1000; else voteEndsAt = 0;
+      renderVote();
+      if (pickerOpen) $('wpick')._redraw?.();
       break;
     case 'checkpoint':
       cpInfo = { i: m.i, total: m.total };

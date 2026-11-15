@@ -504,9 +504,11 @@ function buildCity() {
   return { id: 'city', theme: 'city', size: S, boxes, spawnsH, spawns: MAP.spawns };
 }
 const CITY = buildCity();
+BATTLE_MAPS.city = CITY;
 const MAP_LIST = [
   { id: 'basic', name: '기본 맵', icon: '🌳' },
   { id: 'xmas', name: '크리스마스 맵', icon: '🎄' },
+  { id: 'city', name: '도시 맵', icon: '🏙️' },
 ];
 
 // 광선과 상자 충돌 (slab 방식). 맞으면 거리 t, 아니면 Infinity
@@ -618,8 +620,8 @@ const ROOM_DEFS = [
 const rooms = new Map();
 for (const d of ROOM_DEFS) {
   rooms.set(d.id, {
-    ...d, players: new Map(), map: d.mode === 'obby' ? OBBY : d.mode === 'lava' ? LAVA_MAP : d.mode === 'wave' ? CITY : MAP,
-    mapId: 'basic', votes: new Map(), adminPick: null,                  // 맵 투표 (팀전/좀비)
+    ...d, players: new Map(), map: d.mode === 'obby' ? OBBY : d.mode === 'lava' ? LAVA_MAP : d.mode === 'wave' || d.mode === 'zombie' ? CITY : MAP,
+    mapId: d.mode === 'wave' || d.mode === 'zombie' ? 'city' : 'basic', mapVoteUntil: 0, votes: new Map(), adminPick: null,                  // 맵 투표 (팀전/좀비)
     scores: { red: 0, blue: 0 }, killTarget: 5,  roundOver: false,      // 팀전
     phase: 'waiting', phaseEnd: 0, wins: { human: 0, zombie: 0 },       // 좀비
     roundNo: 1, grenades: [], projs: [], zones: [], pads: [],
@@ -683,7 +685,7 @@ function joinRoom(c, roomId) {
   const room = rooms.get(roomId);
   if (!room || c.room) return;
   if (room.players.size >= MAX_PLAYERS) return sendTo(c, { t: 'notice', text: `방이 꽉 찼어요 (최대 ${MAX_PLAYERS}명).` });
-  if (room.players.size === 0) applyNextMap(room); // 아무도 없던 방이면 정해 둔 맵으로
+  const firstOne = room.players.size === 0;
   c.room = room;
   Object.assign(c, {
     team: pickTeam(room), x: 0, y: 0, z: 0, yaw: 0, pitch: 0, hp: MAX_HP, alive: false,
@@ -705,7 +707,8 @@ function joinRoom(c, roomId) {
     sendTo(c, { t: 'lavawait' });
   }
   sendObjects(room, c);
-  if (hasVote(room)) sendTo(c, voteInfo(room));
+  if (firstOne && room.mode === 'fps') startMapVote(room); // 처음 시작할 때 10초 맵 투표
+  else if (hasVote(room)) sendTo(c, voteInfo(room));
   roomBroadcast(room, { t: 'joined', name: c.name });
 }
 function leaveRoom(c) {
@@ -724,7 +727,7 @@ function leaveRoom(c) {
 // =====================================================
 // ---------- 맵 투표 ----------
 // 관리자가 고르면 관리자 맵, 아니면 투표 다수결 (같으면 지금 맵 유지)
-const hasVote = room => room.mode === 'fps' || room.mode === 'zombie';
+const hasVote = room => room.mode === 'fps'; // 맵 투표는 팀 배틀만 (좀비 모드, 좀비 웨이브는 항상 도시)
 function decideNextMap(room) {
   if (room.adminPick) return room.adminPick;
   const count = {};
@@ -733,11 +736,20 @@ function decideNextMap(room) {
   for (const m of MAP_LIST) if ((count[m.id] || 0) > bestN) { best = m.id; bestN = count[m.id]; }
   return best;
 }
+// 게임을 처음 시작할 때: 10초 동안 맵 투표 (그동안은 싸울 수 없어요)
+const START_VOTE_MS = 10000;
+function startMapVote(room) {
+  room.votes.clear(); room.adminPick = room.adminPick || null;
+  room.mapVoteUntil = now() + START_VOTE_MS;
+  room.roundOver = true;
+  roomBroadcast(room, voteInfo(room));
+}
 function voteInfo(room) {
   const count = {};
   for (const v of room.votes.values()) count[v] = (count[v] || 0) + 1;
+  const vt = room.mapVoteUntil ? Math.max(0, Math.ceil((room.mapVoteUntil - now()) / 1000)) : 0;
   return {
-    t: 'vote', current: room.mapId, next: decideNextMap(room), adminPick: room.adminPick,
+    t: 'vote', current: room.mapId, next: decideNextMap(room), adminPick: room.adminPick, vt,
     maps: MAP_LIST.map(m => ({ ...m, count: count[m.id] || 0 })),
   };
 }
@@ -1755,6 +1767,8 @@ setInterval(() => {
   const keyframe = tickCount % 15 === 0;
   for (const room of rooms.values()) {
     if (room.mode === 'zombie') zombieTick(room, t);
+    if (room.mode === 'fps' && room.mapVoteUntil && t >= room.mapVoteUntil) { room.mapVoteUntil = 0; resetFps(room); } // 투표 끝 → 그 맵으로 시작
+    if (room.mode === 'fps' && !room.players.size) room.mapVoteUntil = 0;
     if (room.mode === 'obby') obbyTick(room, t);
     if (room.mode === 'lava') lavaTick(room, t);
     if (room.mode === 'wave') waveTick(room, t);
