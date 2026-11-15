@@ -208,7 +208,8 @@ export function makeHat(id) {
 // 얼굴 부품은 머리 구의 앞쪽 표면에 딱 붙여요
 const faceZ = (x, y) => -Math.sqrt(Math.max(0, R * R - x * x - (y - HY) ** 2)) - 0.004;
 const basic = c => new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide });
-function onFace(g, mesh, x, y, rz = 0) { mesh.position.set(x, y, faceZ(x, y)); mesh.rotation.z = rz; g.add(mesh); return mesh; }
+// rz는 원래 회전에 '더해요' (덮어쓰면 ∪ 웃는 입이 ∩ 우는 입이 돼요)
+function onFace(g, mesh, x, y, rz = 0) { mesh.position.set(x, y, faceZ(x, y)); mesh.rotation.z += rz; g.add(mesh); return mesh; }
 function heartShape(s) {
   const h = new THREE.Shape();
   h.moveTo(0, -s);
@@ -288,7 +289,7 @@ export function makeFace(g, face, gender, eyeColor) {
         dotEye(x, 0.7);
         onFace(g, new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.02, 0.01), basic(DARK)), x, EY + 0.045); // 반쯤 감은 눈꺼풀
       }
-      onFace(g, arc(0.045, 0.012, 0x5a2a2a, false), 0.04, MY + 0.02, Math.PI - 0.35); // 비스듬한 미소
+      onFace(g, arc(0.045, 0.012, 0x5a2a2a, false), 0.04, MY + 0.02, -0.35); // 비스듬한 미소
       break;
     case 'f_cat':
       dotEye(-0.14); dotEye(0.14);
