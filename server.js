@@ -173,6 +173,19 @@ const SHOP = [
   { id: 'b_black', type: 'bcolor', name: '검정', color: '#2d2f36', price: 0 },
   { id: 'b_mint', type: 'bcolor', name: '민트', color: '#6ee7c8', price: 20 },
   { id: 'b_gold', type: 'bcolor', name: '금색', color: '#e0b23a', price: 100 },
+  // 바지 색 (안 고르면 윗옷 색보다 조금 어두운 색)
+  { id: 'p_navy', type: 'pcolor', name: '남색', color: '#2b3a67', price: 0 },
+  { id: 'p_black', type: 'pcolor', name: '검정', color: '#25262b', price: 0 },
+  { id: 'p_gray', type: 'pcolor', name: '회색', color: '#7a7f8a', price: 0 },
+  { id: 'p_jean', type: 'pcolor', name: '청바지', color: '#4f74a8', price: 0 },
+  { id: 'p_brown', type: 'pcolor', name: '갈색', color: '#6b4a32', price: 0 },
+  { id: 'p_white', type: 'pcolor', name: '흰색', color: '#eeeeee', price: 0 },
+  { id: 'p_red', type: 'pcolor', name: '빨강', color: '#c23b3b', price: 0 },
+  { id: 'p_green', type: 'pcolor', name: '초록', color: '#2f8a4a', price: 0 },
+  { id: 'p_pink', type: 'pcolor', name: '분홍', color: '#ff8fc8', price: 20 },
+  { id: 'p_purple', type: 'pcolor', name: '보라', color: '#8a5cd6', price: 20 },
+  { id: 'p_mint', type: 'pcolor', name: '민트', color: '#6ee7c8', price: 20 },
+  { id: 'p_gold', type: 'pcolor', name: '금색', color: '#e0b23a', price: 100 },
   // 날개
   { id: 'w_angel', type: 'wing', name: '천사 날개', icon: '🕊️', price: 150 },
   { id: 'w_devil', type: 'wing', name: '악마 날개', icon: '🦇', price: 150 },
@@ -237,8 +250,8 @@ function meInfo(name) {
 }
 function lookOf(name) {
   const a = acct(name);
-  return a ? [a.equip.hat || '', a.equip.face || '', a.equip.skin || '', a.equip.hair || '', a.equip.hcolor || '', a.gender, a.equip.ecolor || '', a.equip.wing || '', a.equip.tail || '', a.equip.bcolor || '']
-    : ['', '', '', '', '', 'n', '', '', '', ''];
+  return a ? [a.equip.hat || '', a.equip.face || '', a.equip.skin || '', a.equip.hair || '', a.equip.hcolor || '', a.gender, a.equip.ecolor || '', a.equip.wing || '', a.equip.tail || '', a.equip.bcolor || '', a.equip.pcolor || '']
+    : ['', '', '', '', '', 'n', '', '', '', '', ''];
 }
 function handleShop(c, msg) {
   const a = acct(c.name);
@@ -258,7 +271,7 @@ function handleShop(c, msg) {
     saveAccounts();
   } else if (msg.t === 'equip') {
     const type = String(msg.type);
-    if (!['hat', 'face', 'ecolor', 'skin', 'hair', 'hcolor', 'wing', 'tail', 'bcolor', 'weapon'].includes(type)) return;
+    if (!['hat', 'face', 'ecolor', 'skin', 'hair', 'hcolor', 'wing', 'tail', 'bcolor', 'pcolor', 'weapon'].includes(type)) return;
     if (msg.item == null) a.equip[type] = null;
     else {
       const item = SHOP_BY_ID.get(String(msg.item));

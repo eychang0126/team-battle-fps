@@ -370,7 +370,8 @@
           <button type="button" data-type="skin">🎨 피부</button>
           <button type="button" data-type="hair">💇 머리</button>
           <button type="button" data-type="hcolor">🌈 머리 색</button>
-          <button type="button" data-type="bcolor">👕 옷 색</button>
+          <button type="button" data-type="bcolor">👕 윗옷 색</button>
+          <button type="button" data-type="pcolor">👖 바지 색</button>
           <button type="button" data-type="wing">🦋 날개</button>
           <button type="button" data-type="tail">🐾 꼬리</button>
           <button type="button" data-type="weapon">🔫 무기</button>
@@ -834,7 +835,7 @@ function manualPages() {
       <table>
         <tr><td>🪙 코인 받기</td><td>이기기 20, 좀비 웨이브 클리어 5, 점프 타워·용암 타워 깨기 20, 친구가 보내 주기</td></tr>
         <tr><td>🏆 트로피</td><td>이기면 1개. 로비 순위표에 나와요</td></tr>
-        <tr><td>🛍️ 상점</td><td>모자, 얼굴, 눈 색, 피부, 머리, 머리 색, 옷 색, 날개, 꼬리, 무기·아이템. 왼쪽 미리보기에서 바로 볼 수 있어요</td></tr>
+        <tr><td>🛍️ 상점</td><td>모자, 얼굴, 눈 색, 피부, 머리, 머리 색, 윗옷 색, 바지 색, 날개, 꼬리, 무기·아이템. 왼쪽 미리보기에서 바로 볼 수 있어요</td></tr>
         <tr><td>🎁 코인 보내기</td><td>로비 버튼, 또는 채팅에 <code>/코인 아이디 숫자</code></td></tr>
       </table>`],
     ['💬 채팅·기타', `
@@ -901,6 +902,7 @@ const NONE = {
   hcolor: { icon: '<div class="sw" style="background:#6b4423"></div>', name: '기본 갈색' },
   wing: { icon: '🚫', name: '없음' }, tail: { icon: '🚫', name: '없음' },
   bcolor: { icon: '<div class="sw" style="background:#3d8bff"></div>', name: '기본 파랑' },
+  pcolor: { icon: '👕', name: '윗옷 색에 맞추기' },
 };
 document.querySelectorAll('#gsel button').forEach(b => b.onclick = () => ws && ws.send(JSON.stringify({ t: 'gender', g: b.dataset.g })));
 
@@ -935,7 +937,7 @@ async function initPreview() {
 function updatePreview() {
   if (!pv || !me) return;
   const e = me.equip;
-  const look = [e.hat || '', e.face || '', e.skin || '', e.hair || '', e.hcolor || '', me.gender || 'n', e.ecolor || '', e.wing || '', e.tail || '', e.bcolor || ''];
+  const look = [e.hat || '', e.face || '', e.skin || '', e.hair || '', e.hcolor || '', me.gender || 'n', e.ecolor || '', e.wing || '', e.tail || '', e.bcolor || '', e.pcolor || ''];
   const key = look.join(',');
   if (key === pvKey) return; pvKey = key;
   if (pv.char) pv.sc.remove(pv.char);

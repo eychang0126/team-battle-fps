@@ -12,6 +12,10 @@ export const BODY_COLOR = {
   b_red: 0xe84848, b_orange: 0xff9f1c, b_yellow: 0xffd43b, b_green: 0x3ccf6e, b_pink: 0xff8fc8,
   b_purple: 0x9b6bff, b_white: 0xf4f4f6, b_black: 0x2d2f36, b_mint: 0x6ee7c8, b_gold: 0xe0b23a,
 };
+export const PANTS_COLOR = {
+  p_navy: 0x2b3a67, p_black: 0x25262b, p_gray: 0x7a7f8a, p_jean: 0x4f74a8, p_brown: 0x6b4a32, p_white: 0xeeeeee,
+  p_red: 0xc23b3b, p_green: 0x2f8a4a, p_pink: 0xff8fc8, p_purple: 0x8a5cd6, p_mint: 0x6ee7c8, p_gold: 0xe0b23a,
+};
 export const EYE_COLOR = {
   e_brown: 0x6b3e1f, e_blue: 0x2f6fd6, e_green: 0x2f9e44, e_purple: 0x8a4fd8,
   e_red: 0xd12b2b, e_sky: 0x4dc3ff, e_gold: 0xe0a800,
@@ -443,11 +447,20 @@ function makeTail(id, hairColor) {
   const seg = (r, len, c, x, y, z, rx) => {
     const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 4, 10), lam(c)); m.position.set(x, y, z); m.rotation.x = rx; root.add(m); return m;
   };
-  if (id === 't_devil') { // 가늘고 끝이 화살촉 모양
-    seg(0.025, 0.2, 0xc0392b, 0, -0.02, 0.1, 1.3);
-    seg(0.025, 0.2, 0xc0392b, 0, 0.06, 0.27, 0.6);
-    seg(0.025, 0.16, 0xc0392b, 0, 0.2, 0.36, 0.1);
-    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.14, 3), lam(0xc0392b)); tip.position.set(0, 0.34, 0.37); tip.scale.z = 0.3; root.add(tip);
+  if (id === 't_devil') { // 매끄럽게 동그랗게 말린 꼬리 + 끝은 둥근 하트 모양 화살촉
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, 0, 0.02), new THREE.Vector3(0, -0.16, 0.2), new THREE.Vector3(0, -0.12, 0.42),
+      new THREE.Vector3(0, 0.08, 0.55), new THREE.Vector3(0, 0.3, 0.5), new THREE.Vector3(0, 0.38, 0.32),
+      new THREE.Vector3(0, 0.3, 0.2),
+    ]);
+    root.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 40, 0.028, 8, false), lam(0xc0392b)));
+    const end = curve.getPoint(1), dir = curve.getTangent(1);
+    const tip = new THREE.Mesh(new THREE.ShapeGeometry(heartShape(0.09), 16), lam(0xc0392b, { side: THREE.DoubleSide }));
+    tip.rotation.y = Math.PI / 2;                                   // 옆에서 보이게
+    const tg = new THREE.Group(); tg.add(tip);
+    tg.position.copy(end);
+    tg.rotation.x = Math.atan2(-dir.z, -dir.y);                     // 뾰족한 끝이 꼬리가 가는 방향으로
+    root.add(tg);
   } else if (id === 't_cat') { // 위로 동그랗게 말린 고양이 꼬리 (머리색)
     seg(0.05, 0.18, hairColor, 0, 0, 0.1, 1.2);
     seg(0.05, 0.18, hairColor, 0, 0.12, 0.24, 0.5);
@@ -465,14 +478,14 @@ function makeTail(id, hairColor) {
 }
 
 // ---------- 캐릭터 전체 ----------
-// look = [모자, 얼굴, 피부, 머리스타일, 머리색, 성별, 눈 색, 날개, 꼬리, 옷 색]
+// look = [모자, 얼굴, 피부, 머리스타일, 머리색, 성별, 눈 색, 날개, 꼬리, 윗옷 색, 바지 색]
 export function buildCharacter(look = [], opts = {}) {
-  const [hatId, faceId, skinId, hairId, hcolorId, gender = 'n', ecolorId = '', wingId = '', tailId = '', bcolorId = ''] = look;
+  const [hatId, faceId, skinId, hairId, hcolorId, gender = 'n', ecolorId = '', wingId = '', tailId = '', bcolorId = '', pcolorId = ''] = look;
   const zombie = !!opts.zombie;
   const skin = zombie ? 0x8fd16a : SKIN_COLOR[skinId] ?? DEFAULT_SKIN;
   // 옷 색(윗옷): 팀전에서는 팀 색, 나머지는 고른 색. 바지는 조금 어두운 색
   const bodyColor = zombie ? 0x4a7a35 : (opts.teamColor ?? BODY_COLOR[bcolorId] ?? opts.bodyColor ?? 0x3d8bff);
-  const pantsColor = zombie ? 0x3b4a7a : new THREE.Color(bodyColor).multiplyScalar(0.55).getHex();
+  const pantsColor = zombie ? 0x3b4a7a : PANTS_COLOR[pcolorId] ?? new THREE.Color(bodyColor).multiplyScalar(0.55).getHex();
   const hairColor = HAIR_COLOR[hcolorId] ?? DEFAULT_HAIR_COLOR;
   const hairStyle = hairId || DEFAULT_HAIR[gender] || 'h_bob';
   const inner = new THREE.Group();
