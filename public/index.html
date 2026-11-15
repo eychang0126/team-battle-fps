@@ -683,7 +683,7 @@ function renderRooms(rooms) {
     return `<div class="room ${full ? 'full' : ''}" data-id="${esc(r.id)}">
       <div class="icon">${r.icon}</div>
       <div class="title">${esc(r.title)}</div>
-      <div class="desc">${esc(r.desc)}</div>
+      <div class="desc">${esc(r.desc)}</div>${r.note ? `<div class="desc" style="color:#ffd43b;font-weight:700">${esc(r.note)}</div>` : ''}
       <div class="count">👥 ${r.count} / ${r.max}명
         <span class="rlink" data-room="${esc(r.id)}" title="이 게임으로 바로 오는 초대 링크 복사">🔗 링크</span></div>
       <button type="button">${full ? '꽉 찼어요' : '들어가기'}</button>

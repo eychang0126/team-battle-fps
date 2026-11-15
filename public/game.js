@@ -9,7 +9,7 @@ const TEAM_COLOR = { red: 0xe84848, blue: 0x3d8bff, human: 0x3d8bff, zombie: 0x4
 const TEAM_NAME = { red: '빨강 팀', blue: '파랑 팀', human: '인간', zombie: '좀비', runner: '러너' };
 const TEAM_CSS = { red: '#ff7a7a', blue: '#6fb5ff', human: '#6fb5ff', zombie: '#7fe05a', runner: '#ffb14d' };
 const IS_TOUCH = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
-const R = 0.35, H = 1.8, EYE = 1.6;
+const R = 0.35, H = 1.8, EYE = 1.7;
 const RUN = 6.5, WALK = 3.2, JUMP = 6.5, GRAV = 18;
 
 let ws, myId, myTeam, myName, cfg, map, mode = 'fps', adminName = '';
@@ -92,12 +92,14 @@ function buildObbyMap() {
   scene.background.set(0x8ec9ff); scene.fog.color.set(0x8ec9ff); scene.fog.near = 60; scene.fog.far = 160;
   const voidPlane = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.MeshBasicMaterial({ color: 0x3b2f7a }));
   voidPlane.rotation.x = -Math.PI / 2; voidPlane.position.y = -30; scene.add(voidPlane);
-  const special = { start: 0x8e9aaf, cp: 0x3ccf6e, goal: 0xffc83d, beam: 0xd9a066 };
+  const special = { start: 0x8e9aaf, cp: 0x3ccf6e, goal: 0xffc83d, beam: 0xd9a066, pillar: 0x5b6075 };
   boxes = map.boxes;
   boxes.forEach((b, i) => {
     const w = b.max[0] - b.min[0], h = b.max[1] - b.min[1], d = b.max[2] - b.min[2];
     const color = special[b.kind] ?? OBBY_COLORS[i % OBBY_COLORS.length];
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color }));
+    const mat = b.kind === 'kill' ? new THREE.MeshBasicMaterial({ color: 0xff2a2a }) // 빨간 블록은 빛나게
+      : new THREE.MeshLambertMaterial({ color });
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
     m.position.set((b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2, (b.min[2] + b.max[2]) / 2);
     m.castShadow = m.receiveShadow = true;
     scene.add(m);
@@ -109,8 +111,9 @@ function buildObbyMap() {
       scene.add(pole, flag);
     }
   });
-  sun.position.set(30, 60, -40); sun.target.position.set(0, 0, -50); scene.add(sun.target);
-  Object.assign(sun.shadow.camera, { left: -60, right: 60, top: 80, bottom: -80, far: 200 });
+  const top = map.height || 40;
+  sun.position.set(35, top + 50, 25); sun.target.position.set(0, top / 2, 0); scene.add(sun.target);
+  Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, far: top + 160 });
   sun.shadow.camera.updateProjectionMatrix();
 }
 
@@ -137,7 +140,7 @@ function applyTheme(xmas) {
     snow = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.15, transparent: true, opacity: 0.9 }));
     mapGroup.add(snow);
   } else {
-    const zombieSky = mode === 'zombie';
+    const zombieSky = mode === 'zombie' || mode === 'wave';
     scene.background.set(zombieSky ? 0x6f7f94 : 0x9fc7ee); scene.fog.color.set(zombieSky ? 0x6f7f94 : 0x9fc7ee);
     scene.fog.near = 40; scene.fog.far = 110;
     if (hemi) { hemi.color.set(0xffffff); hemi.intensity = 0.9; }
@@ -249,14 +252,14 @@ function nameSprite(text, color) {
   s.scale.set(1.6, 0.4, 1); s.position.y = 2.6; s.renderOrder = 10;
   return s;
 }
-// ---------- 동글이 캐릭터 (avatar.js) ----------
+// ---------- 블록 캐릭터 (avatar.js) ----------
 function makeAvatar(name, team, look = []) {
   const teamColor = team === 'red' || team === 'blue' ? TEAM_COLOR[team] : undefined; // 팀전만 팀 색 옷
-  const { inner, arm, body, wings, tail } = buildCharacter(look, { zombie: team === 'zombie', teamColor });
+  const { inner, arm, body, wings, tail, legs } = buildCharacter(look, { zombie: team === 'zombie', teamColor });
   const label = nameSprite(name, TEAM_CSS[team] || '#fff');
-  label.position.y = 2.75;
+  label.position.y = 2.55;
   const grp = new THREE.Group(); grp.add(inner, label);
-  return { group: grp, inner, arm, label, body, wings, tail, team, look: look.join(','), swing: 0, walk: 0, phase: Math.random() * 6 };
+  return { group: grp, inner, arm, label, body, wings, tail, legs, team, look: look.join(','), swing: 0, walk: 0, phase: Math.random() * 6 };
 }
 function syncOthers(list) {
   const seen = new Set();
@@ -269,6 +272,7 @@ function syncOthers(list) {
       const old = o;
       if (old) scene.remove(old.group);
       o = makeAvatar(p.n, p.tm, p.lk || undefined);
+      if (p.id >= 1000000) o.label.visible = false; // 봇 좀비는 이름표 없음
       if (old) { o.group.position.copy(old.group.position); o.group.rotation.y = old.group.rotation.y; }
       else o.group.position.set(p.x, p.y, p.z);
       scene.add(o.group); others.set(p.id, o);
@@ -536,8 +540,8 @@ function feed(html) {
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const cls = t => ({ red: 'r', blue: 'b', human: 'b', zombie: 'z' }[t] || '');
 let centerTimer;
-function center(text, ms) {
-  $('center').textContent = text;
+function center(text, ms, html) {
+  if (html) $('center').innerHTML = text; else $('center').textContent = text;
   clearTimeout(centerTimer);
   if (ms) centerTimer = setTimeout(() => ($('center').textContent = ''), ms);
 }
@@ -574,9 +578,12 @@ function onMessage(m) {
       if (mode === 'zombie') {
         $('ov-title').textContent = '🧟 좀비 모드 · ' + tapWord;
         $('ov-text').innerHTML = `인간: 총으로 좀비를 막고 3분 동안 살아남기<br>좀비: ${IS_TOUCH ? '🧟 버튼' : '<kbd>왼쪽 클릭</kbd>'}으로 인간을 잡아서 좀비로 만들기<br><br>` + $('ov-text').innerHTML;
+      } else if (mode === 'wave') {
+        $('ov-title').textContent = '🧟‍♂️ 좀비 웨이브 · ' + tapWord;
+        $('ov-text').innerHTML = `몰려오는 좀비 떼를 총으로 막아요! 웨이브를 깰 때마다 🪙 5코인, 5웨이브마다 🏆 트로피<br>쓰러지면 다음 웨이브에 부활 · 모두 쓰러지면 게임 오버<br><br>` + $('ov-text').innerHTML;
       } else if (mode === 'obby') {
-        $('ov-title').textContent = '🏃 점프맵 · ' + tapWord;
-        $('ov-text').innerHTML = `발판을 건너 먼저 🏁 골인하면 승리! 떨어지면 🚩 체크포인트에서 다시 시작해요.<br><br>` + $('ov-text').innerHTML;
+        $('ov-title').textContent = '🗼 점프 타워 · ' + tapWord;
+        $('ov-text').innerHTML = `빙글빙글 타워를 올라 꼭대기 🏁에 먼저 닿으면 승리!<br>🔥 빨간 블록은 밟으면 아웃 · 많이 떨어지면 🚩 체크포인트에서 다시 시작<br><br>` + $('ov-text').innerHTML;
       } else {
         $('ov-title').textContent = tapWord;
         center(`${TEAM_NAME[myTeam]}이에요!`, 2500);
@@ -604,8 +611,14 @@ function onMessage(m) {
     case 'obbywin':
       center(m.name ? `🏆 ${m.name} 1등! (${m.time}초)${m.name === myName ? ' 축하해요!' : ''}` : '⏰ 시간 끝! 아무도 골인하지 못했어요', 7000);
       break;
+    case 'fell':
+      center('떨어졌어요! 체크포인트에서 다시 시작 🚩', 1500);
+      break;
+    case 'zap':
+      center('🔥 앗 뜨거! 빨간 블록은 밟으면 안 돼요', 1500);
+      break;
     case 'practice':
-      center('🏁 연습 완주! 2명 이상 모이면 진짜 경주가 시작돼요', 3500);
+      center('🏁 타워 클리어! 🪙 +20 코인 (2명 이상이면 1등에게 🏆 트로피도!)', 4000);
       cpInfo.i = 0;
       break;
     case 'coins':
@@ -622,6 +635,10 @@ function onMessage(m) {
       else if (mode === 'fps') center(`${TEAM_NAME[myTeam]}으로 옮겨졌어요`, 2500);
       break;
     case 'phase':
+      if (mode === 'wave') {
+        if (m.phase === 'break' && !roomInfo.wv) center('🧟‍♂️ 곧 좀비가 몰려와요! 준비하세요', 3000);
+        break;
+      }
       if (mode === 'obby') {
         if (m.phase === 'countdown') { cpInfo.i = 0; center('🏁 출발선에서 기다려요! 10초 뒤 출발', 3000); }
         if (m.phase === 'playing') center('출발! 🏃💨', 1500);
@@ -631,6 +648,21 @@ function onMessage(m) {
       if (m.phase === 'countdown') center('곧 시작해요!', 2000);
       if (m.phase === 'waiting') center('2명 이상 모이면 시작해요', 2500);
       break;
+    case 'wave':
+      center(`🌊 웨이브 ${m.n} 시작! 좀비 ${m.count}마리`, 2500);
+      break;
+    case 'waveClear':
+      center(`✅ 웨이브 ${m.n} 클리어!${m.record ? ' 🏆 새 최고 기록!' : ''}`, 2400);
+      break;
+    case 'wavedead':
+      center('쓰러졌어요! 다음 웨이브에 부활해요 💫', 0);
+      break;
+    case 'gameover': {
+      const best = m.best ? `<br>🏆 최고 기록: 웨이브 ${m.best.wave} (${m.best.names.map(esc).join(', ')})` : '';
+      const top = (m.top || []).slice(0, 5).map(x => `${esc(x.n)} ${x.k}킬`).join(' · ');
+      center(`💀 게임 오버! 웨이브 ${m.wave}까지 버텼어요${top ? '<br>' + top : ''}${best}<br>곧 웨이브 1부터 다시 시작해요`, 7500, true);
+      break;
+    }
     case 'zstart':
       center(myTeam === 'zombie' ? '🧟 당신이 첫 좀비예요! 인간을 잡으세요!' : `🧟 좀비 등장: ${m.zombies.join(', ')} · 도망쳐요!`, 3500);
       break;
@@ -643,7 +675,6 @@ function onMessage(m) {
       break;
     }
     case 'respawn':
-      if (mode === 'obby' && me.y < -5) center('떨어졌어요! 체크포인트에서 다시 시작 🚩', 1500);
       Object.assign(me, { x: m.x, y: m.y, z: m.z, yaw: m.yaw, pitch: 0, vy: 0, alive: true, hp: m.hp ?? cfg.maxHp });
       ammo = cfg.mag; reloadUntil = 0;
       if (/부활|일어나요/.test($('center').textContent)) center('', 0);
@@ -669,13 +700,17 @@ function onMessage(m) {
         if (!p) continue;
         Object.assign(p, { x: x / 100, y: y / 100, z: z / 100, yw: yw / 1000, pt: pt / 1000, hp, a });
       }
-      for (const k of ['s', 'target', 'ph', 'w', 'tl']) if (m[k] !== undefined) roomInfo[k] = m[k];
+      for (const k of ['s', 'target', 'ph', 'w', 'tl', 'wv', 'zl']) if (m[k] !== undefined) roomInfo[k] = m[k];
       m = { ...roomInfo, t: 'state', p: [...roomPlayers.values()] };
       if (mode === 'fps' && !m.s) break;
     }
       lastState = m;
       if (mode === 'fps') {
         $('sc-r').textContent = m.s.red; $('sc-b').textContent = m.s.blue; $('sc-t').textContent = `목표 ${m.target}`;
+      } else if (mode === 'wave') {
+        $('sc-r').textContent = `🌊 ${m.wv || 0}`; $('sc-r').style.color = '#6fb5ff';
+        $('sc-b').textContent = `🧟 ${m.zl || 0}`; $('sc-b').style.color = '#7fe05a';
+        $('sc-t').textContent = m.ph === 'wave' ? `웨이브 ${m.wv} · 남은 좀비 ${m.zl}` : m.ph === 'break' ? `다음 웨이브까지 ${m.tl}초` : m.ph === 'over' ? '게임 오버' : '';
       } else if (mode === 'obby') {
         $('sc-r').textContent = `🏃 ${m.p.length}`; $('sc-r').style.color = '#ffb14d';
         $('sc-b').textContent = `🚩 ${cpInfo.i}/${cpInfo.total}`; $('sc-b').style.color = '#69db7c';
@@ -695,7 +730,7 @@ function onMessage(m) {
           meAv.label.visible = false;
           scene.add(meAv.group);
         }
-        if (me.alive && !p.a) { me.alive = false; center(mode === 'zombie' ? '쓰러졌어요! 3초 후 다시 일어나요' : '죽었어요! 3초 후 부활', 0); }
+        if (me.alive && !p.a) { me.alive = false; if (mode !== 'wave') center(mode === 'zombie' ? '쓰러졌어요! 3초 후 다시 일어나요' : '죽었어요! 3초 후 부활', 0); }
         me.hp = p.hp;
       }
       if ($('board').style.display === 'block') renderBoard();
@@ -743,7 +778,13 @@ function renderBoard() {
   if (mode === 'obby') {
     const rows = [...lastState.p].sort((a, b) => b.c - a.c)
       .map(p => `<tr class="${p.id === myId ? 'me' : ''}"><td>${crown(p.n)}${esc(p.n)}</td><td>🚩 ${p.c}/${cpInfo.total}</td></tr>`).join('');
-    $('board').innerHTML = `<div style="color:#ffb14d;font-weight:800;margin:6px 0">🏃 점프맵 순위</div><table><tr><th>이름</th><th>체크포인트</th></tr>${rows}</table>`;
+    $('board').innerHTML = `<div style="color:#ffb14d;font-weight:800;margin:6px 0">🗼 점프 타워 순위</div><table><tr><th>이름</th><th>체크포인트</th></tr>${rows}</table>`;
+    return;
+  }
+  if (mode === 'wave') {
+    const rows = lastState.p.filter(p => p.tm === 'human').sort((a, b) => b.k - a.k)
+      .map(p => `<tr class="${p.id === myId ? 'me' : ''}"><td>${crown(p.n)}${esc(p.n)}</td><td>${p.k}</td><td>${p.d}</td></tr>`).join('');
+    $('board').innerHTML = `<div style="color:#7fe05a;font-weight:800;margin:6px 0">🧟‍♂️ 좀비 웨이브 — 웨이브 ${lastState.wv || 0}</div><table><tr><th>이름</th><th>처치</th><th>쓰러짐</th></tr>${rows}</table>`;
     return;
   }
   const teams = mode === 'fps' ? ['red', 'blue'] : ['human', 'zombie'];
@@ -832,7 +873,8 @@ function frame() {
       meAv.group.rotation.y = me.yaw;
       meAv.group.rotation.z = me.alive ? 0 : Math.PI / 2;
       meAv.walk = moving ? meAv.walk + dt * 12 : 0;
-      meAv.inner.position.y = moving ? Math.abs(Math.sin(meAv.walk)) * 0.08 : 0;
+      meAv.inner.position.y = moving ? Math.abs(Math.sin(meAv.walk)) * 0.03 : 0;
+      if (meAv.legs) meAv.legs.forEach((l, i) => (l.rotation.x = moving ? Math.sin(meAv.walk) * (i ? -0.7 : 0.7) : 0)); // 다리 앞뒤로
       meAv.arm.rotation.x = me.pitch - Math.sin(swing * Math.PI) * 0.8;
       animateExtras(meAv, t, meAv.phase);
     }
@@ -856,7 +898,8 @@ function frame() {
     // 움직이면 통통 튀기
     const moving = Math.hypot(o.tx - p.x, o.tz - p.z) > 0.03;
     o.walk = moving ? o.walk + dt * 12 : 0;
-    o.inner.position.y = moving ? Math.abs(Math.sin(o.walk)) * 0.08 : o.inner.position.y * 0.8;
+    o.inner.position.y = moving ? Math.abs(Math.sin(o.walk)) * 0.03 : o.inner.position.y * 0.8;
+    if (o.legs) o.legs.forEach((l, i) => (l.rotation.x = moving ? Math.sin(o.walk) * (i ? -0.7 : 0.7) : l.rotation.x * 0.8));
     o.inner.rotation.z = moving ? Math.sin(o.walk) * 0.06 : 0;
     o.label.visible = o.alive && o.team === myTeam || o.alive && p.distanceTo(camera.position) < 25;
   }

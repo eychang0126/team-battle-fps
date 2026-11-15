@@ -75,7 +75,8 @@
       <div class="row" style="margin-bottom:10px">
         <button onclick="cmd({t:'resetRound', room:'fps'})">🔄 팀전 리셋</button>
         <button onclick="cmd({t:'resetRound', room:'zombie'})">🔄 좀비 모드 리셋</button>
-        <button onclick="cmd({t:'resetRound', room:'obby'})">🔄 점프맵 다시 시작</button>
+        <button onclick="cmd({t:'resetRound', room:'wave'})">🔄 좀비 웨이브 리셋</button>
+        <button onclick="cmd({t:'resetRound', room:'obby'})">🔄 점프 타워 다시 시작</button>
         <span style="margin-left:8px">팀전 목표 킬</span>
         <input id="target" type="number" min="1" max="200" style="width:80px">
         <button onclick="cmd({t:'setTarget', n: +document.getElementById('target').value})">적용</button>
@@ -187,10 +188,11 @@ function render(m) {
   $('login').style.display = 'none'; $('panel').style.display = 'block';
   $('st-open').textContent = m.shutdown ? '닫힘' : '열림';
   $('st-open').className = 'pill ' + (m.shutdown ? 'closed' : 'open');
-  const ZP = { waiting: '사람 기다리는 중', countdown: '곧 시작', playing: '진행 중', ended: '라운드 끝' };
+  const ZP = { waiting: '사람 기다리는 중', countdown: '곧 시작', playing: '진행 중', ended: '라운드 끝', break: '쉬는 시간', wave: '웨이브 진행 중', over: '게임 오버' };
   $('roomstat').innerHTML = m.rooms.map(r => r.mode === 'fps'
     ? `🔫 <b>${esc(r.title)}</b> (${r.count}명) — <span class="r">${r.scores.red}</span> : <span class="b">${r.scores.blue}</span>`
     : r.mode === 'zombie' ? `🧟 <b>${esc(r.title)}</b> (${r.count}명) — ${ZP[r.phase]} · 인간 승리 ${r.wins.human} / 좀비 승리 ${r.wins.zombie}`
+    : r.mode === 'wave' ? `🧟‍♂️ <b>${esc(r.title)}</b> (${r.count}명) — ${ZP[r.phase] || ''} · 웨이브 ${r.wv}${r.best ? ` · 최고 기록 웨이브 ${r.best.wave} (${esc(r.best.names.join(', '))})` : ''}`
     : `🏃 <b>${esc(r.title)}</b> (${r.count}명) — ${ZP[r.phase]}`).join('<br>');
   const fps = m.rooms.find(r => r.id === 'fps');
   renderMapCtl(m);
