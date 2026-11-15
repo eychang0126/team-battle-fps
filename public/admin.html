@@ -76,6 +76,7 @@
         <button onclick="cmd({t:'resetRound', room:'fps'})">🔄 팀전 리셋</button>
         <button onclick="cmd({t:'resetRound', room:'zombie'})">🔄 좀비 모드 리셋</button>
         <button onclick="cmd({t:'resetRound', room:'wave'})">🔄 좀비 웨이브 리셋</button>
+        <button onclick="cmd({t:'resetRound', room:'lava'})">🔄 용암 타워 다시 시작</button>
         <button onclick="cmd({t:'resetRound', room:'obby'})">🔄 점프 타워 다시 시작</button>
         <span style="margin-left:8px">팀전 목표 킬</span>
         <input id="target" type="number" min="1" max="200" style="width:80px">
@@ -94,6 +95,12 @@
         <tbody id="list"></tbody>
       </table>
       <div id="empty" style="color:#6e7891;padding:10px 0">아직 아무도 없어요.</div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin:0 0 8px">✊✋✌️ 가위바위보 신청 <span id="rps-count" style="color:#ffd43b"></span></h2>
+      <div style="color:#aab3c7;font-size:13px;margin-bottom:8px">수락하면 둘 다 하나씩 골라요. 신청한 사람이 이기면 🪙 50코인 (하루 한 번, 비기면 다시).</div>
+      <div id="rps"></div>
     </div>
 
     <div class="card">
@@ -188,7 +195,7 @@ function render(m) {
   $('login').style.display = 'none'; $('panel').style.display = 'block';
   $('st-open').textContent = m.shutdown ? '닫힘' : '열림';
   $('st-open').className = 'pill ' + (m.shutdown ? 'closed' : 'open');
-  const ZP = { waiting: '사람 기다리는 중', countdown: '곧 시작', playing: '진행 중', ended: '라운드 끝', break: '쉬는 시간', wave: '웨이브 진행 중', over: '게임 오버' };
+  const ZP = { waiting: '사람 기다리는 중', countdown: '곧 시작', playing: '진행 중', ended: '라운드 끝', rising: '용암 올라오는 중', break: '쉬는 시간', wave: '웨이브 진행 중', over: '게임 오버' };
   $('roomstat').innerHTML = m.rooms.map(r => r.mode === 'fps'
     ? `🔫 <b>${esc(r.title)}</b> (${r.count}명) — <span class="r">${r.scores.red}</span> : <span class="b">${r.scores.blue}</span>`
     : r.mode === 'zombie' ? `🧟 <b>${esc(r.title)}</b> (${r.count}명) — ${ZP[r.phase]} · 인간 승리 ${r.wins.human} / 좀비 승리 ${r.wins.zombie}`
@@ -202,6 +209,7 @@ function render(m) {
   renderChat(m.chat || []);
   if (m.invite) $('inv-link').value = `${location.origin}/?invite=${m.invite}`;
   renderInbox(m.inbox || []);
+  renderRps(m.rps || []);
   renderAccounts(m.accountList || []);
   $('list').innerHTML = m.players.map(p => `
     <tr>
@@ -270,6 +278,23 @@ function renderAccounts(list) {
   }).join('') || '<tr><td colspan="6" style="color:#6e7891">계정이 없어요.</td></tr>';
 }
 let lastInboxKey = '';
+let lastRpsKey = '';
+function renderRps(list) {
+  const key = JSON.stringify(list);
+  if (key === lastRpsKey) return; lastRpsKey = key;
+  $('rps-count').textContent = list.length ? `(${list.length})` : '';
+  $('rps').innerHTML = list.length ? list.map(g => {
+    const n = esc(g.name), q = JSON.stringify(g.name).replace(/"/g, '&quot;');
+    if (g.state === 'pending') return `<div class="row" style="margin:6px 0"><b style="min-width:110px">${n}</b>
+      <span style="color:#aab3c7">${g.online ? '기다리는 중' : '(지금 접속 안 함)'}</span>
+      <button class="green" onclick="cmd({t:'rpsAccept', name:${q}})">✅ 수락</button>
+      <button onclick="cmd({t:'rpsDecline', name:${q}})">❌ 거절</button></div>`;
+    return `<div class="row" style="margin:6px 0"><b style="min-width:110px">${n}</b>
+      <span style="color:#aab3c7">${g.round > 1 ? g.round + '번째 판 · ' : ''}${g.userPicked ? '✅ 신청자 골랐음' : '신청자 고르는 중…'}</span>
+      ${g.adminPicked ? '<span style="color:#7fe05a">내가 골랐어요 ✓</span>' : ['r', 'p', 's'].map(k => `<button style="font-size:22px;padding:4px 12px" onclick="cmd({t:'rpsPick', name:${q}, pick:'${k}'})">${{ r: '✊', p: '✋', s: '✌️' }[k]}</button>`).join('')}
+      <button onclick="cmd({t:'rpsDecline', name:${q}})">취소</button></div>`;
+  }).join('') : '<div style="color:#6f7890">신청이 없어요</div>';
+}
 function renderInbox(list) {
   const key = JSON.stringify(list);
   if (key === lastInboxKey) return; lastInboxKey = key;

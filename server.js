@@ -181,6 +181,26 @@ const SHOP = [
   { id: 't_devil', type: 'tail', name: '악마 꼬리', icon: '😈', price: 60 },
   { id: 't_cat', type: 'tail', name: '고양이 꼬리', icon: '🐱', price: 50 },
   { id: 't_dino', type: 'tail', name: '공룡 꼬리', icon: '🦖', price: 70 },
+  // 무기 (산 무기는 게임 안에서 Q 키 / 🔁 버튼으로 바꿔 들어요)
+  { id: 'wp_rifle', type: 'weapon', name: '돌격소총', icon: '🔫', price: 0, desc: '기본 총. 무난해요' },
+  { id: 'wp_smg', type: 'weapon', name: '기관단총', icon: '💨', price: 80, desc: '아주 빠르게 연사, 한 발은 약해요' },
+  { id: 'wp_shotgun', type: 'weapon', name: '샷건', icon: '💥', price: 120, desc: '가까이서 엄청 세요. 멀면 약해요' },
+  { id: 'wp_sniper', type: 'weapon', name: '저격총', icon: '🎯', price: 200, desc: '헤드샷 한 방! 오른쪽 클릭으로 조준경' },
+  { id: 'wp_minigun', type: 'weapon', name: '미니건', icon: '🌀', price: 400, desc: '총알 120발, 쉬지 않고 쏴요' },
+  { id: 'wp_dagger', type: 'weapon', name: '단검', icon: '🗡️', price: 60, desc: '빠르게 찌르기. 뒤에서 찌르면 한 방! 들면 더 빨라요' },
+  { id: 'wp_katana', type: 'weapon', name: '카타나', icon: '⚔️', price: 250, desc: '넓게 베기 + 오른쪽 클릭으로 돌진' },
+  { id: 'wp_bow', type: 'weapon', name: '활', icon: '🏹', price: 150, desc: '누르고 있으면 당겨져요. 꽉 당기면 세요' },
+  { id: 'wp_burst', type: 'weapon', name: '점사 소총', icon: '🔂', price: 180, desc: '한 번 누르면 3발 연속 탕탕탕' },
+  { id: 'wp_shield', type: 'weapon', name: '폭동 방패', icon: '🛡️', price: 220, desc: '앞에서 오는 총알을 막아요. 방패로 때리기도!' },
+  { id: 'wp_scythe', type: 'weapon', name: '낫', icon: '🌙', price: 300, desc: '한 바퀴 휘둘러 주변을 다 베기 + 오른쪽 클릭 대쉬' },
+  { id: 'wp_gunblade', type: 'weapon', name: '건블레이드', icon: '🗡️🔫', price: 350, desc: '칼로 베고, 오른쪽 클릭으로 총처럼 한 발' },
+  { id: 'wp_rpg', type: 'weapon', name: 'RPG', icon: '🚀', price: 450, desc: '로켓 펑! 내 발밑에 쏘면 로켓 점프 (나는 안 다쳐요)' },
+  { id: 'gr_grenade', type: 'gadget', name: '수류탄', icon: '💣', price: 150, desc: '던지면 2초 뒤 펑! 살아날 때마다 2개' },
+  { id: 'gr_smoke', type: 'gadget', name: '연막탄', icon: '🌫️', price: 100, desc: '연기 20초. 한 판에 3개' },
+  { id: 'gr_flash', type: 'gadget', name: '섬광탄', icon: '⚡', price: 140, desc: '보고 있던 사람 화면이 하얘져요. 살아날 때마다 2개' },
+  { id: 'gr_molotov', type: 'gadget', name: '화염병', icon: '🔥', price: 180, desc: '불바닥 20초, 상대 팀만 다쳐요. 살아날 때마다 1개' },
+  { id: 'gr_jumppad', type: 'gadget', name: '점프패드', icon: '🦘', price: 120, desc: '발밑에 설치, 밟으면 높이 슝! 살아날 때마다 1개' },
+  { id: 'gr_horn', type: 'gadget', name: '전쟁 나팔', icon: '📯', price: 200, desc: '주변 우리 팀 8초 동안 빨라지고 세져요. 살아날 때마다 1번' },
 ];
 const SHOP_BY_ID = new Map(SHOP.map(i => [i.id, i]));
 // 관리자 계정이 없으면 만들어 두기 (원래 있던 같은 이름 계정이면 그대로 관리자 계정으로 써요)
@@ -213,7 +233,7 @@ const ADMIN_COINS = Number.MAX_SAFE_INTEGER; // 관리자는 코인 무한
 const coinsOf = name => isAdminName(name) ? ADMIN_COINS : (acct(name)?.coins ?? 0);
 function meInfo(name) {
   const a = acct(name);
-  return { t: 'me', coins: coinsOf(name), inf: isAdminName(name), owned: a.admin ? SHOP.map(i => i.id) : a.owned, equip: a.equip, gender: a.gender, trophies: a.trophies || 0, rank: rankOf(name), bestWave: a.bestWave || 0 };
+  return { t: 'me', coins: coinsOf(name), inf: isAdminName(name), owned: a.admin ? SHOP.map(i => i.id) : a.owned, equip: a.equip, gender: a.gender, trophies: a.trophies || 0, rank: rankOf(name), bestWave: a.bestWave || 0, mgBest: a.mgBest || {} };
 }
 function lookOf(name) {
   const a = acct(name);
@@ -238,7 +258,7 @@ function handleShop(c, msg) {
     saveAccounts();
   } else if (msg.t === 'equip') {
     const type = String(msg.type);
-    if (!['hat', 'face', 'ecolor', 'skin', 'hair', 'hcolor', 'wing', 'tail', 'bcolor'].includes(type)) return;
+    if (!['hat', 'face', 'ecolor', 'skin', 'hair', 'hcolor', 'wing', 'tail', 'bcolor', 'weapon'].includes(type)) return;
     if (msg.item == null) a.equip[type] = null;
     else {
       const item = SHOP_BY_ID.get(String(msg.item));
@@ -263,6 +283,111 @@ function giveCoins(list) {
     sendTo(p, meInfo(p.name));
   }
   saveAccounts();
+}
+
+// ---------- ✊ 관리자와 가위바위보 (하루에 한 번, 이기면 50코인) ----------
+const RPS_COINS = 50;
+const rpsGames = new Map(); // 신청한 사람 이름 → { name, state: 'pending'|'playing', userPick, adminPick, round, at }
+const todayKST = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+const RPS_NAMES = { r: '✊ 바위', p: '✋ 보', s: '✌️ 가위' };
+function rpsInfo(c) {
+  const a = acct(c.name), g = rpsGames.get(c.name);
+  return { t: 'rps', state: g ? g.state : 'none', round: g ? g.round : 0, picked: !!(g && g.userPick),
+    usedToday: !!a && a.rpsDay === todayKST(), coins: RPS_COINS, isAdmin: isAdminName(c.name) };
+}
+function clientByName(name) { for (const x of clients.values()) if (x.name === name) return x; return null; }
+function rpsNotify(name, extra) {
+  const c = clientByName(name);
+  if (c) sendTo(c, { ...rpsInfo(c), ...(extra || {}) });
+}
+function handleRpsUser(c, msg) {
+  const a = acct(c.name);
+  if (!a) return;
+  if (msg.t === 'rpsReq') {
+    if (isAdminName(c.name)) return sendTo(c, { t: 'notice', text: '관리자는 신청할 수 없어요 😄' });
+    if (a.rpsDay === todayKST()) return sendTo(c, { t: 'notice', text: '오늘은 이미 했어요! 내일 다시 신청해 주세요.' });
+    if (rpsGames.has(c.name)) return;
+    if (rpsGames.size >= 30) return sendTo(c, { t: 'notice', text: '신청이 너무 많아요. 잠시 뒤에 다시 해 주세요.' });
+    rpsGames.set(c.name, { name: c.name, state: 'pending', userPick: null, adminPick: null, round: 1, at: Date.now() });
+    rpsNotify(c.name);
+  } else if (msg.t === 'rpsCancel') {
+    const g = rpsGames.get(c.name);
+    if (g) { rpsGames.delete(c.name); rpsNotify(c.name, { msg: '신청을 취소했어요.' }); }
+  } else if (msg.t === 'rpsPick') {
+    const g = rpsGames.get(c.name);
+    if (!g || g.state !== 'playing' || g.userPick || !RPS_NAMES[msg.pick]) return;
+    g.userPick = msg.pick;
+    rpsNotify(c.name);
+    rpsResolve(g);
+  }
+}
+function rpsResolve(g) {
+  if (!g.userPick || !g.adminPick) return;
+  const u = g.userPick, ad = g.adminPick;
+  const beats = { r: 's', s: 'p', p: 'r' };
+  const picks = { you: u, admin: ad };
+  if (u === ad) { // 비기면 다시
+    g.round++; g.userPick = g.adminPick = null;
+    rpsNotify(g.name, { msg: `비겼어요! (둘 다 ${RPS_NAMES[u]}) 다시 골라요`, last: picks });
+    return;
+  }
+  const userWins = beats[u] === ad;
+  const a = acct(g.name);
+  if (a) {
+    a.rpsDay = todayKST();
+    if (userWins) a.coins += RPS_COINS;
+    a.rpsLog = (a.rpsLog || []).slice(-9).concat({ day: a.rpsDay, win: userWins });
+    saveAccounts();
+  }
+  rpsGames.delete(g.name);
+  const c = clientByName(g.name);
+  rpsNotify(g.name, { done: true, win: userWins, last: picks,
+    msg: userWins ? `🎉 이겼어요! 🪙 +${RPS_COINS}코인 (나 ${RPS_NAMES[u]} vs 관리자 ${RPS_NAMES[ad]})` : `😢 졌어요… (나 ${RPS_NAMES[u]} vs 관리자 ${RPS_NAMES[ad]}) 내일 또 도전해요!` });
+  if (c) sendTo(c, meInfo(g.name));
+  chatLog.push({ time: new Date().toISOString(), from: g.name, where: '가위바위보', text: `${RPS_NAMES[u]} vs 관리자 ${RPS_NAMES[ad]} → ${userWins ? '신청자 승리 (+' + RPS_COINS + '코인)' : '관리자 승리'}` });
+}
+// 관리자 쪽 (관리자 페이지)
+function handleRpsAdmin(msg) {
+  const g = rpsGames.get(String(msg.name));
+  if (!g) return;
+  if (msg.t === 'rpsAccept' && g.state === 'pending') {
+    if (!clientByName(g.name)) { rpsGames.delete(g.name); return; } // 이미 나갔어요
+    g.state = 'playing';
+    rpsNotify(g.name, { msg: '관리자가 수락했어요! ✊✋✌️ 하나를 골라요' });
+  } else if (msg.t === 'rpsDecline') {
+    rpsGames.delete(g.name);
+    rpsNotify(g.name, { msg: '관리자가 지금은 안 된대요. 다음에 다시 신청해 주세요.' });
+  } else if (msg.t === 'rpsPick' && g.state === 'playing' && !g.adminPick && RPS_NAMES[msg.pick]) {
+    g.adminPick = msg.pick;
+    rpsNotify(g.name, { adminPicked: true });
+    rpsResolve(g);
+  }
+}
+
+// ---------- 🎮 미니게임 (플래피 버드, 공룡 달리기) ----------
+// 화면에서 게임을 하고 점수를 보내요. 서버는 걸린 시간을 보고 진짜인지 확인해요.
+const MINIGAMES = {
+  flappy: { name: '플래피 버드', goal: 20, coins: 20, secPerPoint: 1.2 },  // 토관 하나에 최소 1.2초
+  dino: { name: '공룡 달리기', goal: 1000, coins: 20, secPerPoint: 1 / 26 }, // 1초에 최대 26점쯤
+};
+function handleMinigame(c, msg) {
+  const G = MINIGAMES[msg.g], a = acct(c.name);
+  if (!G || !a) return;
+  if (msg.t === 'mgStart') { c.mg = { g: msg.g, start: now() }; return; }
+  const score = Math.max(0, Math.floor(Number(msg.score) || 0));
+  if (!c.mg || c.mg.g !== msg.g) return;
+  const secs = (now() - c.mg.start) / 1000;
+  c.mg = null;
+  const real = secs >= score * G.secPerPoint * 0.9; // 너무 빨리 끝난 점수는 무시
+  a.mgBest = a.mgBest || {};
+  let coins = 0;
+  if (real) {
+    if (score > (a.mgBest[msg.g] || 0)) a.mgBest[msg.g] = score;
+    if (score >= G.goal) { coins = G.coins; if (!isAdminName(c.name)) a.coins += coins; } // 트로피는 없어요
+    saveAccounts();
+  }
+  sendTo(c, { t: 'mgResult', g: msg.g, score, best: a.mgBest[msg.g] || 0, coins, goal: G.goal, ok: real });
+  if (coins) sendTo(c, meInfo(c.name));
 }
 
 // ---------- 트로피 순위 ----------
@@ -342,6 +467,43 @@ function buildXmas() {
   return { ...MAP, id: 'xmas', theme: 'xmas', boxes: [...MAP.boxes, ...trunks], trees };
 }
 const BATTLE_MAPS = { basic: MAP, xmas: buildXmas() };
+// 🏙️ 좀비 웨이브용 도시 맵: 건물 + 바깥 계단으로 옥상까지 올라갈 수 있어요
+function buildCity() {
+  const boxes = [], S = 40;
+  const box = (x0, y0, z0, x1, y1, z1, kind, extra = {}) => boxes.push({ min: [x0, y0, z0], max: [x1, y1, z1], kind, ...extra });
+  const COLORS = [0xb5654a, 0x8f9aa8, 0xd8c7a3, 0x6f7f96, 0xc98d5a, 0x9a8bb0, 0x7d9a7a, 0xb7b0a2];
+  // 건물: 가운데 (cx,cz), 크기 w×d, 높이 h, 계단이 붙는 쪽 side ('e' 동, 'w' 서, 'n' 북(-z), 's' 남(+z))
+  const B = [
+    [12, 12, 9, 10, 6, 's'], [26, 22, 8, 12, 9, 'w'],
+    [-13, 14, 10, 8, 4.5, 'e'], [-27, 24, 8, 9, 7.5, 'e'],
+    [14, -24, 10, 10, 7.5, 'w'], [27, -10, 7, 9, 4.5, 'n'],
+    [-12, -13, 9, 12, 9, 'e'], [-26, -25, 9, 8, 6, 'n'],
+  ];
+  B.forEach(([cx, cz, w, d, h, side], i) => {
+    const x0 = cx - w / 2, x1 = cx + w / 2, z0 = cz - d / 2, z1 = cz + d / 2;
+    box(x0, 0, z0, x1, h, z1, 'bldg', { color: COLORS[i % COLORS.length] });
+    // 바깥 계단: 벽을 따라 한 칸씩 올라가요 (한 칸 높이 0.8m 이하 = 점프로 쉽게 올라가요)
+    const n = Math.ceil(h / 0.8) - 1, rise = h / (n + 1), along = side === 'e' || side === 'w' ? d : w;
+    const run = Math.min(1.15, (along - 0.4) / n);
+    for (let k = 0; k < n; k++) {
+      const top = rise * (k + 1), a0 = -along / 2 + 0.2 + k * run, a1 = a0 + run;
+      if (side === 'e') box(x1, 0, cz + a0, x1 + 1.6, top, cz + a1, 'stair');
+      if (side === 'w') box(x0 - 1.6, 0, cz - a1, x0, top, cz - a0, 'stair');
+      if (side === 's') box(cx - a1, 0, z1, cx - a0, top, z1 + 1.6, 'stair');
+      if (side === 'n') box(cx + a0, 0, z0 - 1.6, cx + a1, top, z0, 'stair');
+    }
+  });
+  // 길가의 자동차, 가로등
+  const cars = [[3, -18, 0], [-4, 20, 0], [20, 3, 1], [-20, -3, 1], [33, 30, 0], [-33, -8, 0]];
+  cars.forEach(([x, z, rot], i) => {
+    const [hw, hd] = rot ? [2.1, 1] : [1, 2.1];
+    box(x - hw, 0, z - hd, x + hw, 1.4, z + hd, 'car', { color: [0xe84848, 0x3d8bff, 0xffd43b, 0xf4f4f6, 0x2d2f36, 0x3ccf6e][i] });
+  });
+  for (const [x, z] of [[4.5, 4.5], [-4.5, -4.5], [4.5, -30], [-4.5, 30], [30, 4.5], [-30, -4.5]]) box(x - 0.12, 0, z - 0.12, x + 0.12, 4.2, z + 0.12, 'pole');
+  const spawnsH = [[0, 0], [3, 0], [-3, 0], [0, 3], [0, -3], [0, 9], [9, 0], [-9, 0], [0, -9]].map(([x, z]) => ({ x, z, yaw: Math.random() * 6.28 }));
+  return { id: 'city', theme: 'city', size: S, boxes, spawnsH, spawns: MAP.spawns };
+}
+const CITY = buildCity();
 const MAP_LIST = [
   { id: 'basic', name: '기본 맵', icon: '🌳' },
   { id: 'xmas', name: '크리스마스 맵', icon: '🎄' },
@@ -396,7 +558,7 @@ function buildObby() {
   // 용암 줄이 있는 발판 (빨간 줄을 밟으면 체크포인트로)
   const lavaPad = (gap, dy) => {
     const p = next(3.4, 3, gap, dy);
-    plat(p.x, p.y + 0.25, p.z, dx ? 0.7 : 3, dx ? 3 : 0.7, 'kill', 0.25);
+    plat(p.x, p.y + 0.15, p.z, dx ? 0.35 : 1.4, dx ? 1.4 : 0.35, 'kill', 0.15); // 작은 빨간 블록 (옆으로 피해 가도 돼요)
   };
   const cp = () => checkpoints.push(next(4, 4, 2.2, 0.3, 'cp'));
   // 1구간: 계단
@@ -423,6 +585,10 @@ function buildObby() {
   return { size: L + 30, boxes, noFloor: true, checkpoints, goal, tower: true, height: y };
 }
 const OBBY = buildObby();
+// 용암 타워: 같은 탑에서 빨간 블록만 빼요 (용암이 대신 올라와요)
+const LAVA_MAP = { ...OBBY, id: 'lava', boxes: OBBY.boxes.filter(b => b.kind !== 'kill'), lava: true };
+const LAVA_START = -3, LAVA_COUNTDOWN_MS = 8000, LAVA_END_MS = 8000;
+const lavaSpeed = secs => 0.11 + secs * 0.0015; // 점점 빨라져요 (m/초)
 const OBBY_ROUND_MS = 6 * 60 * 1000;
 const OBBY_COUNTDOWN_MS = 10 * 1000;
 const OBBY_END_MS = 8 * 1000;
@@ -446,15 +612,17 @@ const ROOM_DEFS = [
   { id: 'fps', mode: 'fps', icon: '🔫', title: '팀 배틀 FPS', desc: '빨강 팀 vs 파랑 팀! 먼저 목표 킬을 채우는 팀이 이겨요.' },
   { id: 'zombie', mode: 'zombie', icon: '🧟', title: '좀비 모드', desc: '좀비에게 잡히면 나도 좀비! 3분 동안 살아남으세요.' },
   { id: 'wave', mode: 'wave', icon: '🧟‍♂️', title: '좀비 웨이브', desc: '몰려오는 봇 좀비 떼를 막아라! 혼자서도, 친구랑 같이도 할 수 있어요.' },
+  { id: 'lava', mode: 'lava', icon: '🌋', title: '용암 타워', desc: '용암이 올라와요! 닿으면 바로 아웃. 꼭대기까지 도망쳐요. 혼자서도 OK' },
   { id: 'obby', mode: 'obby', icon: '🗼', title: '점프 타워', desc: '빙글빙글 타워를 먼저 꼭대기까지 오르면 승리! 빨간 블록은 밟으면 안 돼요. 꽤 어려워요!' },
 ];
 const rooms = new Map();
 for (const d of ROOM_DEFS) {
   rooms.set(d.id, {
-    ...d, players: new Map(), map: d.mode === 'obby' ? OBBY : MAP,
+    ...d, players: new Map(), map: d.mode === 'obby' ? OBBY : d.mode === 'lava' ? LAVA_MAP : d.mode === 'wave' ? CITY : MAP,
     mapId: 'basic', votes: new Map(), adminPick: null,                  // 맵 투표 (팀전/좀비)
-    scores: { red: 0, blue: 0 }, killTarget: 20, roundOver: false,      // 팀전
+    scores: { red: 0, blue: 0 }, killTarget: 5,  roundOver: false,      // 팀전
     phase: 'waiting', phaseEnd: 0, wins: { human: 0, zombie: 0 },       // 좀비
+    roundNo: 1, grenades: [], projs: [], zones: [], pads: [],
   });
 }
 
@@ -468,7 +636,7 @@ function countTeam(room, team) { let n = 0; for (const p of room.players.values(
 
 function pickTeam(room) {
   if (room.mode === 'zombie') return room.phase === 'playing' ? 'zombie' : 'human';
-  if (room.mode === 'obby') return 'runner';
+  if (room.mode === 'obby' || room.mode === 'lava') return 'runner';
   if (room.mode === 'wave') return 'human';
   const r = countTeam(room, 'red'), b = countTeam(room, 'blue');
   if (r !== b) return r < b ? 'red' : 'blue';
@@ -476,21 +644,35 @@ function pickTeam(room) {
 }
 
 function spawn(room, p) {
-  if (room.mode === 'obby') {
-    const c = OBBY.checkpoints[p.cp || 0];
+  if (room.mode === 'obby' || room.mode === 'lava') {
+    const c = OBBY.checkpoints[room.mode === 'lava' ? 0 : p.cp || 0];
     p.x = c.x + (Math.random() - 0.5) * (c.w - 2); p.y = c.y; p.z = c.z + (Math.random() - 0.5) * (c.d - 2);
     p.yaw = 0; p.pitch = 0;
   } else {
-    const list = room.mode === 'fps' ? MAP.spawns[p.team] : ZSPAWNS[p.team];
+    const list = room.mode === 'fps' ? MAP.spawns[p.team] : room.map.spawnsH && p.team === 'human' ? room.map.spawnsH : ZSPAWNS[p.team];
     const s = list[Math.floor(Math.random() * list.length)];
     p.x = s.x + (Math.random() - 0.5); p.y = 0; p.z = s.z; p.yaw = s.yaw; p.pitch = 0;
   }
   p.hp = p.team === 'zombie' ? ZOMBIE_HP : MAX_HP;
   p.alive = true; p.protectUntil = now() + SPAWN_PROTECT_MS;
-  p.ammo = MAG_SIZE; p.reloadUntil = 0; p.lastMoveAt = now();
-  sendTo(p, { t: 'respawn', x: p.x, y: p.y, z: p.z, yaw: p.yaw, hp: p.hp });
+  p.ammoW = {}; p.ammo = weaponOf(p).mag; p.reloadUntil = 0; p.lastMoveAt = now();
+  refillGadgets(room, p);
+  p.burstTimes = []; p.buffUntil = 0; p.crouch = false;
+  sendTo(p, { t: 'respawn', x: p.x, y: p.y, z: p.z, yaw: p.yaw, hp: p.hp, ammo: p.ammo, items: p.items });
 }
 
+// 아이템 다시 채우기 (살아날 때마다 / 새 판이 시작될 때만)
+function refillGadgets(room, p) {
+  const can = room.mode !== 'obby' && room.mode !== 'lava' && p.team !== 'zombie';
+  const old = p.items || {};
+  const newMatch = p.matchNo !== room.roundNo;
+  p.matchNo = room.roundNo;
+  p.items = {};
+  for (const id of myGadgets(p.name)) {
+    const G = GADGETS[id];
+    p.items[id] = !can ? 0 : G.per === 'match' && !newMatch ? (old[id] ?? 0) : G.n;
+  }
+}
 function setRole(p, role) {
   p.team = role;
   sendTo(p, { t: 'role', role });
@@ -505,7 +687,7 @@ function joinRoom(c, roomId) {
   c.room = room;
   Object.assign(c, {
     team: pickTeam(room), x: 0, y: 0, z: 0, yaw: 0, pitch: 0, hp: MAX_HP, alive: false,
-    kills: 0, deaths: 0, lastShot: 0, lastAttack: 0, ammo: MAG_SIZE, reloadUntil: 0,
+    kills: 0, deaths: 0, lastShot: 0, lastAttack: 0, ammo: MAG_SIZE, reloadUntil: 0, weapon: startWeapon(c.name), ammoW: {}, matchNo: -1, items: {},
     respawnAt: 0, protectUntil: 0, lastMoveAt: now(), cp: 0,
   });
   room.players.set(c.id, c);
@@ -513,9 +695,16 @@ function joinRoom(c, roomId) {
   sendTo(c, {
     t: 'welcome', id: c.id, name: c.name, team: c.team, map: room.map, adminName: ADMIN_NAME,
     mode: room.mode, roomTitle: room.title,
-    cfg: { maxHp: MAX_HP, zombieHp: ZOMBIE_HP, mag: MAG_SIZE, reloadMs: RELOAD_MS, fireMs: FIRE_INTERVAL, attackMs: ATTACK_MS },
+    cfg: { maxHp: MAX_HP, zombieHp: ZOMBIE_HP, mag: MAG_SIZE, reloadMs: RELOAD_MS, fireMs: FIRE_INTERVAL, attackMs: ATTACK_MS, weapons: WEAPONS, gadgets: GADGETS },
+    weapon: c.weapon, myWeapons: myWeapons(c.name), myGadgets: myGadgets(c.name),
   });
   spawn(room, c);
+  sendChatHist(c, room.id);
+  if (room.mode === 'lava' && room.phase === 'rising' && room.lavaY > OBBY.checkpoints[0].y - 0.5) {
+    c.alive = false; c.respawnAt = Infinity; // 용암이 이미 출발점보다 높으면 다음 판부터
+    sendTo(c, { t: 'lavawait' });
+  }
+  sendObjects(room, c);
   if (hasVote(room)) sendTo(c, voteInfo(room));
   roomBroadcast(room, { t: 'joined', name: c.name });
 }
@@ -535,7 +724,7 @@ function leaveRoom(c) {
 // =====================================================
 // ---------- 맵 투표 ----------
 // 관리자가 고르면 관리자 맵, 아니면 투표 다수결 (같으면 지금 맵 유지)
-const hasVote = room => room.mode === 'fps' || room.mode === 'zombie' || room.mode === 'wave';
+const hasVote = room => room.mode === 'fps' || room.mode === 'zombie';
 function decideNextMap(room) {
   if (room.adminPick) return room.adminPick;
   const count = {};
@@ -578,6 +767,7 @@ function applyNextMap(room) {
 }
 
 function resetFps(room) {
+  room.roundNo = (room.roundNo || 0) + 1; clearObjects(room);
   applyNextMap(room);
   room.scores = { red: 0, blue: 0 };
   room.roundOver = false;
@@ -589,7 +779,7 @@ function fpsKill(room, victim, killer, head) {
   victim.respawnAt = now() + RESPAWN_MS;
   killer.kills++;
   room.scores[killer.team]++;
-  roomBroadcast(room, { t: 'kill', killer: killer.name, kteam: killer.team, victim: victim.name, vteam: victim.team, head });
+  roomBroadcast(room, { t: 'kill', killer: killer.name, kteam: killer.team, victim: victim.name, vteam: victim.team, head, w: killer.killIcon || weaponOf(killer).icon });
   if (!room.roundOver && room.scores[killer.team] >= room.killTarget) {
     room.roundOver = true;
     roomBroadcast(room, { t: 'win', team: killer.team });
@@ -606,6 +796,7 @@ function setPhase(room, phase, ms) {
   roomBroadcast(room, { t: 'phase', phase });
 }
 function resetZombie(room) {
+  room.roundNo = (room.roundNo || 0) + 1; clearObjects(room);
   applyNextMap(room);
   for (const p of room.players.values()) { setRole(p, 'human'); p.kills = 0; p.deaths = 0; spawn(room, p); }
   if (room.players.size >= 2) setPhase(room, 'countdown', ZOMBIE_COUNTDOWN_MS);
@@ -710,7 +901,7 @@ function obbyTick(room, t) {
 function obbyCheck(room, p) {
   const myCp = OBBY.checkpoints[p.cp || 0];
   if (p.y < -12 || p.y < myCp.y - 8) { sendTo(p, { t: 'fell' }); spawn(room, p); return; } // 많이 떨어지면 체크포인트로
-  if (OBBY.boxes.some(b => b.kind === 'kill' && onPad(p, { x: (b.min[0] + b.max[0]) / 2, z: (b.min[2] + b.max[2]) / 2, y: b.max[1], w: b.max[0] - b.min[0], d: b.max[2] - b.min[2] }, 0.25))) {
+  if (OBBY.boxes.some(b => b.kind === 'kill' && onPad(p, { x: (b.min[0] + b.max[0]) / 2, z: (b.min[2] + b.max[2]) / 2, y: b.max[1], w: b.max[0] - b.min[0], d: b.max[2] - b.min[2] }, 0.1))) {
     sendTo(p, { t: 'zap' }); spawn(room, p); return; // 빨간 블록 = 아웃
   }
   const start = OBBY.checkpoints[0];
@@ -742,6 +933,130 @@ function obbyCheck(room, p) {
 }
 
 // =====================================================
+//  용암 타워 (혼자서도 OK)
+// =====================================================
+function lavaRecord() { const g = acct(ADMIN_NAME); return g && g.lavaBest ? g.lavaBest : null; }
+function lavaNewRound(room) {
+  room.lavaY = LAVA_START; room.winner = null; room.roundStarters = 0;
+  for (const p of room.players.values()) { p.maxY = 0; spawn(room, p); }
+  setPhase(room, 'countdown', LAVA_COUNTDOWN_MS);
+  room.forceFull = true;
+}
+function lavaDie(room, p) {
+  if (!p.alive) return;
+  p.alive = false; p.hp = 0; p.deaths++; p.respawnAt = Infinity; // 다음 판까지 기다려요
+  roomBroadcast(room, { t: 'lavadie', name: p.name, h: Math.round(p.maxY * 10) / 10 });
+}
+function lavaEnd(room, text) {
+  const results = [...room.players.values()].sort((a, b) => (b.maxY || 0) - (a.maxY || 0)).map(p => ({ n: p.name, h: Math.round((p.maxY || 0) * 10) / 10 }));
+  roomBroadcast(room, { t: 'lavaend', text, winner: room.winner, results, best: lavaRecord() });
+  setPhase(room, 'ended', LAVA_END_MS);
+}
+function lavaCheck(room, p) {
+  const start = OBBY.checkpoints[0];
+  if (room.phase === 'countdown' && !(Math.abs(p.x - start.x) < 6 && Math.abs(p.z - start.z) < 6)) {
+    sendTo(p, { t: 'correct', x: start.x, y: start.y, z: start.z }); // 출발 전에는 출발선에서 기다리기
+    p.x = start.x; p.y = start.y; p.z = start.z;
+    return;
+  }
+  if (room.phase !== 'rising' || !p.alive) return;
+  p.maxY = Math.max(p.maxY || 0, p.y);
+  if (p.y <= room.lavaY) return lavaDie(room, p); // 용암에 닿으면 바로 아웃!
+  if (onPad(p, OBBY.goal) && !room.winner) {
+    room.winner = p.name;
+    const secs = Math.round((now() - room.raceStart) / 100) / 10;
+    // 코인 20개 (2명 이상이 같이 시작했으면 트로피도)
+    const a = acct(p.name);
+    if (room.roundStarters >= 2) giveCoins([p]);
+    else if (a) {
+      if (!isAdminName(p.name)) a.coins += WIN_COINS;
+      sendTo(p, { t: 'coins', delta: isAdminName(p.name) ? 0 : WIN_COINS, coins: coinsOf(p.name), inf: isAdminName(p.name) });
+      sendTo(p, meInfo(p.name));
+    }
+    const g = acct(ADMIN_NAME);
+    let record = false;
+    if (g && (!g.lavaBest || secs < g.lavaBest.time)) { g.lavaBest = { time: secs, name: p.name }; record = true; }
+    saveAccounts();
+    lavaEnd(room, `🏆 ${p.name} 탈출 성공! (${secs}초)${record ? ' 🎉 새 최고 기록!' : ''}`);
+  }
+}
+function lavaTick(room, t) {
+  if (!room.players.size) { room.phase = 'waiting'; return; }
+  switch (room.phase) {
+    case 'waiting': lavaNewRound(room); break;
+    case 'countdown':
+      if (t >= room.phaseEnd) {
+        room.raceStart = t; room.lastLava = t;
+        room.roundStarters = [...room.players.values()].filter(p => p.alive).length;
+        setPhase(room, 'rising');
+      }
+      break;
+    case 'rising': {
+      const dt = (t - room.lastLava) / 1000; room.lastLava = t;
+      room.lavaY += lavaSpeed((t - room.raceStart) / 1000) * dt;
+      for (const p of room.players.values()) if (p.alive && p.y <= room.lavaY) lavaDie(room, p);
+      if (![...room.players.values()].some(p => p.alive)) lavaEnd(room, '🌋 모두 용암에 빠졌어요!');
+      break;
+    }
+    case 'ended': if (t >= room.phaseEnd) lavaNewRound(room); break;
+  }
+}
+
+// =====================================================
+//  무기
+// =====================================================
+// body/head = 한 발 데미지, fire = 쏘는 간격(ms), pellets = 한 번에 나가는 총알, spread = 퍼짐, far = 이 거리보다 멀면 데미지 반
+const WEAPONS = {
+  wp_rifle: { name: '돌격소총', icon: '🔫', body: 25, head: 60, fire: 110, mag: 25, reload: 1600, pellets: 1, spread: 0 },
+  wp_smg: { name: '기관단총', icon: '💨', body: 16, head: 38, fire: 70, mag: 35, reload: 1400, pellets: 1, spread: 0.035 },
+  wp_shotgun: { name: '샷건', icon: '💥', body: 13, head: 20, fire: 850, mag: 6, reload: 2200, pellets: 8, spread: 0.075, far: 14 },
+  wp_sniper: { name: '저격총', icon: '🎯', body: 90, head: 200, fire: 1300, mag: 5, reload: 2500, pellets: 1, spread: 0, zoom: true },
+  wp_minigun: { name: '미니건', icon: '🌀', body: 12, head: 26, fire: 55, mag: 120, reload: 3200, pellets: 1, spread: 0.05 },
+  // 근접 무기: range = 닿는 거리, cone = 앞쪽 몇 도까지 (cos 값), multi = 여러 명 한 번에
+  wp_dagger: { name: '단검', icon: '🗡️', melee: true, body: 50, head: 50, fire: 380, range: 2.2, cone: 0.7, backstab: true, speed: 1.15, mag: 0 },
+  wp_katana: { name: '카타나', icon: '⚔️', melee: true, body: 70, head: 70, fire: 650, range: 3.2, cone: 0.45, multi: true, dash: true, mag: 0 },
+  wp_scythe: { name: '낫', icon: '🌙', melee: true, body: 60, head: 60, fire: 800, range: 3.0, cone: -1.1, multi: true, dash: true, mag: 0 },
+  wp_shield: { name: '폭동 방패', icon: '🛡️', melee: true, body: 30, head: 30, fire: 600, range: 2.0, cone: 0.6, shield: true, speed: 0.85, mag: 0 },
+  wp_gunblade: { name: '건블레이드', icon: '🗡️🔫', melee: true, body: 55, head: 55, fire: 500, range: 2.6, cone: 0.55, mag: 0,
+    altShot: { body: 45, head: 90, cd: 900, pellets: 1, spread: 0 } },
+  wp_burst: { name: '점사 소총', icon: '🔂', body: 28, head: 65, fire: 65, mag: 24, reload: 1700, pellets: 1, spread: 0, burst: 3, burstGap: 430 },
+  wp_bow: { name: '활', icon: '🏹', proj: 'arrow', body: 100, head: 160, fire: 350, mag: 0, charge: true },
+  wp_rpg: { name: 'RPG', icon: '🚀', proj: 'rocket', body: 110, fire: 500, mag: 1, reload: 2600 },
+};
+// 아이템: per = 몇 개 (life = 살아날 때마다, match = 한 판에)
+const GADGETS = {
+  gr_grenade: { name: '수류탄', icon: '💣', n: 2, per: 'life', throw: true, fuse: 2000 },
+  gr_smoke: { name: '연막탄', icon: '🌫️', n: 3, per: 'match', throw: true, fuse: 1200 },
+  gr_flash: { name: '섬광탄', icon: '⚡', n: 2, per: 'life', throw: true, fuse: 1500 },
+  gr_molotov: { name: '화염병', icon: '🔥', n: 1, per: 'life', throw: true, fuse: 3000, impact: true },
+  gr_jumppad: { name: '점프패드', icon: '🦘', n: 1, per: 'life' },
+  gr_horn: { name: '전쟁 나팔', icon: '📯', n: 1, per: 'life' },
+};
+const ZONE_MS = 20000, BUFF_MS = 8000, PAD_MS = 30000;
+const myGadgets = name => { const a = acct(name); return Object.keys(GADGETS).filter(id => a && owns(a, SHOP_BY_ID.get(id))); };
+const GRENADE_RADIUS = 4, GRENADE_DMG = 90, DASH_COOLDOWN = 3000;
+const weaponOf = p => WEAPONS[p.weapon] || WEAPONS.wp_rifle;
+function myWeapons(name) {
+  const a = acct(name);
+  return Object.keys(WEAPONS).filter(id => a && owns(a, SHOP_BY_ID.get(id)));
+}
+function startWeapon(name) {
+  const a = acct(name), list = myWeapons(name);
+  const w = a && a.equip && a.equip.weapon;
+  return list.includes(w) ? w : 'wp_rifle';
+}
+function handleWeapon(c, w) {
+  w = String(w);
+  if (!c.room || !WEAPONS[w] || w === c.weapon || !myWeapons(c.name).includes(w)) return;
+  c.ammoW = c.ammoW || {};
+  c.ammoW[c.weapon] = c.ammo;
+  c.weapon = w; c.reloadUntil = 0;
+  c.ammo = c.ammoW[w] ?? WEAPONS[w].mag;
+  c.lastShot = now() - 200; // 바꾸는 데 살짝 시간이 걸려요
+  sendTo(c, { t: 'weapon', w, ammo: c.ammo });
+}
+
+// =====================================================
 //  좀비 웨이브 (봇 좀비, 혼자서도 OK)
 // =====================================================
 const WAVE_BREAK_MS = 6000, WAVE_OVER_MS = 8000, MAX_BOTS_ALIVE = 24, WAVE_COINS = 5;
@@ -755,12 +1070,22 @@ function waveCfg(n) {
   return { count: 3 + n * 2, speed: Math.min(6.0, 2.6 + n * 0.25), hp: 50 + n * 15, dmg: Math.min(35, 12 + n * 2) };
 }
 const botsAlive = room => [...room.bots.values()].filter(b => b.alive);
-function waveBlocked(map, x, z) {
-  const lim = map.size - 1.5;
-  if (Math.abs(x) > lim || Math.abs(z) > lim) return true;
-  return map.boxes.some(b => x + 0.35 > b.min[0] && x - 0.35 < b.max[0] && z + 0.35 > b.min[2] && z - 0.35 < b.max[2]);
+// 봇이 서 있을 수 있는 높이 (발밑에 있는 제일 높은 상자 위, 없으면 땅)
+function groundUnder(map, x, z, y) {
+  let g = 0;
+  for (const b of map.boxes) if (x + 0.3 > b.min[0] && x - 0.3 < b.max[0] && z + 0.3 > b.min[2] && z - 0.3 < b.max[2] && b.max[1] <= y + 0.6 && b.max[1] > g) g = b.max[1];
+  return g;
 }
+// 봇 몸에 부딪히는 상자 (발밑 0.6m 위 ~ 머리 높이)
+function botWall(map, x, z, y) {
+  const lim = map.size - 1.5;
+  if (Math.abs(x) > lim || Math.abs(z) > lim) return { edge: true };
+  for (const b of map.boxes) if (x + 0.35 > b.min[0] && x - 0.35 < b.max[0] && z + 0.35 > b.min[2] && z - 0.35 < b.max[2] && b.max[1] > y + 0.6 && b.min[1] < y + 1.8) return b;
+  return null;
+}
+const waveBlocked = (map, x, z, y = 0) => !!botWall(map, x, z, y);
 function waveReset(room) {
+  room.roundNo = (room.roundNo || 0) + 1; clearObjects(room);
   applyNextMap(room);
   room.bots = new Map(); room.waveNum = 0; room.toSpawn = 0;
   for (const p of room.players.values()) { p.kills = 0; p.deaths = 0; spawn(room, p); }
@@ -787,7 +1112,7 @@ function spawnBot(room) {
   const cfg = waveCfg(room.waveNum);
   const b = {
     id: nextBotId++, name: '좀비', team: 'zombie', isBot: true,
-    x: best[0] + (Math.random() - 0.5), y: 0, z: best[1] + (Math.random() - 0.5), yaw: 0, pitch: 0,
+    x: best[0] + (Math.random() - 0.5), y: 0, z: best[1] + (Math.random() - 0.5), yaw: 0, pitch: 0, climbing: false,
     hp: cfg.hp, alive: true, speed: cfg.speed * (0.85 + Math.random() * 0.3), dmg: cfg.dmg,
     lastAttack: 0, kills: 0, deaths: 0, detour: null, removeAt: 0, protectUntil: 0,
     lk: ['', '', '', BOT_HAIRS[Math.floor(Math.random() * BOT_HAIRS.length)], BOT_HAIR_COLORS[Math.floor(Math.random() * 4)], 'n', '', '', ''],
@@ -811,7 +1136,7 @@ function moveBots(room, t) {
     b.yaw = Math.atan2(-dx, -dz);
     // 가까우면 물기
     if (d < 1.25 && Math.abs(q.y - b.y) < 2.2) {
-      if (t - b.lastAttack >= 900) {
+      if (t - b.lastAttack >= 900 && q.protectUntil <= t) {
         b.lastAttack = t;
         roomBroadcast(room, { t: 'swing', id: b.id });
         q.hp -= b.dmg;
@@ -820,25 +1145,32 @@ function moveBots(room, t) {
       }
       continue;
     }
-    // 쫓아가기 (벽에 막히면 미끄러지거나 옆으로 돌아가요)
+    // 쫓아가기: 낮은 턱은 올라가고, 사람이 위에 있으면 벽을 기어올라요 🧗, 아니면 옆으로 돌아가요
     const step = b.speed * dt;
     let mx = dx / d * step, mz = dz / d * step;
     if (b.detour && t < b.detour.until) { mx = b.detour.x * step; mz = b.detour.z * step; }
-    if (!waveBlocked(room.map, b.x + mx, b.z + mz)) { b.x += mx; b.z += mz; }
-    else if (Math.abs(mx) > 0.01 && !waveBlocked(room.map, b.x + Math.sign(mx) * step, b.z)) b.x += Math.sign(mx) * step;
-    else if (Math.abs(mz) > 0.01 && !waveBlocked(room.map, b.x, b.z + Math.sign(mz) * step)) b.z += Math.sign(mz) * step;
+    const wall = botWall(room.map, b.x + mx, b.z + mz, b.y);
+    b.climbing = false;
+    if (!wall) { b.x += mx; b.z += mz; }
+    else if (!wall.edge && (q.y > b.y + 1 || wall.max[1] - b.y < 1.3)) { // 기어오르기
+      b.y = Math.min(wall.max[1], b.y + 3.2 * dt); b.climbing = true;
+    }
+    else if (Math.abs(mx) > 0.01 && !botWall(room.map, b.x + Math.sign(mx) * step, b.z, b.y)) b.x += Math.sign(mx) * step;
+    else if (Math.abs(mz) > 0.01 && !botWall(room.map, b.x, b.z + Math.sign(mz) * step, b.y)) b.z += Math.sign(mz) * step;
     else {
       const sgn = Math.random() < 0.5 ? 1 : -1;
       b.detour = { x: -dz / d * sgn, z: dx / d * sgn, until: t + 600 + Math.random() * 600 };
     }
+    // 떨어지기 (발밑에 아무것도 없으면)
+    if (!b.climbing) { const g = groundUnder(room.map, b.x, b.z, b.y); if (b.y > g) b.y = Math.max(g, b.y - 9 * dt); else b.y = g; }
   }
   // 좀비끼리 너무 겹치지 않게 밀어내기
   for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
     const a = list[i], c = list[j], dx = c.x - a.x, dz = c.z - a.z, d = Math.hypot(dx, dz);
     if (d > 0.001 && d < 0.65) {
       const push = (0.65 - d) / 2, ux = dx / d * push, uz = dz / d * push;
-      if (!waveBlocked(room.map, a.x - ux, a.z - uz)) { a.x -= ux; a.z -= uz; }
-      if (!waveBlocked(room.map, c.x + ux, c.z + uz)) { c.x += ux; c.z += uz; }
+      if (!waveBlocked(room.map, a.x - ux, a.z - uz, a.y)) { a.x -= ux; a.z -= uz; }
+      if (!waveBlocked(room.map, c.x + ux, c.z + uz, c.y)) { c.x += ux; c.z += uz; }
     }
   }
 }
@@ -901,56 +1233,325 @@ function waveTick(room, t) {
 // =====================================================
 function handleShoot(room, p, msg) {
   const t = now();
-  if (!p.alive || room.mode === 'obby') return;
+  if (!p.alive || room.mode === 'obby' || room.mode === 'lava') return;
   if (room.mode === 'fps' && room.roundOver) return;
   if (room.mode === 'zombie' && p.team === 'zombie') return;
-  if (t - p.lastShot < FIRE_INTERVAL - 15) return;
-  if (p.reloadUntil && t >= p.reloadUntil) { p.ammo = MAG_SIZE; p.reloadUntil = 0; }
-  if (p.reloadUntil || p.ammo <= 0) return;
+  const W = weaponOf(p);
   let d = [Number(msg.dx), Number(msg.dy), Number(msg.dz)];
   if (!d.every(Number.isFinite)) return;
   const len = Math.hypot(d[0], d[1], d[2]);
   if (len < 0.5) return;
   d = d.map(v => v / len);
-  p.lastShot = t; p.ammo--;
-  p.protectUntil = 0;
-
-  const canHit = q => room.mode === 'fps' ? q.team !== p.team
-    : room.mode === 'wave' ? (room.phase === 'wave' && q.isBot)
-    : (room.phase === 'playing' && q.team === 'zombie');
-  const o = [p.x, p.y + 1.7, p.z];
-  let best = 100, hitPlayer = null;
-  for (const b of room.map.boxes) {
-    const tt = rayBox(o, d, b.min, b.max);
-    if (tt < best) best = tt;
+  // 건블레이드 오른쪽 클릭: 총 한 발
+  if (msg.alt && W.altShot) {
+    if (t - (p.lastAlt || 0) < W.altShot.cd - 15) return;
+    p.lastAlt = t; p.protectUntil = 0;
+    return fireBullets(room, p, d, W.altShot, t);
   }
-  const targets = room.mode === 'wave' && room.bots ? room.bots.values() : room.players.values();
-  for (const q of targets) {
-    if (q === p || !q.alive || !canHit(q)) continue;
-    const tt = rayBox(o, d, [q.x - 0.4, q.y, q.z - 0.4], [q.x + 0.4, q.y + 1.95, q.z + 0.4]);
-    if (tt < best) { best = tt; hitPlayer = q; }
+  if (W.burst) { // 점사: 3발까지는 빨리, 그다음은 쉬어야 해요
+    p.burstTimes = (p.burstTimes || []).filter(x => t - x < W.burstGap);
+    if (p.burstTimes.length >= W.burst) return;
   }
-  const end = [o[0] + d[0] * best, o[1] + d[1] * best, o[2] + d[2] * best];
+  if (t - p.lastShot < W.fire - 15) return;
+  if (W.melee) return handleMelee(room, p, msg, W, t);
+  if (W.proj === 'arrow') { // 활: 당긴 만큼 세게
+    p.lastShot = t; p.protectUntil = 0;
+    const c = Math.max(0.15, Math.min(1, Number(msg.charge) || 0));
+    return launchProj(room, p, 'arrow', d, 18 + c * 32, { dmg: Math.round(W.body * (0.25 + 0.75 * c)), head: Math.round(W.head * (0.25 + 0.75 * c)), grav: 5 });
+  }
+  if (p.reloadUntil && t >= p.reloadUntil) { p.ammo = W.mag; p.reloadUntil = 0; }
+  if (p.reloadUntil || p.ammo <= 0) return;
+  p.lastShot = t; p.ammo--; p.protectUntil = 0;
+  if (W.burst) p.burstTimes.push(t);
+  if (W.proj === 'rocket') return launchProj(room, p, 'rocket', d, 28, { grav: 0 });
+  fireBullets(room, p, d, W, t);
+}
+// 방패를 앞으로 들고 있는 사람은 앞에서 오는 공격을 막아요
+function shieldBlocks(q, fromX, fromZ) {
+  if (q.isBot || q.weapon !== 'wp_shield') return false;
+  const dx = fromX - q.x, dz = fromZ - q.z, l = Math.hypot(dx, dz) || 1;
+  return (-Math.sin(q.yaw) * dx - Math.cos(q.yaw) * dz) / l > 0.35;
+}
+function fireBullets(room, p, d, W, t) {
+  const o = [p.x, p.y + (p.crouch ? 1.1 : 1.7), p.z];
   const r2 = v => Math.round(v * 100) / 100;
-  roomBroadcast(room, { t: 'shot', id: p.id, o: o.map(r2), e: end.map(r2) });
+  const castRay = dir => {
+    let best = 100, hitPlayer = null;
+    for (const b of room.map.boxes) { const tt = rayBox(o, dir, b.min, b.max); if (tt < best) best = tt; }
+    for (const q of targetsOf(room)) {
+      if (!canHurt(room, p, q)) continue;
+      const tt = rayBox(o, dir, [q.x - 0.4, q.y, q.z - 0.4], [q.x + 0.4, q.y + bodyTop(q), q.z + 0.4]);
+      if (tt < best) { best = tt; hitPlayer = q; }
+    }
+    return { best, hitPlayer, end: [o[0] + dir[0] * best, o[1] + dir[1] * best, o[2] + dir[2] * best] };
+  };
+  // 샷건은 서버가 총알 여러 개를 퍼뜨려요 (다른 총의 퍼짐은 쏘는 사람 화면에서 이미 들어가 있어요)
+  const dirs = [];
+  for (let k = 0; k < (W.pellets || 1); k++) {
+    if ((W.pellets || 1) === 1) { dirs.push(d); continue; }
+    const v = d.map(x => x + (Math.random() - 0.5) * 2 * W.spread);
+    const l = Math.hypot(...v); dirs.push(v.map(x => x / l));
+  }
+  const dmg = new Map();
+  const ends = [];
+  for (const dir of dirs) {
+    const { best, hitPlayer, end } = castRay(dir);
+    ends.push(end.map(r2));
+    if (!hitPlayer) continue;
+    if (shieldBlocks(hitPlayer, p.x, p.z)) { sendTo(p, { t: 'hitmark', block: true }); continue; } // 🛡️ 막힘
+    const head = end[1] - hitPlayer.y > headFrom(hitPlayer); // 머리에 맞았나요?
+    let amount = head ? W.head : W.body;
+    if (W.far && best > W.far) amount = Math.round(amount / 2);
+    const cur = dmg.get(hitPlayer) || { amount: 0, head: false };
+    cur.amount += amount; cur.head = cur.head || head;
+    dmg.set(hitPlayer, cur);
+  }
+  roomBroadcast(room, ends.length === 1 ? { t: 'shot', id: p.id, o: o.map(r2), e: ends[0] } : { t: 'shot', id: p.id, o: o.map(r2), es: ends });
+  for (const [q, { amount, head }] of dmg) applyDamage(room, p, q, amount, head, t);
+}
 
-  if (hitPlayer) {
-    const q = hitPlayer;
-    if (q.protectUntil > t) return;
-    const head = end[1] - q.y > 1.45; // 블록 캐릭터 머리 (1.47~1.93)
-    q.hp -= head ? HEAD_DAMAGE : BODY_DAMAGE;
-    if (!q.isBot) sendTo(q, { t: 'hurt', from: p.name });
-    const dead = q.hp <= 0;
-    sendTo(p, { t: 'hitmark', head, kill: dead });
-    if (dead) {
-      if (room.mode === 'fps') fpsKill(room, q, p, head);
-      else if (q.isBot) { q.alive = false; q.hp = 0; q.removeAt = t + 1500; p.kills++; }
-      else {
-        q.alive = false; q.hp = 0; q.deaths++; q.respawnAt = t + RESPAWN_MS; p.kills++;
-        roomBroadcast(room, { t: 'kill', killer: p.name, kteam: 'human', victim: q.name, vteam: 'zombie', head });
+// 몸 크기 (웅크리면 작아져요)
+const bodyTop = q => q.crouch ? 1.35 : 1.95;
+const headFrom = q => q.crouch ? 0.95 : 1.45;
+// 이 사람이 q를 공격할 수 있나요?
+function canHurt(room, p, q) {
+  if (q === p || !q.alive) return false;
+  if (room.mode === 'fps') return q.team !== p.team;
+  if (room.mode === 'wave') return room.phase === 'wave' && !!q.isBot;
+  if (room.mode === 'zombie') return room.phase === 'playing' && q.team === 'zombie';
+  return false;
+}
+function targetsOf(room) { return room.mode === 'wave' && room.bots ? [...room.bots.values()] : [...room.players.values()]; }
+// 데미지 주기 (총, 칼, 수류탄 공통)
+function applyDamage(room, p, q, amount, head, t) {
+  if (q.protectUntil > t || !q.alive) return;
+  if (p.buffUntil > t) amount = Math.round(amount * 1.3); // 📯 나팔 효과
+  q.hp -= amount;
+  if (!q.isBot) sendTo(q, { t: 'hurt', from: p.name });
+  const dead = q.hp <= 0;
+  sendTo(p, { t: 'hitmark', head, kill: dead });
+  if (!dead) return;
+  if (room.mode === 'fps') fpsKill(room, q, p, head);
+  else if (q.isBot) { q.alive = false; q.hp = 0; q.removeAt = t + 1500; p.kills++; }
+  else {
+    q.alive = false; q.hp = 0; q.deaths++; q.respawnAt = t + RESPAWN_MS; p.kills++;
+    roomBroadcast(room, { t: 'kill', killer: p.name, kteam: 'human', victim: q.name, vteam: 'zombie', head, w: p.killIcon || weaponOf(p).icon });
+  }
+}
+// 단검 / 카타나
+function handleMelee(room, p, msg, W, t) {
+  p.lastShot = t; p.protectUntil = 0;
+  let fx = Number(msg.dx), fz = Number(msg.dz);
+  if (![fx, fz].every(Number.isFinite)) return;
+  const fl = Math.hypot(fx, fz) || 1; fx /= fl; fz /= fl;
+  roomBroadcast(room, { t: 'swing', id: p.id, m: 1 });
+  const hits = [];
+  for (const q of targetsOf(room)) {
+    if (!canHurt(room, p, q)) continue;
+    const dx = q.x - p.x, dz = q.z - p.z, d = Math.hypot(dx, dz);
+    if (d > W.range || Math.abs(q.y - p.y) > 1.8) continue;
+    if (d > 0.5 && (dx * fx + dz * fz) / d < W.cone) continue; // 앞쪽에 있어야 해요
+    hits.push({ q, d, dx, dz });
+  }
+  hits.sort((a, b) => a.d - b.d);
+  for (const { q, d, dx, dz } of W.multi ? hits : hits.slice(0, 1)) {
+    let amount = W.body, back = false;
+    if (W.backstab && d > 0.01) {
+      // q가 바라보는 방향과 (나→q) 방향이 같으면 = q 뒤에서 찌른 것
+      const qf = [-Math.sin(q.yaw), -Math.cos(q.yaw)];
+      if ((qf[0] * dx + qf[1] * dz) / d > 0.5) { amount = 9999; back = true; }
+    }
+    p.killIcon = back ? '🗡️💀' : W.icon;
+    applyDamage(room, p, q, amount, back, t);
+    p.killIcon = null;
+  }
+}
+// 카타나 돌진 (이동은 내 화면이 하고, 서버는 그동안 빨리 움직여도 봐줘요)
+function handleDash(p) {
+  const W = weaponOf(p), t = now();
+  if (!W.dash || !p.alive || t - (p.lastDash || 0) < DASH_COOLDOWN) return;
+  p.lastDash = t; p.dashUntil = t + 450;
+  sendTo(p, { t: 'dash' });
+}
+// =====================================================
+//  던지는 아이템 / 화살 / 로켓 / 바닥 효과 / 점프패드
+// =====================================================
+let nextObjId = 1;
+const r2 = v => Math.round(v * 100) / 100;
+function useGadget(room, p, msg) {
+  const id = String(msg.g), G = GADGETS[id], t = now();
+  if (!G || !p.alive || room.mode === 'obby' || room.mode === 'lava' || p.team === 'zombie') return;
+  if (!p.items || !(p.items[id] > 0)) return;
+  if (t - (p.lastGadget || 0) < 600) return;
+  let d = [Number(msg.dx), Number(msg.dy), Number(msg.dz)];
+  if (G.throw) {
+    if (!d.every(Number.isFinite)) return;
+    const l = Math.hypot(...d); if (l < 0.5) return; d = d.map(v => v / l);
+  }
+  p.lastGadget = t; p.items[id]--; p.protectUntil = 0;
+  sendTo(p, { t: 'items', items: p.items });
+  if (G.throw) {
+    const g = { id: nextObjId++, kind: id, owner: p, x: p.x + d[0] * 0.5, y: p.y + 1.6 + d[1] * 0.5, z: p.z + d[2] * 0.5,
+      vx: d[0] * 14, vy: d[1] * 14 + 3, vz: d[2] * 14, boomAt: t + G.fuse };
+    (room.grenades = room.grenades || []).push(g);
+    roomBroadcast(room, { t: 'throw', id: g.id, k: id, p: [g.x, g.y, g.z, g.vx, g.vy, g.vz].map(r2) });
+  } else if (id === 'gr_jumppad') {
+    room.pads = (room.pads || []).filter(x => { if (x.owner === p) { roomBroadcast(room, { t: 'padGone', id: x.id }); return false; } return true; });
+    const pad = { id: nextObjId++, owner: p, x: p.x, y: p.y, z: p.z, until: t + PAD_MS };
+    room.pads.push(pad);
+    roomBroadcast(room, { t: 'pad', id: pad.id, x: r2(pad.x), y: r2(pad.y), z: r2(pad.z), ms: PAD_MS });
+  } else if (id === 'gr_horn') {
+    roomBroadcast(room, { t: 'horn', id: p.id, name: p.name });
+    for (const q of room.players.values()) {
+      if (!q.alive || q.team !== p.team || Math.hypot(q.x - p.x, q.z - p.z) > 12) continue;
+      q.buffUntil = t + BUFF_MS;
+      sendTo(q, { t: 'buff', ms: BUFF_MS, from: p.name });
+    }
+  }
+}
+// 화살 / 로켓 쏘기
+function launchProj(room, p, kind, d, speed, extra) {
+  const o = { id: nextObjId++, kind, owner: p, x: p.x + d[0] * 0.6, y: p.y + 1.6 + d[1] * 0.6, z: p.z + d[2] * 0.6,
+    vx: d[0] * speed, vy: d[1] * speed, vz: d[2] * speed, born: now(), ...extra };
+  (room.projs = room.projs || []).push(o);
+  roomBroadcast(room, { t: 'proj', id: o.id, k: kind, g: o.grav, p: [o.x, o.y, o.z, o.vx, o.vy, o.vz].map(r2), from: p.id });
+}
+// 폭발 (수류탄, 로켓): 상대는 다치고, 로켓은 가까이 있는 모두를 밀어내요 (쏜 사람은 안 다쳐요)
+function explodeAt(room, p, x, y, z, radius, maxDmg, icon, knock) {
+  const t = now();
+  roomBroadcast(room, { t: 'boom', x: r2(x), y: r2(y), z: r2(z), r: radius });
+  if (!room.players.has(p.id)) return;
+  const all = new Set([...room.players.values(), ...targetsOf(room)]); // 나도 밀려나야 해서 사람 + 봇 전부
+  for (const q of all) {
+    const d = Math.hypot(q.x - x, q.y + 0.9 - y, q.z - z);
+    if (d > radius || !q.alive) continue;
+    if (knock && !q.isBot && (q === p || canHurt(room, p, q))) { // 밀어내기 (로켓 점프!)
+      const dx = q.x - x, dy = q.y + 0.9 - y, dz = q.z - z, l = Math.hypot(dx, dy, dz) || 1;
+      const f = knock * (1 - d / radius * 0.6);
+      q.dashUntil = t + 1500;
+      sendTo(q, { t: 'knock', v: [dx / l * f, Math.max(4, dy / l * f + 3), dz / l * f].map(r2) });
+    }
+    if (!canHurt(room, p, q)) continue;
+    p.killIcon = icon;
+    applyDamage(room, p, q, Math.round(maxDmg * (1 - d / radius * 0.7)), false, t);
+    p.killIcon = null;
+  }
+}
+// 던진 것 날아가기 (벽, 바닥에 튕겨요) - 화면에서도 똑같이 계산해요. 부딪히면 true
+function grenadeStep(g, map, dt) {
+  const inside = (x, y, z) => (!map.noFloor && y < 0.1) || map.boxes.some(b => x > b.min[0] - 0.1 && x < b.max[0] + 0.1 && y > b.min[1] - 0.1 && y < b.max[1] + 0.1 && z > b.min[2] - 0.1 && z < b.max[2] + 0.1);
+  g.vy -= 18 * dt;
+  const lim = map.size - 0.5;
+  let hit = false;
+  let nx = g.x + g.vx * dt; if (inside(nx, g.y, g.z) || Math.abs(nx) > lim) { g.vx *= -0.4; nx = g.x; hit = true; } g.x = nx;
+  let nz = g.z + g.vz * dt; if (inside(g.x, g.y, nz) || Math.abs(nz) > lim) { g.vz *= -0.4; nz = g.z; hit = true; } g.z = nz;
+  let ny = g.y + g.vy * dt; if (inside(g.x, ny, g.z)) { g.vy *= -0.35; g.vx *= 0.7; g.vz *= 0.7; ny = g.y; hit = true; } g.y = ny;
+  return hit;
+}
+function popGrenade(room, g, t) {
+  const p = g.owner;
+  roomBroadcast(room, { t: 'pop', id: g.id });
+  if (g.kind === 'gr_grenade') explodeAt(room, p, g.x, g.y, g.z, GRENADE_RADIUS, GRENADE_DMG, '💣', 0);
+  else if (g.kind === 'gr_smoke' || g.kind === 'gr_molotov') {
+    const z = { id: nextObjId++, kind: g.kind === 'gr_smoke' ? 'smoke' : 'fire', owner: p, team: p.team, x: g.x, y: Math.max(g.y - 0.1, -50), z: g.z,
+      r: g.kind === 'gr_smoke' ? 5 : 3, until: t + ZONE_MS, nextHurt: t };
+    (room.zones = room.zones || []).push(z);
+    roomBroadcast(room, { t: 'zone', id: z.id, k: z.kind, x: r2(z.x), y: r2(z.y), z: r2(z.z), r: z.r, ms: ZONE_MS });
+  } else if (g.kind === 'gr_flash') {
+    roomBroadcast(room, { t: 'boom', x: r2(g.x), y: r2(g.y), z: r2(g.z), r: 1.5, flash: true });
+    if (!room.players.has(p.id)) return;
+    for (const q of room.players.values()) {
+      if (!q.alive || q === p || (room.mode !== 'fps' ? true : q.team === p.team)) continue;
+      const dx = g.x - q.x, dy = g.y - (q.y + 1.7), dz = g.z - q.z, d = Math.hypot(dx, dy, dz);
+      if (d > 22) continue;
+      // 벽 뒤에 있으면 안 보여요
+      const dir = [dx / d, dy / d, dz / d], o = [q.x, q.y + 1.7, q.z];
+      if (room.map.boxes.some(b => rayBox(o, dir, b.min, b.max) < d - 0.3)) continue;
+      // 보고 있는 쪽이면 더 오래
+      const look = [-Math.sin(q.yaw) * Math.cos(q.pitch), Math.sin(q.pitch), -Math.cos(q.yaw) * Math.cos(q.pitch)];
+      const facing = look[0] * dir[0] + look[1] * dir[1] + look[2] * dir[2];
+      const ms = Math.round((facing > 0.3 ? 2500 : 700) * (1 - d / 30));
+      sendTo(q, { t: 'flashed', ms });
+    }
+  }
+}
+function objectsTick(room, t) {
+  const dt4 = TICK_MS / 4000;
+  // 던진 것
+  if (room.grenades && room.grenades.length) {
+    const left = [];
+    for (const g of room.grenades) {
+      let hit = false;
+      for (let k = 0; k < 4; k++) hit = grenadeStep(g, room.map, dt4) || hit;
+      if (t >= g.boomAt || (hit && GADGETS[g.kind].impact) || g.y < -40) popGrenade(room, g, t);
+      else left.push(g);
+    }
+    room.grenades = left;
+  }
+  // 화살 / 로켓
+  if (room.projs && room.projs.length) {
+    const left = [];
+    for (const o of room.projs) {
+      let done = null; // { x,y,z, q }
+      for (let k = 0; k < 4 && !done; k++) {
+        o.vy -= (o.grav || 0) * dt4;
+        const nx = o.x + o.vx * dt4, ny = o.y + o.vy * dt4, nz = o.z + o.vz * dt4;
+        const dir = [nx - o.x, ny - o.y, nz - o.z], seg = Math.hypot(...dir) || 0.0001, u = dir.map(v => v / seg);
+        let best = seg, hitQ = null;
+        for (const b of room.map.boxes) { const tt = rayBox([o.x, o.y, o.z], u, b.min, b.max); if (tt < best) { best = tt; hitQ = null; } }
+        if (!room.map.noFloor && ny < 0) { const tt = o.y / Math.max(0.0001, o.y - ny) * seg; if (tt < best) { best = tt; hitQ = null; } }
+        for (const q of targetsOf(room)) {
+          if (q === o.owner || !q.alive) continue;
+          if (o.kind === 'arrow' && !canHurt(room, o.owner, q)) continue;
+          const tt = rayBox([o.x, o.y, o.z], u, [q.x - 0.4, q.y, q.z - 0.4], [q.x + 0.4, q.y + bodyTop(q), q.z + 0.4]);
+          if (tt < best) { best = tt; hitQ = q; }
+        }
+        if (best < seg || hitQ) done = { x: o.x + u[0] * best, y: o.y + u[1] * best, z: o.z + u[2] * best, q: hitQ };
+        else { o.x = nx; o.y = ny; o.z = nz; }
+      }
+      if (!done && (t - o.born > 4000 || o.y < -40)) done = { x: o.x, y: o.y, z: o.z, q: null };
+      if (!done) { left.push(o); continue; }
+      roomBroadcast(room, { t: 'projEnd', id: o.id, x: r2(done.x), y: r2(done.y), z: r2(done.z) });
+      if (o.kind === 'rocket') explodeAt(room, o.owner, done.x, done.y, done.z, 4.5, WEAPONS.wp_rpg.body, '🚀', 14);
+      else if (done.q && room.players.has(o.owner.id)) {
+        if (shieldBlocks(done.q, o.owner.x, o.owner.z)) sendTo(o.owner, { t: 'hitmark', block: true });
+        else {
+          const head = done.y - done.q.y > headFrom(done.q);
+          o.owner.killIcon = '🏹';
+          applyDamage(room, o.owner, done.q, head ? o.head : o.dmg, head, t);
+          o.owner.killIcon = null;
+        }
+      }
+    }
+    room.projs = left;
+  }
+  // 불바닥 (상대 팀만), 연기, 점프패드 시간 끝
+  if (room.zones && room.zones.length) {
+    room.zones = room.zones.filter(z => t < z.until);
+    for (const z of room.zones) {
+      if (z.kind !== 'fire' || t < z.nextHurt) continue;
+      z.nextHurt = t + 500;
+      if (!room.players.has(z.owner.id)) continue;
+      for (const q of targetsOf(room)) {
+        if (!canHurt(room, z.owner, q) || Math.hypot(q.x - z.x, q.z - z.z) > z.r || Math.abs(q.y - z.y) > 2) continue;
+        z.owner.killIcon = '🔥';
+        applyDamage(room, z.owner, q, 8, false, t);
+        z.owner.killIcon = null;
       }
     }
   }
+  if (room.pads && room.pads.length) room.pads = room.pads.filter(x => t < x.until || (roomBroadcast(room, { t: 'padGone', id: x.id }), false));
+}
+// 새로 들어온 사람에게 지금 깔려 있는 것들 알려 주기
+function sendObjects(room, c) {
+  const t = now();
+  for (const z of room.zones || []) sendTo(c, { t: 'zone', id: z.id, k: z.kind, x: r2(z.x), y: r2(z.y), z: r2(z.z), r: z.r, ms: z.until - t });
+  for (const x of room.pads || []) sendTo(c, { t: 'pad', id: x.id, x: r2(x.x), y: r2(x.y), z: r2(x.z), ms: x.until - t });
+}
+function clearObjects(room) {
+  for (const x of room.pads || []) roomBroadcast(room, { t: 'padGone', id: x.id });
+  for (const z of room.zones || []) roomBroadcast(room, { t: 'zoneGone', id: z.id });
+  room.grenades = []; room.projs = []; room.zones = []; room.pads = [];
 }
 
 function handleMove(room, p, msg) {
@@ -961,23 +1562,38 @@ function handleMove(room, p, msg) {
   const t = now();
   const dt = Math.min(1, (t - p.lastMoveAt) / 1000);
   p.lastMoveAt = t;
-  const maxStep = 8 * dt * 1.6 + 0.6;
+  const maxStep = (p.dashUntil > t ? 22 : 8) * dt * 1.6 + 0.6; // 카타나 돌진 중에는 더 빨라도 OK
   const dist = Math.hypot(x - p.x, z - p.z);
   const lim = room.map.size - 1;
-  const [ymin, ymax] = room.map.noFloor ? [-40, 250] : [-0.5, 8];
+  const [ymin, ymax] = room.map.noFloor ? [-40, 250] : [-0.5, 30]; // 점프패드, 로켓 점프로 높이 올라갈 수 있어요
   if (dist > maxStep || Math.abs(x) > lim || Math.abs(z) > lim || y < ymin || y > ymax) {
     sendTo(p, { t: 'correct', x: p.x, y: p.y, z: p.z });
   } else {
     p.x = x; p.y = y; p.z = z;
   }
   p.yaw = yaw; p.pitch = Math.max(-1.6, Math.min(1.6, pitch));
+  p.crouch = !!msg.c; // 웅크리기
   if (room.mode === 'obby') obbyCheck(room, p);
+  if (room.mode === 'lava') lavaCheck(room, p);
 }
 
 // =====================================================
 //  채팅
 // =====================================================
 const chatLog = [];
+// 예전 채팅 기록 (로비 + 방마다, 서버가 다시 켜져도 남아요)
+const CHAT_KEEP = 200;
+function chatHistStore() { const g = acct(ADMIN_NAME); if (!g) return []; g.chatHist = g.chatHist || []; return g.chatHist; }
+function rememberChat(where, from, text) {
+  const h = chatHistStore();
+  h.push({ w: where, f: from, x: text, at: Date.now() });
+  if (h.length > CHAT_KEEP * 3) h.splice(0, h.length - CHAT_KEEP * 3);
+  saveAccounts();
+}
+function sendChatHist(c, where) {
+  const list = chatHistStore().filter(e => e.w === where).slice(-CHAT_KEEP).map(e => ({ from: e.f, text: e.x, at: e.at }));
+  sendTo(c, { t: 'chatHist', where, list });
+}
 function handleChat(c, msg) {
   const a = acct(c.name);
   if (a && a.muted) return sendTo(c, { t: 'notice', text: '관리자가 채팅을 막았어요.' });
@@ -991,11 +1607,12 @@ function handleChat(c, msg) {
   c.chatTimes.push(t); c.lastChat = t;
   if (text.startsWith('/')) return chatCommand(c, text);
   const room = c.room;
-  const team = !!msg.team && !!room && room.mode !== 'obby';
+  const team = !!msg.team && !!room && room.mode !== 'obby' && room.mode !== 'lava';
   const out = { t: 'chat', from: c.name, text, scope: !room ? 'lobby' : team ? 'team' : 'all', team: room ? c.team : null };
   if (!room) { for (const x of clients.values()) if (!x.room) sendTo(x, out); }
   else if (team) { for (const p of room.players.values()) if (p.team === c.team) sendTo(p, out); }
   else roomBroadcast(room, out);
+  if (!team) rememberChat(room ? room.id : 'lobby', c.name, text); // 팀 채팅은 기록 안 해요
   chatLog.push({ time: new Date().toISOString(), from: c.name, where: !room ? '로비' : room.title + (team ? ' (팀)' : ''), text });
   if (chatLog.length > 100) chatLog.shift();
 }
@@ -1122,6 +1739,7 @@ function lobbyInfo() {
     rooms: [...rooms.values()].map(r => {
       const o = { id: r.id, icon: r.icon, title: r.title, desc: r.desc, count: r.players.size, max: MAX_PLAYERS };
       if (r.mode === 'wave') { const wb = waveRecord(r); if (wb) o.note = `🏆 최고 기록: 웨이브 ${wb.wave} (${wb.names.join(', ')})`; }
+      if (r.mode === 'lava') { const lb = lavaRecord(); if (lb) o.note = `🏆 최고 기록: ${lb.time}초 (${lb.name})`; }
       return o;
     }),
   };
@@ -1138,7 +1756,9 @@ setInterval(() => {
   for (const room of rooms.values()) {
     if (room.mode === 'zombie') zombieTick(room, t);
     if (room.mode === 'obby') obbyTick(room, t);
+    if (room.mode === 'lava') lavaTick(room, t);
     if (room.mode === 'wave') waveTick(room, t);
+    objectsTick(room, t);
     for (const p of room.players.values()) {
       if (!p.alive && t >= p.respawnAt && !(room.mode === 'fps' && room.roundOver)) spawn(room, p);
     }
@@ -1146,7 +1766,7 @@ setInterval(() => {
     // 1) 명단: 바뀌었을 때만
     const everyone = room.bots && room.mode === 'wave' ? [...room.players.values(), ...room.bots.values()] : [...room.players.values()];
     const roster = everyone.map(p => p.isBot ? { id: p.id, n: p.name, tm: 'zombie', lk: p.lk, k: 0, d: 0, c: 0 }
-      : { id: p.id, n: p.name, tm: p.team, lk: lookOf(p.name), k: p.kills, d: p.deaths, c: p.cp || 0 });
+      : { id: p.id, n: p.name, tm: p.team, lk: lookOf(p.name), k: p.kills, d: p.deaths, c: p.cp || 0, w: p.weapon });
     const rosterKey = JSON.stringify(roster);
     if (rosterKey !== room.lastRoster || room.forceFull) {
       room.lastRoster = rosterKey;
@@ -1158,12 +1778,13 @@ setInterval(() => {
     const rows = [];
     for (const p of everyone) {
       const row = [p.id, Math.round(p.x * 100), Math.round(p.y * 100), Math.round(p.z * 100),
-        Math.round(p.yaw * 1000), Math.round(p.pitch * 1000), Math.max(0, Math.round(p.hp)), p.alive ? 1 : 0];
+        Math.round(p.yaw * 1000), Math.round(p.pitch * 1000), Math.max(0, Math.round(p.hp)), p.alive ? (p.crouch ? 2 : 1) : 0]; // 2 = 웅크림
       const key = row.join(',');
       if (full || room.lastSent.get(p.id) !== key) { rows.push(row); room.lastSent.set(p.id, key); }
     }
     // 3) 점수/시간: 바뀌었을 때만
     const info = room.mode === 'fps' ? { s: room.scores, target: room.killTarget }
+      : room.mode === 'lava' ? { ph: room.phase, tl: Math.max(0, Math.ceil((room.phaseEnd - t) / 1000)), lv: Math.round((room.lavaY ?? LAVA_START) * 100) }
       : room.mode === 'wave' ? { ph: room.phase, tl: Math.max(0, Math.ceil((room.phaseEnd - t) / 1000)), wv: room.waveNum,
         zl: (room.toSpawn || 0) + (room.bots ? botsAlive(room).length : 0) }
       : { ph: room.phase, w: room.wins, tl: Math.max(0, Math.ceil((room.phaseEnd - t) / 1000)) };
@@ -1202,6 +1823,7 @@ function adminSnapshot() {
       coins: isAdminName(c.name) ? '∞' : coinsOf(c.name), muted: !!(acct(c.name) && acct(c.name).muted),
     })),
     chat: chatLog.slice(-40),
+    rps: [...rpsGames.values()].map(g => ({ name: g.name, state: g.state, round: g.round, userPicked: !!g.userPick, adminPicked: !!g.adminPick, online: !!clientByName(g.name) })),
     invite: inviteCode(),
     inbox: adminInbox().slice(-60).reverse(),
     accountList: (() => {
@@ -1221,6 +1843,7 @@ setInterval(() => {
 }, 1000);
 
 function handleAdminCommand(ws, msg) {
+  if (msg.t === 'rpsAccept' || msg.t === 'rpsDecline' || msg.t === 'rpsPick') return handleRpsAdmin(msg);
   switch (msg.t) {
     case 'kick': {
       const c = clients.get(Number(msg.id));
@@ -1236,7 +1859,7 @@ function handleAdminCommand(ws, msg) {
     }
     case 'resetRound': {
       const room = rooms.get(msg.room);
-      if (room) room.mode === 'fps' ? resetFps(room) : room.mode === 'zombie' ? resetZombie(room) : room.mode === 'wave' ? waveReset(room) : obbyStartCountdown(room);
+      if (room) room.mode === 'fps' ? resetFps(room) : room.mode === 'zombie' ? resetZombie(room) : room.mode === 'wave' ? waveReset(room) : room.mode === 'lava' ? lavaNewRound(room) : obbyStartCountdown(room);
       break;
     }
     case 'setTarget': {
@@ -1452,6 +2075,8 @@ function handlePlayer(ws, token, ip) {
   ws.send(meInfo(name));
   setTimeout(() => deliverMail(name), 500); // 못 받은 관리자 답장 보여 주기
   ws.send(lobbyInfo());
+  sendChatHist(c, 'lobby');
+  sendTo(c, rpsInfo(c));
 
   ws.onmessage = raw => {
     let msg; try { msg = JSON.parse(raw); } catch { return; }
@@ -1460,6 +2085,8 @@ function handlePlayer(ws, token, ip) {
     else if (msg.t === 'buy' || msg.t === 'equip' || msg.t === 'gender') handleShop(c, msg);
     else if (msg.t === 'chat') handleChat(c, msg);
     else if (msg.t === 'toAdmin') handleToAdmin(c, msg.text);
+    else if (msg.t === 'mgStart' || msg.t === 'mgEnd') handleMinigame(c, msg);
+    else if (msg.t === 'rpsReq' || msg.t === 'rpsCancel' || msg.t === 'rpsPick') handleRpsUser(c, msg);
     else if (msg.t === 'vote') handleVote(c, String(msg.map));
     else if (msg.t === 'give') { // 코인 보내기 버튼
       const to = String(msg.to || '').trim().replace(/\s+/g, ''), n = Math.floor(Number(msg.n));
@@ -1470,8 +2097,12 @@ function handlePlayer(ws, token, ip) {
     else if (msg.t === 'move') handleMove(room, c, msg);
     else if (msg.t === 'shoot') handleShoot(room, c, msg);
     else if (msg.t === 'attack') handleAttack(room, c);
+    else if (msg.t === 'weapon') handleWeapon(c, msg.w);
+    else if (msg.t === 'gadget') useGadget(room, c, msg);
+    else if (msg.t === 'dash') handleDash(c);
     else if (msg.t === 'reload') {
-      if (!c.reloadUntil && c.ammo < MAG_SIZE) c.reloadUntil = now() + RELOAD_MS;
+      const W = weaponOf(c);
+      if (!c.reloadUntil && c.ammo < W.mag) c.reloadUntil = now() + W.reload;
     }
   };
   ws.onclose = () => {

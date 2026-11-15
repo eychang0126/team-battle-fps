@@ -495,7 +495,9 @@ export function buildCharacter(look = [], opts = {}) {
   inner.add(makeHair(hairStyle, hairColor, hatId));
   // 팔: 어깨를 기준으로 돌아요. 총 들 때(게임)는 앞으로, 미리보기에서는 아래로
   const arm = new THREE.Group(); arm.position.set(0, 1.38, 0);
-  const forward = zombie || opts.gun !== false;
+  const wp = opts.weapon || 'wp_rifle';
+  let muzzle = null;
+  const forward = zombie || (opts.gun !== false && wp !== 'none');
   const oneArm = (s, yaw) => {
     const pivot = new THREE.Group(); pivot.position.x = s * 0.54; pivot.rotation.y = yaw;
     const a = new THREE.Group(); if (forward) a.rotation.x = Math.PI / 2; pivot.add(a);
@@ -504,10 +506,42 @@ export function buildCharacter(look = [], opts = {}) {
     arm.add(pivot);
   };
   if (zombie) { oneArm(-1, 0); oneArm(1, 0); }
-  else if (forward) {
+  else if (forward && ['wp_dagger', 'wp_katana', 'wp_gunblade', 'wp_scythe', 'wp_shield', 'wp_bow'].includes(wp)) {
+    // 칼: 오른손으로 들고 왼팔은 내리기
+    oneArm(1, 0.1);
+    const lp = new THREE.Group(); lp.position.x = -0.54; arm.add(lp);
+    const la = new THREE.Group(); la.rotation.x = 0.15; lp.add(la); // 왼팔은 거의 내리기
+    box(la, 0.34, 0.3, 0.36, bodyColor, 0, -0.09, 0); box(la, 0.33, 0.44, 0.35, skin, 0, -0.45, 0);
+    const blade = new THREE.Group(); blade.position.set(0.48, 0, -0.68); blade.rotation.x = -0.6; arm.add(blade); // 칼끝이 위쪽 앞으로
+    if (wp === 'wp_shield') { // 방패는 몸 앞에 세워서
+      blade.rotation.x = 0; blade.position.set(0.2, -0.25, -0.75);
+      box(blade, 0.75, 0.95, 0.06, 0x3d4a5c, 0, 0, 0); box(blade, 0.5, 0.14, 0.065, 0x9fd0ff, 0, 0.25, 0);
+    } else if (wp === 'wp_bow') {
+      blade.rotation.x = 0; blade.position.set(0.48, 0.05, -0.75);
+      for (const k of [-1, 1]) { const l = box(blade, 0.04, 0.5, 0.05, 0x8a5a2b, 0, k * 0.24, 0.04); l.rotation.x = k * 0.35; }
+      box(blade, 0.01, 0.9, 0.01, 0xeeeeee, 0, 0, 0.14);
+    } else if (wp === 'wp_scythe') {
+      box(blade, 0.05, 1.5, 0.05, 0x4a2e18, 0, 0.45, 0);
+      const bl = box(blade, 0.03, 0.12, 0.7, 0xd5dbe3, 0, 1.15, -0.3); bl.rotation.x = -0.25;
+    } else if (wp === 'wp_gunblade') {
+      box(blade, 0.07, 0.24, 0.12, 0x2b2f38, 0, -0.02, 0); box(blade, 0.04, 0.9, 0.1, 0xc9d3e0, 0, 0.55, 0);
+    } else if (wp === 'wp_katana') {
+      box(blade, 0.06, 0.24, 0.06, 0x2b1d4a, 0, -0.02, 0); box(blade, 0.16, 0.03, 0.1, 0xd4a64a, 0, 0.11, 0);
+      box(blade, 0.03, 0.95, 0.08, 0xe9eef5, 0, 0.6, 0);
+    } else {
+      box(blade, 0.05, 0.14, 0.05, 0x5a3a22, 0, -0.02, 0); box(blade, 0.12, 0.03, 0.05, 0xb0b4bc, 0, 0.06, 0);
+      box(blade, 0.025, 0.3, 0.06, 0xdde3ea, 0, 0.22, 0);
+    }
+  } else if (forward) {
     oneArm(1, 0.15); oneArm(-1, -0.6); // 오른팔은 총 잡고, 왼팔은 총 앞쪽 받치기
-    const rifle = box(arm, 0.1, 0.13, 0.75, 0x2b2f38, 0.3, 0.02, -0.72);
-    box(arm, 0.06, 0.16, 0.08, 0x2b2f38, 0.3, -0.1, -0.6); // 손잡이
+    const G = { // 총 모양: [길이, 두께, 색]
+      wp_rifle: [0.75, 0.13, 0x2b2f38], wp_smg: [0.5, 0.12, 0x30343e], wp_shotgun: [0.8, 0.12, 0x6b4a2b],
+      wp_sniper: [1.05, 0.11, 0x3a4a2e], wp_minigun: [0.8, 0.22, 0x3d3f45], wp_burst: [0.72, 0.13, 0x4a3b2a], wp_rpg: [1.1, 0.18, 0x4f5d3a],
+    }[wp] || [0.75, 0.13, 0x2b2f38];
+    const rifle = box(arm, G[1] * 0.8, G[1], G[0], G[2], 0.3, 0.02, -0.35 - G[0] / 2);
+    box(arm, 0.06, 0.16, 0.08, G[2], 0.3, -0.1, -0.6); // 손잡이
+    if (wp === 'wp_sniper') box(arm, 0.06, 0.06, 0.26, 0x111111, 0.3, 0.12, -0.7); // 조준경
+    muzzle = new THREE.Group(); muzzle.position.set(0.3, 0.02, -0.38 - G[0]); arm.add(muzzle); // 총구 (총알이 나오는 곳)
     rifle.castShadow = true;
   } else { oneArm(1, 0); oneArm(-1, 0); }
   inner.add(arm);
@@ -516,7 +550,7 @@ export function buildCharacter(look = [], opts = {}) {
   if (wingId) { const w = makeWings(wingId); inner.add(w.root); wings = w.pivots; }
   if (tailId) { tail = makeTail(tailId, hairColor); inner.add(tail); }
   shadow(inner);
-  return { inner, arm, body, wings, tail, legs };
+  return { inner, arm, body, wings, tail, legs, muzzle };
 }
 
 // 날개 파닥, 꼬리 살랑 (t = 밀리초)

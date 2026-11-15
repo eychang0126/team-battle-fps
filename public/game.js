@@ -9,7 +9,8 @@ const TEAM_COLOR = { red: 0xe84848, blue: 0x3d8bff, human: 0x3d8bff, zombie: 0x4
 const TEAM_NAME = { red: '빨강 팀', blue: '파랑 팀', human: '인간', zombie: '좀비', runner: '러너' };
 const TEAM_CSS = { red: '#ff7a7a', blue: '#6fb5ff', human: '#6fb5ff', zombie: '#7fe05a', runner: '#ffb14d' };
 const IS_TOUCH = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
-const R = 0.35, H = 1.8, EYE = 1.7;
+const R = 0.35, STAND_H = 1.8, CROUCH_H = 1.2, EYE = 1.7, CROUCH_EYE = 1.1;
+let H = STAND_H, eyeNow = EYE; // 웅크리면 키가 작아지고 눈도 낮아져요
 const RUN = 6.5, WALK = 3.2, JUMP = 6.5, GRAV = 18;
 
 let ws, myId, myTeam, myName, cfg, map, mode = 'fps', adminName = '';
@@ -53,16 +54,273 @@ addEventListener('resize', () => {
 
 // ---------- 내 총 (화면에 보이는 것) ----------
 const gun = new THREE.Group();
-const gunMat = new THREE.MeshLambertMaterial({ color: 0x2b2f38 });
-const g1 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.5), gunMat); g1.position.set(0, 0, -0.2);
-const g2 = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.16, 0.08), gunMat); g2.position.set(0, -0.1, -0.02);
-const g3 = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.25), new THREE.MeshLambertMaterial({ color: 0x15171c }));
-g3.position.set(0, 0.02, -0.55);
-gun.add(g1, g2, g3);
 const flash = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffd060 }));
-flash.position.set(0, 0.02, -0.7); flash.visible = false; gun.add(flash);
+flash.visible = false;
 gun.position.set(0.22, -0.2, -0.35);
 camera.add(gun);
+let gunModel = null, minigunBarrels = null;
+// 무기마다 다른 모양 (상자, 원기둥으로 만들어요)
+function buildGunModel(id) {
+  if (gunModel) { gun.remove(gunModel); gunModel.traverse(o => { o.geometry?.dispose(); o.material?.dispose?.(); }); }
+  gunModel = new THREE.Group(); minigunBarrels = null;
+  const M = c => new THREE.MeshLambertMaterial({ color: c });
+  const B = (w, h, d, c, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), M(c)); m.position.set(x, y, z); gunModel.add(m); return m; };
+  const C = (r, len, c, x, y, z) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 10), M(c)); m.rotation.x = Math.PI / 2; m.position.set(x, y, z); gunModel.add(m); return m; };
+  let tip = -0.7;
+  switch (id) {
+    case 'wp_smg':
+      B(0.08, 0.1, 0.34, 0x30343e, 0, 0, -0.15); B(0.06, 0.18, 0.06, 0x22252c, 0, -0.12, -0.12); B(0.06, 0.13, 0.07, 0x30343e, 0, -0.09, 0.0);
+      C(0.022, 0.16, 0x15171c, 0, 0.02, -0.39); tip = -0.48; break;
+    case 'wp_shotgun':
+      C(0.04, 0.6, 0x2b2b2b, 0, 0.02, -0.33); C(0.045, 0.2, 0x8a5a2b, 0, -0.03, -0.38); // 총열 + 펌프
+      B(0.08, 0.12, 0.26, 0x8a5a2b, 0, -0.03, 0.02); tip = -0.65; break;
+    case 'wp_sniper':
+      B(0.07, 0.09, 0.5, 0x3a4a2e, 0, 0, -0.15); C(0.02, 0.5, 0x15171c, 0, 0.02, -0.62);
+      C(0.035, 0.24, 0x111111, 0, 0.1, -0.15); B(0.07, 0.12, 0.2, 0x3a4a2e, 0, -0.04, 0.15); tip = -0.88; break;
+    case 'wp_minigun': {
+      B(0.16, 0.16, 0.3, 0x3d3f45, 0, -0.02, -0.05);
+      minigunBarrels = new THREE.Group(); minigunBarrels.position.set(0, -0.02, -0.38);
+      for (let i = 0; i < 6; i++) {
+        const a = i / 6 * Math.PI * 2, m = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.5, 6), M(0x1b1c20));
+        m.rotation.x = Math.PI / 2; m.position.set(Math.cos(a) * 0.05, Math.sin(a) * 0.05, 0); minigunBarrels.add(m);
+      }
+      gunModel.add(minigunBarrels); tip = -0.65; break;
+    }
+    case 'wp_burst':
+      B(0.08, 0.11, 0.48, 0x4a3b2a, 0, 0, -0.2); B(0.07, 0.16, 0.08, 0x2b2f38, 0, -0.1, -0.02); B(0.05, 0.14, 0.07, 0x2b2f38, 0, -0.1, -0.22);
+      B(0.04, 0.04, 0.22, 0x15171c, 0, 0.02, -0.54); B(0.03, 0.05, 0.12, 0x15171c, 0, 0.08, -0.15); tip = -0.68; break;
+    case 'wp_rpg':
+      C(0.07, 0.95, 0x4f5d3a, 0.02, 0.02, -0.25); C(0.09, 0.14, 0x3a4429, 0.02, 0.02, -0.72);
+      B(0.05, 0.14, 0.06, 0x2b2f38, 0.02, -0.1, -0.1); tip = -0.8; break;
+    case 'wp_bow': {
+      const bow = new THREE.Group();
+      for (const s of [-1, 1]) {
+        const limb = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.32, 0.03), M(0x8a5a2b));
+        limb.position.set(0, s * 0.15, -0.02); limb.rotation.x = s * 0.35; bow.add(limb);
+      }
+      const grip = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.08, 0.04), M(0x4a2e18)); bow.add(grip);
+      const str = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.6, 0.006), M(0xeeeeee)); str.position.z = 0.09; bow.add(str);
+      bow.userData.string = str;
+      const arrow = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.012, 0.6), M(0xd9c79a)); arrow.position.set(0, 0, -0.18); bow.add(arrow);
+      bow.userData.arrow = arrow;
+      bow.position.set(-0.1, 0.05, -0.15); bow.rotation.z = 0.25;
+      gunModel.add(bow); gunModel.userData.bow = bow; tip = null; break;
+    }
+    case 'wp_shield':
+      B(0.6, 0.75, 0.05, 0x3d4a5c, -0.25, 0.05, -0.25); B(0.4, 0.12, 0.052, 0x9fd0ff, -0.25, 0.25, -0.25); // 방패 + 창
+      B(0.62, 0.05, 0.06, 0x2a3240, -0.25, -0.31, -0.25); tip = null; break;
+    case 'wp_gunblade':
+      B(0.06, 0.12, 0.22, 0x2b2f38, 0, -0.03, 0.02); B(0.04, 0.12, 0.05, 0x2b2f38, 0, -0.12, 0.05);
+      B(0.03, 0.09, 0.75, 0xc9d3e0, 0, 0.0, -0.45); C(0.018, 0.4, 0x15171c, 0, 0.06, -0.3); tip = -0.5; break;
+    case 'wp_scythe':
+      B(0.04, 0.04, 1.1, 0x4a2e18, 0, -0.05, -0.3); // 긴 자루
+      { const bl = B(0.02, 0.07, 0.55, 0xd5dbe3, 0, 0.18, -0.8); bl.rotation.x = 1.25; }
+      tip = null; break;
+    case 'wp_dagger':
+      B(0.05, 0.05, 0.14, 0x5a3a22, 0, -0.03, 0.02); B(0.12, 0.03, 0.03, 0xb0b4bc, 0, -0.03, -0.06);
+      B(0.02, 0.06, 0.3, 0xdde3ea, 0, -0.03, -0.22); tip = null; break;
+    case 'wp_katana':
+      B(0.05, 0.05, 0.26, 0x2b1d4a, 0, -0.03, 0.06); B(0.14, 0.03, 0.06, 0xd4a64a, 0, -0.03, -0.08);
+      B(0.018, 0.06, 0.9, 0xe9eef5, 0, -0.03, -0.53); tip = null; break;
+    default: // 돌격소총
+      B(0.08, 0.1, 0.5, 0x2b2f38, 0, 0, -0.2); B(0.07, 0.16, 0.08, 0x2b2f38, 0, -0.1, -0.02); B(0.04, 0.04, 0.25, 0x15171c, 0, 0.02, -0.55);
+  }
+  if (tip !== null) { flash.position.set(0, 0.02, tip); gunModel.add(flash); }
+  if (id === 'wp_katana' || id === 'wp_dagger' || id === 'wp_gunblade') gunModel.rotation.set(0.35, 0, 0.25); // 칼은 비스듬히 들기
+  if (id === 'wp_scythe') gunModel.rotation.set(0.5, 0.3, 0.4);
+  gun.add(gunModel);
+}
+// ---------- 무기 상태 ----------
+let curW = 'wp_rifle', myWList = ['wp_rifle'], myGList = [], items = {};
+let zoomed = false, dashUntil = 0, lastDash = 0, melee = 0, bowCharge = 0, burstLeft = 0, lastAlt = 0, buffUntil = 0;
+const knock = { x: 0, z: 0 }; // 로켓 점프로 날아가는 힘
+// 아이템 키 (로비의 ⌨️ 키 설정에서 바꿀 수 있어요)
+// 기본 조작 키 (마우스 대신 키보드로도): 쏘기 F, 특수 E, 무기 고르기 I
+const DEFAULT_CTRL = { fire: 'KeyF', alt: 'KeyE', pick: 'KeyI', crouch: 'KeyC' };
+let ctrlKeys = { ...DEFAULT_CTRL };
+try { Object.assign(ctrlKeys, JSON.parse(localStorage.getItem('ctrlKeys') || '{}')); } catch { }
+const DEFAULT_KEYS = { gr_grenade: 'KeyG', gr_smoke: 'KeyN', gr_flash: 'KeyX', gr_molotov: 'KeyZ', gr_jumppad: 'KeyB', gr_horn: 'KeyH' };
+let gadgetKeys = { ...DEFAULT_KEYS }, gadgetSlots = {};
+try { Object.assign(gadgetKeys, JSON.parse(localStorage.getItem('gadgetKeys') || '{}')); gadgetSlots = JSON.parse(localStorage.getItem('gadgetSlots') || '{}'); } catch { }
+const WP = () => (cfg && cfg.weapons && cfg.weapons[curW]) || { fire: 110, mag: 25, reload: 1600 };
+function setWeapon(id, newAmmo) {
+  curW = id; reloadUntil = 0; ammo = newAmmo ?? WP().mag;
+  setZoom(false); buildGunModel(id);
+  updateWeaponButtons();
+}
+function cycleWeapon(dir = 1) {
+  if (myWList.length < 2 || isZombie() || unarmed()) return;
+  const i = myWList.indexOf(curW);
+  send({ t: 'weapon', w: myWList[(i + dir + myWList.length) % myWList.length] });
+}
+// ---------- 무기 고르기 창 ----------
+let pickerOpen = false, pickTimer = null;
+function openPicker(withTimer) {
+  if (unarmed() || isZombie() || myWList.length < 1) return;
+  pickerOpen = true; mouseDown = false;
+  const el = $('wpick');
+  let left = 10;
+  const draw = () => {
+    el.innerHTML = `<div class="wp-title">🔫 무기 고르기 ${withTimer ? `<span class="wp-time">${left}초</span>` : ''}</div>
+      <div class="wp-grid">${myWList.map((id, i) => {
+        const w = cfg.weapons[id];
+        return `<button type="button" class="wp-card ${id === curW ? 'on' : ''}" data-w="${id}"><span class="wp-n">${i + 1}</span><span class="wp-i">${w.icon}</span>${w.name}</button>`;
+      }).join('')}</div>
+      <div class="wp-help">${IS_TOUCH ? '누르면 바로 바뀌어요' : '숫자 키 또는 클릭으로 고르기'} · 게임 중에도 ${IS_TOUCH ? '🔁 버튼' : keyLabel(ctrlKeys.pick) + ' 키'}로 바꿀 수 있어요</div>
+      <button type="button" class="wp-go" id="wp-go">✅ ${withTimer ? '이걸로 시작!' : '닫기'}</button>`;
+    el.querySelectorAll('.wp-card').forEach(b => b.onclick = e => { e.stopPropagation(); pickWeapon(b.dataset.w, !withTimer); });
+    $('wp-go').onclick = e => { e.stopPropagation(); closePicker(); if (withTimer) startPlaying(); };
+  };
+  draw();
+  el.style.display = 'flex';
+  clearInterval(pickTimer);
+  if (withTimer) pickTimer = setInterval(() => { left--; if (left <= 0) closePicker(); else draw(); }, 1000);
+  el._redraw = draw;
+}
+function pickWeapon(id, closeAfter) {
+  if (id !== curW) send({ t: 'weapon', w: id });
+  curW = id; // 화면에 바로 표시 (서버가 확인해서 다시 알려 줘요)
+  if (closeAfter) closePicker(); else $('wpick')._redraw?.();
+}
+function closePicker() {
+  if (!pickerOpen) return;
+  pickerOpen = false; clearInterval(pickTimer);
+  $('wpick').style.display = 'none';
+  send({ t: 'ready' });
+}
+const keyLabel = c => !c ? '?' : c.startsWith('Key') ? c.slice(3) : c.startsWith('Digit') ? c.slice(5) : c;
+function setZoom(on) {
+  zoomed = !!on && WP().zoom && me.alive;
+  camera.fov = zoomed ? 22 : 75; camera.updateProjectionMatrix();
+  const sc = document.getElementById('scope'); if (sc) sc.style.display = zoomed ? 'block' : 'none';
+}
+function altAction(down) { // 오른쪽 클릭: 저격총 = 조준경, 카타나/낫 = 돌진, 건블레이드 = 총 한 발
+  const w = WP();
+  if (w.zoom) setZoom(down);
+  else if (w.dash && down) dash();
+  else if (w.altShot && down) altShot();
+}
+function altShot() {
+  const t = performance.now(), w = WP();
+  if (!me.alive || t - lastAlt < w.altShot.cd) return;
+  lastAlt = t;
+  const dir = aimDir();
+  send({ t: 'shoot', alt: 1, dx: dir.x, dy: dir.y, dz: dir.z });
+  flash.visible = true; setTimeout(() => (flash.visible = false), 40);
+  recoil = 0.1; me.pitch = Math.min(1.5, me.pitch + 0.03);
+}
+function aimDir() {
+  const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
+  if (thirdPerson) { // 3인칭: 화면 가운데 조준점이 가리키는 곳으로
+    const target = camera.position.clone().addScaledVector(dir, 40);
+    dir.copy(target).sub(new THREE.Vector3(me.x, me.y + eyeNow, me.z)).normalize();
+  }
+  return dir;
+}
+function dash() {
+  const t = performance.now();
+  if (!me.alive || t - lastDash < 3000) return;
+  lastDash = t; dashUntil = t + 280;
+  send({ t: 'dash' });
+}
+function useGadget(id) {
+  if (!(items[id] > 0) || !me.alive || isZombie() || unarmed()) return;
+  const dir = aimDir();
+  send({ t: 'gadget', g: id, dx: dir.x, dy: dir.y, dz: dir.z });
+}
+// 폰: 아이템 버튼 (위치는 로비의 ⌨️ 키 설정에서 골라요)
+const SLOT_POS = [
+  'right:286px;bottom:34px', 'right:210px;bottom:110px', 'right:362px;bottom:34px',
+  'right:286px;bottom:110px', 'left:24px;bottom:190px', 'left:96px;bottom:190px',
+];
+function buildGadgetButtons() {
+  document.querySelectorAll('.gadbtn').forEach(b => b.remove());
+  const used = new Set();
+  myGList.forEach((id, i) => {
+    let slot = Number.isInteger(gadgetSlots[id]) ? gadgetSlots[id] : i;
+    while (used.has(slot) && slot < 12) slot++;
+    used.add(slot);
+    const b = document.createElement('div');
+    b.className = 'tbtn touchui gadbtn'; b.id = 'gad-' + id;
+    b.style.cssText = (SLOT_POS[slot % SLOT_POS.length]) + ';width:58px;height:58px;font-size:17px;position:fixed';
+    document.getElementById('game').appendChild(b);
+    holdButton(b.id, () => useGadget(id));
+  });
+}
+function updateWeaponButtons() {
+  const w = WP();
+  const alt = $('btn-alt'), sw = $('btn-weapon');
+  if (alt) { alt.style.display = (w.zoom || w.dash || w.altShot) && !isZombie() && !unarmed() ? '' : 'none'; alt.textContent = w.zoom ? '🔭' : w.altShot ? '🔫' : '💨'; }
+  if (sw) sw.style.display = !isZombie() && !unarmed() ? '' : 'none';
+  for (const id of myGList) {
+    const b = document.getElementById('gad-' + id); if (!b) continue;
+    b.style.display = !isZombie() && !unarmed() ? '' : 'none';
+    b.textContent = (cfg.gadgets[id]?.icon || '?') + (items[id] || 0);
+    b.style.opacity = items[id] > 0 ? 1 : 0.4;
+  }
+}
+// 날아가는 수류탄 (서버랑 같은 방법으로 움직여요)
+const flyingGren = new Map();
+function grenadeStep(g, dt) {
+  const inside = (x, y, z) => (!map.noFloor && y < 0.1) || boxes.some(b => x > b.min[0] - 0.1 && x < b.max[0] + 0.1 && y > b.min[1] - 0.1 && y < b.max[1] + 0.1 && z > b.min[2] - 0.1 && z < b.max[2] + 0.1);
+  g.vy -= 18 * dt;
+  const lim = map.size - 0.5;
+  let nx = g.x + g.vx * dt; if (inside(nx, g.y, g.z) || Math.abs(nx) > lim) { g.vx *= -0.4; nx = g.x; } g.x = nx;
+  let nz = g.z + g.vz * dt; if (inside(g.x, g.y, nz) || Math.abs(nz) > lim) { g.vz *= -0.4; nz = g.z; } g.z = nz;
+  let ny = g.y + g.vy * dt; if (inside(g.x, ny, g.z)) { g.vy *= -0.35; g.vx *= 0.7; g.vz *= 0.7; ny = g.y; } g.y = ny;
+}
+const booms = [];
+function explode(x, y, z, r = 4, isFlash = false) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: isFlash ? 0xffffff : 0xffa030, transparent: true, opacity: 0.85 }));
+  m.position.set(x, y, z); scene.add(m); booms.push({ m, life: 0, r });
+  const d = Math.hypot(me.x - x, me.y + 1 - y, me.z - z);
+  if (d < 12) shake = Math.max(shake, (12 - d) / 12 * 0.25);
+}
+let shake = 0;
+// 바닥 효과 (연기, 불), 점프패드, 화살/로켓
+const zones = new Map(), pads = new Map(), projs = new Map();
+function addZone(m) {
+  const g = new THREE.Group(); g.position.set(m.x, m.y, m.z);
+  if (m.k === 'smoke') {
+    for (let i = 0; i < 26; i++) {
+      const a = Math.random() * 6.28, rr = Math.random() * m.r * 0.8;
+      const puff = new THREE.Mesh(new THREE.SphereGeometry(1.4 + Math.random() * 1.2, 10, 8),
+        new THREE.MeshLambertMaterial({ color: 0xc9ced6, transparent: true, opacity: 0.55, depthWrite: false }));
+      puff.position.set(Math.cos(a) * rr, 0.8 + Math.random() * 2.6, Math.sin(a) * rr); g.add(puff);
+    }
+  } else {
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(m.r, 24), new THREE.MeshBasicMaterial({ color: 0xff5a1a, transparent: true, opacity: 0.55 }));
+    disc.rotation.x = -Math.PI / 2; disc.position.y = 0.04; g.add(disc);
+    for (let i = 0; i < 14; i++) {
+      const a = Math.random() * 6.28, rr = Math.random() * m.r * 0.85;
+      const f = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.8, 6), new THREE.MeshBasicMaterial({ color: i % 2 ? 0xffb020 : 0xff4a10, transparent: true, opacity: 0.85 }));
+      f.position.set(Math.cos(a) * rr, 0.4, Math.sin(a) * rr); f.userData.ph = Math.random() * 6; g.add(f);
+    }
+  }
+  scene.add(g); zones.set(m.id, { g, until: performance.now() + m.ms, k: m.k });
+}
+function removeObj(map2, id) {
+  const o = map2.get(id); if (!o) return;
+  scene.remove(o.g || o.mesh);
+  (o.g || o.mesh).traverse(x => { x.geometry?.dispose(); x.material?.dispose?.(); });
+  map2.delete(id);
+}
+function addPad(m) {
+  const g = new THREE.Group(); g.position.set(m.x, m.y, m.z);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.9, 0.12, 20), new THREE.MeshLambertMaterial({ color: 0x2f2f3a })); base.position.y = 0.06;
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, 0.05, 20), new THREE.MeshBasicMaterial({ color: 0x3cf0ff })); top.position.y = 0.14;
+  const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.4, 4), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 })); arrow.position.y = 0.6;
+  g.add(base, top, arrow); g.userData.arrow = arrow;
+  scene.add(g); pads.set(m.id, { g, x: m.x, y: m.y, z: m.z, until: performance.now() + m.ms });
+}
+function addProj(m) {
+  const [x, y, z, vx, vy, vz] = m.p;
+  const mesh = m.k === 'rocket'
+    ? new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.5, 8), new THREE.MeshLambertMaterial({ color: 0x5a6a3a }))
+    : new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.7), new THREE.MeshLambertMaterial({ color: 0xd9c79a }));
+  mesh.position.set(x, y, z); scene.add(mesh);
+  projs.set(m.id, { mesh, x, y, z, vx, vy, vz, g: m.g || 0, k: m.k });
+}
 
 // 좀비 손 (화면에 보이는 것)
 const claws = new THREE.Group();
@@ -84,10 +342,11 @@ function toggleView() {
   try { localStorage.setItem('view3', thirdPerson ? '1' : '0'); } catch { }
   center(thirdPerson ? '👁 3인칭 시점' : '👁 1인칭 시점', 1000);
 }
-const unarmed = () => mode === 'obby';
+const unarmed = () => mode === 'obby' || mode === 'lava'; // 점프 타워, 용암 타워는 무기 없음
 
 // ---------- 맵 만들기 ----------
 const OBBY_COLORS = [0xff6b6b, 0xffa94d, 0xffd43b, 0x69db7c, 0x4dabf7, 0x9775fa, 0xf783ac];
+let lavaMesh = null;
 function buildObbyMap() {
   scene.background.set(0x8ec9ff); scene.fog.color.set(0x8ec9ff); scene.fog.near = 60; scene.fog.far = 160;
   const voidPlane = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.MeshBasicMaterial({ color: 0x3b2f7a }));
@@ -112,6 +371,18 @@ function buildObbyMap() {
     }
   });
   const top = map.height || 40;
+  if (map.lava) { // 🌋 올라오는 용암
+    const lc = document.createElement('canvas'); lc.width = lc.height = 64;
+    const lx = lc.getContext('2d');
+    for (let i = 0; i < 64; i++) for (let j = 0; j < 64; j++) {
+      const v = Math.sin(i * 0.4) * Math.cos(j * 0.35) + Math.sin((i + j) * 0.2);
+      lx.fillStyle = `rgb(255,${Math.round(90 + v * 45)},${Math.round(20 + v * 15)})`; lx.fillRect(i, j, 1, 1);
+    }
+    const tex = new THREE.CanvasTexture(lc); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(20, 20);
+    lavaMesh = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshBasicMaterial({ map: tex }));
+    lavaMesh.rotation.x = -Math.PI / 2; lavaMesh.position.y = -3; scene.add(lavaMesh);
+    voidPlane.visible = false;
+  }
   sun.position.set(35, top + 50, 25); sun.target.position.set(0, top / 2, 0); scene.add(sun.target);
   Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, far: top + 160 });
   sun.shadow.camera.updateProjectionMatrix();
@@ -189,8 +460,84 @@ function makeTree(x, z) {
   return g;
 }
 
+// 🏙️ 도시 맵 (좀비 웨이브)
+function buildCityMap() {
+  const S = map.size;
+  const c = document.createElement('canvas'); c.width = c.height = 512;
+  const x = c.getContext('2d');
+  x.fillStyle = '#4a4d55'; x.fillRect(0, 0, 512, 512); // 아스팔트
+  for (let i = 0; i < 1800; i++) { x.fillStyle = `rgba(255,255,255,${Math.random() * 0.05})`; x.fillRect(Math.random() * 512, Math.random() * 512, 2, 2); }
+  // 큰길 (가운데 십자) + 노란 중앙선 + 횡단보도
+  x.fillStyle = '#3a3c42'; x.fillRect(0, 230, 512, 52); x.fillRect(230, 0, 52, 512);
+  x.fillStyle = '#e8c547';
+  for (let i = 0; i < 512; i += 24) { if (i < 220 || i > 292) { x.fillRect(i, 254, 14, 4); x.fillRect(254, i, 4, 14); } }
+  x.fillStyle = '#e9e9e9';
+  for (let i = 0; i < 6; i++) { x.fillRect(234 + i * 8, 218, 5, 10); x.fillRect(234 + i * 8, 284, 5, 10); x.fillRect(218, 234 + i * 8, 10, 5); x.fillRect(284, 234 + i * 8, 10, 5); }
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(S * 2, S * 2), new THREE.MeshLambertMaterial({ map: tex }));
+  floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; mapGroup.add(floor);
+  applyTheme(false);
+  scene.background.set(0x7c8aa3); scene.fog.color.set(0x7c8aa3); scene.fog.near = 30; scene.fog.far = 100;
+  // 창문 무늬 (건물마다 색이 달라요)
+  const winTex = color => {
+    const k = document.createElement('canvas'); k.width = 64; k.height = 64;
+    const g = k.getContext('2d');
+    g.fillStyle = '#' + color.toString(16).padStart(6, '0'); g.fillRect(0, 0, 64, 64);
+    for (const [wx, wy] of [[8, 10], [36, 10], [8, 40], [36, 40]]) {
+      g.fillStyle = Math.random() < 0.3 ? '#ffe9a8' : '#2c3e57'; g.fillRect(wx, wy, 20, 16);
+      g.fillStyle = 'rgba(255,255,255,.25)'; g.fillRect(wx, wy, 20, 3);
+    }
+    const t = new THREE.CanvasTexture(k); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  };
+  const roofMat = new THREE.MeshLambertMaterial({ color: 0x5b5f68 });
+  const stairMat = new THREE.MeshLambertMaterial({ color: 0xa3a3a3 });
+  const metal = new THREE.MeshLambertMaterial({ color: 0x55585f });
+  boxes = map.boxes;
+  for (const b of boxes) {
+    const w = b.max[0] - b.min[0], h = b.max[1] - b.min[1], d = b.max[2] - b.min[2];
+    const pos = [(b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2, (b.min[2] + b.max[2]) / 2];
+    let m;
+    if (b.kind === 'bldg') {
+      const sideX = winTex(b.color); sideX.repeat.set(d / 3, h / 3);
+      const sideZ = winTex(b.color); sideZ.repeat.set(w / 3, h / 3);
+      const mX = new THREE.MeshLambertMaterial({ map: sideX }), mZ = new THREE.MeshLambertMaterial({ map: sideZ });
+      m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [mX, mX, roofMat, roofMat, mZ, mZ]);
+      // 옥상 테두리 (보기만 해요)
+      const rim = new THREE.Mesh(new THREE.BoxGeometry(w + 0.2, 0.25, d + 0.2), new THREE.MeshLambertMaterial({ color: 0x3f434b }));
+      rim.position.set(pos[0], b.max[1] + 0.02, pos[2]); rim.scale.set(1, 1, 1); mapGroup.add(rim);
+      const inner = new THREE.Mesh(new THREE.BoxGeometry(w - 0.4, 0.27, d - 0.4), roofMat);
+      inner.position.set(pos[0], b.max[1] + 0.03, pos[2]); mapGroup.add(inner);
+      // 옥상 물탱크
+      const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 1.0, 12), new THREE.MeshLambertMaterial({ color: 0x8a6a4a }));
+      tank.position.set(pos[0] + w / 4, b.max[1] + 0.5, pos[2] - d / 4); mapGroup.add(tank);
+    } else if (b.kind === 'stair') {
+      m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), stairMat);
+      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({ color: 0x6d6d6d }));
+      edges.position.set(...pos); mapGroup.add(edges);
+    } else if (b.kind === 'car') {
+      m = new THREE.Mesh(new THREE.BoxGeometry(w, h * 0.55, d), new THREE.MeshLambertMaterial({ color: b.color }));
+      pos[1] = b.min[1] + h * 0.275 + 0.25;
+      const cab = new THREE.Mesh(new THREE.BoxGeometry(w > d ? w * 0.55 : w * 0.9, h * 0.4, w > d ? d * 0.9 : d * 0.55), new THREE.MeshLambertMaterial({ color: 0x9fc4e8 }));
+      cab.position.set(pos[0], b.min[1] + h * 0.8 + 0.1, pos[2]); mapGroup.add(cab);
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+        const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.25, 12), new THREE.MeshLambertMaterial({ color: 0x1b1b1b }));
+        wh.rotation.z = Math.PI / 2; if (w > d) wh.rotation.set(Math.PI / 2, 0, 0);
+        wh.position.set(pos[0] + sx * (w / 2 - 0.45) * (w > d ? 1 : 1.02), 0.32, pos[2] + sz * (d / 2 - 0.45)); mapGroup.add(wh);
+      }
+    } else if (b.kind === 'pole') {
+      m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), metal);
+      const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), new THREE.MeshBasicMaterial({ color: 0xfff0b0 }));
+      lamp.position.set(pos[0], b.max[1] + 0.2, pos[2]); mapGroup.add(lamp);
+    } else m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), roofMat);
+    m.position.set(...pos);
+    m.castShadow = m.receiveShadow = true;
+    mapGroup.add(m);
+  }
+}
 function buildMap() {
   if (map.noFloor) return buildObbyMap();
+  if (map.theme === 'city') return buildCityMap();
   const S = map.size;
   // 바닥 (격자 무늬)
   const c = document.createElement('canvas'); c.width = c.height = 128;
@@ -253,13 +600,13 @@ function nameSprite(text, color) {
   return s;
 }
 // ---------- 블록 캐릭터 (avatar.js) ----------
-function makeAvatar(name, team, look = []) {
+function makeAvatar(name, team, look = [], weapon) {
   const teamColor = team === 'red' || team === 'blue' ? TEAM_COLOR[team] : undefined; // 팀전만 팀 색 옷
-  const { inner, arm, body, wings, tail, legs } = buildCharacter(look, { zombie: team === 'zombie', teamColor });
+  const { inner, arm, body, wings, tail, legs, muzzle } = buildCharacter(look, { zombie: team === 'zombie', teamColor, weapon: unarmed() ? 'none' : weapon });
   const label = nameSprite(name, TEAM_CSS[team] || '#fff');
   label.position.y = 2.55;
   const grp = new THREE.Group(); grp.add(inner, label);
-  return { group: grp, inner, arm, label, body, wings, tail, legs, team, look: look.join(','), swing: 0, walk: 0, phase: Math.random() * 6 };
+  return { group: grp, inner, arm, label, body, wings, tail, legs, muzzle, team, look: look.join(','), swing: 0, walk: 0, phase: Math.random() * 6 };
 }
 function syncOthers(list) {
   const seen = new Set();
@@ -267,19 +614,27 @@ function syncOthers(list) {
     if (p.id === myId) continue;
     seen.add(p.id);
     let o = others.get(p.id);
-    const lk = (p.lk || []).join(',');
+    const lk = (p.lk || []).join(',') + '|' + (p.w || '');
     if (!o || o.team !== p.tm || o.look !== lk) {
       const old = o;
       if (old) scene.remove(old.group);
-      o = makeAvatar(p.n, p.tm, p.lk || undefined);
+      o = makeAvatar(p.n, p.tm, p.lk || undefined, p.w); o.look = lk;
       if (p.id >= 1000000) o.label.visible = false; // 봇 좀비는 이름표 없음
       if (old) { o.group.position.copy(old.group.position); o.group.rotation.y = old.group.rotation.y; }
       else o.group.position.set(p.x, p.y, p.z);
       scene.add(o.group); others.set(p.id, o);
     }
-    o.tx = p.x; o.ty = p.y; o.tz = p.z; o.tyaw = p.yw; o.tpitch = p.pt; o.alive = p.a;
+    o.tx = p.x; o.ty = p.y; o.tz = p.z; o.tyaw = p.yw; o.tpitch = p.pt; o.alive = p.a; o.crouch = p.a === 2;
   }
   for (const [id, o] of others) if (!seen.has(id)) { scene.remove(o.group); others.delete(id); }
+}
+// 웅크린 모습: 몸을 낮추고 무릎을 앞으로
+function crouchPose(av, on, dt) {
+  av.cr = (av.cr || 0) + ((on ? 1 : 0) - (av.cr || 0)) * Math.min(1, dt * 12);
+  if (av.cr < 0.01) return;
+  av.inner.position.y -= av.cr * 0.42;
+  if (av.legs) av.legs.forEach(l => (l.rotation.x = l.rotation.x * (1 - av.cr) - av.cr * 1.1));
+  av.label.position.y = 2.55 - av.cr * 0.5;
 }
 function lerpAngle(a, b, t) {
   let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
@@ -340,7 +695,8 @@ $('btn-menu').addEventListener('click', () => {
 
 // ---------- 터치 조작 (폰/태블릿) ----------
 const joy = { id: null, x: 0, y: 0, cx: 0, cy: 0 };
-let lookId = null, lookX = 0, lookY = 0, touchJump = false;
+let lookId = null, lookX = 0, lookY = 0, touchJump = false, touchCrouch = false;
+let jumpQueued = false, airJumps = 0; // 2단 점프용
 const JOY_R = 55;
 function setKnob() { $('joy-knob').style.transform = `translate(${joy.x * JOY_R}px, ${joy.y * JOY_R}px)`; }
 $('joy').addEventListener('touchstart', e => {
@@ -359,8 +715,9 @@ document.addEventListener('touchmove', e => {
   for (const t of e.changedTouches) {
     if (t.identifier === joy.id) moveJoy(t);
     else if (t.identifier === lookId) {
-      me.yaw -= (t.clientX - lookX) * 0.006;
-      me.pitch -= (t.clientY - lookY) * 0.006;
+      const sens = zoomed ? 0.0018 : 0.006;
+      me.yaw -= (t.clientX - lookX) * sens;
+      me.pitch -= (t.clientY - lookY) * sens;
       me.pitch = Math.max(-1.5, Math.min(1.5, me.pitch));
       lookX = t.clientX; lookY = t.clientY;
     }
@@ -390,8 +747,11 @@ function holdButton(id, down, up) {
   el.addEventListener('touchcancel', () => { el.classList.remove('down'); up && up(); });
 }
 holdButton('btn-fire', () => { if (isZombie()) attack(); else if (!unarmed()) mouseDown = true; }, () => (mouseDown = false));
-holdButton('btn-jump', () => (touchJump = true), () => (touchJump = false));
+holdButton('btn-jump', () => { touchJump = true; jumpQueued = true; }, () => (touchJump = false));
 holdButton('btn-reload', () => reload());
+holdButton('btn-crouch', () => { touchCrouch = !touchCrouch; $('btn-crouch').classList.toggle('on', touchCrouch); });
+holdButton('btn-weapon', () => (pickerOpen ? closePicker() : openPicker(false)));
+holdButton('btn-alt', () => { if (WP().zoom) setZoom(!zoomed); else altAction(true); }); // 폰: 조준경은 누를 때마다 켜고 끄기
 holdButton('btn-chat', () => openChat(false));
 holdButton('btn-view', () => toggleView());
 holdButton('btn-board', () => { $('board').style.display = 'block'; renderBoard(); }, () => ($('board').style.display = 'none'));
@@ -400,7 +760,7 @@ holdButton('btn-board', () => { $('board').style.display = 'block'; renderBoard(
 let chatTeam = false;
 function openChat(team) {
   if (ended) return;
-  chatOpen = true; chatTeam = team && mode !== 'obby';
+  chatOpen = true; chatTeam = team && !unarmed();
   for (const k in keys) keys[k] = false;
   mouseDown = false;
   $('chatform').style.display = 'flex';
@@ -410,6 +770,8 @@ function openChat(team) {
   $('chatinput').value = '';
   $('chatinput').focus();
 }
+document.getElementById('ov-chat')?.addEventListener('click', e => { e.stopPropagation(); openChat(false); });
+document.getElementById('btn-chatpc')?.addEventListener('click', e => { e.stopPropagation(); openChat(false); });
 function closeChat() {
   chatOpen = false;
   $('chatform').style.display = 'none';
@@ -438,7 +800,7 @@ $('chatmode').addEventListener('click', () => {
 let voteState = null, myVote = null;
 function renderVote() {
   const box = $('votebox');
-  if (!voteState || mode === 'obby') { box.style.display = 'none'; return; }
+  if (!voteState || unarmed()) { box.style.display = 'none'; return; }
   box.style.display = 'block';
   const next = voteState.maps.find(m => m.id === voteState.next);
   const isAdmin = crown(myName) !== '';
@@ -448,7 +810,7 @@ function renderVote() {
   box.querySelectorAll('.vo').forEach(el => el.onclick = () => vote(el.dataset.id));
 }
 function vote(id) {
-  if (mode === 'obby' || !voteState) return;
+  if (unarmed() || !voteState) return;
   myVote = id; send({ t: 'vote', map: id }); renderVote();
 }
 
@@ -456,21 +818,25 @@ function addChat(html, cls = '') {
   const d = document.createElement('div');
   d.className = 'line ' + cls; d.innerHTML = html;
   $('chatlog').append(d);
-  while ($('chatlog').children.length > 30) $('chatlog').firstChild.remove();
+  while ($('chatlog').children.length > 250) $('chatlog').firstChild.remove();
   $('chatlog').scrollTop = 1e6;
   setTimeout(() => d.classList.add('old'), 9000);
 }
 document.addEventListener('mousemove', e => {
   if (!locked()) return;
-  me.yaw -= e.movementX * 0.0022;
-  me.pitch -= e.movementY * 0.0022;
+  const sens = zoomed ? 0.0022 * 0.3 : 0.0022;
+  me.yaw -= e.movementX * sens;
+  me.pitch -= e.movementY * sens;
   me.pitch = Math.max(-1.5, Math.min(1.5, me.pitch));
 });
+document.addEventListener('contextmenu', e => { if (locked()) e.preventDefault(); });
+document.addEventListener('wheel', e => { if (locked() && !chatOpen) cycleWeapon(e.deltaY > 0 ? 1 : -1); });
 document.addEventListener('mousedown', e => {
+  if (locked() && !chatOpen && e.button === 2 && !isZombie() && !unarmed()) { altAction(true); return; }
   if (!locked() || chatOpen || e.button !== 0) return;
   if (isZombie()) attack(); else if (!unarmed()) mouseDown = true;
 });
-document.addEventListener('mouseup', e => { if (e.button === 0) mouseDown = false; });
+document.addEventListener('mouseup', e => { if (e.button === 0) mouseDown = false; if (e.button === 2) altAction(false); });
 document.addEventListener('keydown', e => {
   if (chatOpen || ended) return;
   if ((e.code === 'Enter' || e.code === 'KeyT') && (locked() || touchActive)) { e.preventDefault(); openChat(e.code === 'KeyT'); return; }
@@ -478,10 +844,20 @@ document.addEventListener('keydown', e => {
   if (e.code === 'Tab') { e.preventDefault(); $('board').style.display = 'block'; renderBoard(); }
   if (e.code === 'KeyR') reload();
   if (e.code === 'KeyV') toggleView();
-  if (/^Digit[1-9]$/.test(e.code) && voteState) { const m = voteState.maps[+e.code.slice(5) - 1]; if (m) vote(m.id); }
+  if (e.code === 'Space' && !e.repeat) jumpQueued = true;
+  if (e.code === 'KeyQ') cycleWeapon(1);
+  if (e.code === ctrlKeys.pick) { pickerOpen ? closePicker() : openPicker(false); }
+  if (pickerOpen && /^Digit[1-9]$/.test(e.code)) { const id = myWList[+e.code.slice(5) - 1]; if (id) pickWeapon(id, true); return; }
+  if (e.code.startsWith('Arrow')) e.preventDefault(); // 화살표로 화면 돌리기 (아래 매 프레임에서)
+  if (!e.repeat && e.code === ctrlKeys.fire && controlsOn()) { if (isZombie()) attack(); else if (!unarmed()) mouseDown = true; }
+  if (!e.repeat && e.code === ctrlKeys.alt && controlsOn() && !isZombie() && !unarmed()) altAction(true);
+  for (const id of myGList) if (gadgetKeys[id] === e.code) useGadget(id);
+  if (!pickerOpen && /^Digit[1-9]$/.test(e.code) && voteState) { const m = voteState.maps[+e.code.slice(5) - 1]; if (m) vote(m.id); }
 });
 document.addEventListener('keyup', e => {
   keys[e.code] = false;
+  if (e.code === ctrlKeys.fire) mouseDown = false;
+  if (e.code === ctrlKeys.alt) altAction(false);
   if (e.code === 'Tab') $('board').style.display = 'none';
 });
 
@@ -494,8 +870,9 @@ function attack() {
 
 function reload() {
   if (isZombie() || unarmed()) return;
-  if (reloadUntil || ammo >= cfg.mag || !me.alive) return;
-  reloadUntil = performance.now() + cfg.reloadMs;
+  const w = WP();
+  if (w.melee || reloadUntil || ammo >= w.mag || !me.alive) return;
+  reloadUntil = performance.now() + w.reload;
   send({ t: 'reload' });
 }
 
@@ -503,20 +880,41 @@ function reload() {
 const ray = new THREE.Raycaster();
 function fire() {
   const t = performance.now();
-  if (!me.alive || isZombie() || unarmed() || reloadUntil || t - lastFire < cfg.fireMs) return;
+  const w = WP();
+  if (pickerOpen || !me.alive || isZombie() || unarmed() || reloadUntil || t - lastFire < w.fire) return;
+  if (w.melee) { // 칼, 방패, 낫: 휘두르기
+    lastFire = t; melee = 1; swing = 1;
+    const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
+    send({ t: 'shoot', dx: dir.x, dy: dir.y, dz: dir.z });
+    return;
+  }
+  if (w.charge) return; // 활은 누르고 있다가 뗄 때 쏴요 (아래 releaseArrow)
+  if (w.burst && burstLeft === 0) burstLeft = w.burst; // 점사: 한 번 누르면 3발
   if (ammo <= 0) { reload(); return; }
   lastFire = t; ammo--;
-  const dir = new THREE.Vector3();
-  camera.getWorldDirection(dir);
-  if (thirdPerson) { // 3인칭: 화면 가운데 조준점이 가리키는 곳으로 쏘기
-    const target = camera.position.clone().addScaledVector(dir, 40);
-    dir.copy(target).sub(new THREE.Vector3(me.x, me.y + EYE, me.z)).normalize();
+  const dir = aimDir();
+  if (w.spread && w.pellets === 1 && !zoomed) { // 기관단총, 미니건은 조금 퍼져요
+    dir.x += (Math.random() - 0.5) * 2 * w.spread; dir.y += (Math.random() - 0.5) * 2 * w.spread; dir.z += (Math.random() - 0.5) * 2 * w.spread;
+    dir.normalize();
   }
   send({ t: 'shoot', dx: dir.x, dy: dir.y, dz: dir.z });
   flash.visible = true; setTimeout(() => (flash.visible = false), 40);
-  recoil = 0.06;
-  me.pitch = Math.min(1.5, me.pitch + 0.012);
-  if (ammo === 0) reload();
+  const kick = { wp_sniper: [0.18, 0.05], wp_shotgun: [0.14, 0.04], wp_minigun: [0.03, 0.004], wp_smg: [0.04, 0.008], wp_rpg: [0.25, 0.06], wp_burst: [0.05, 0.01] }[curW] || [0.06, 0.012];
+  recoil = kick[0];
+  me.pitch = Math.min(1.5, me.pitch + kick[1]);
+  if (w.zoom) setZoom(false); // 저격총은 쏘면 조준경이 풀려요
+  if (w.burst) { burstLeft--; if (burstLeft === 0) lastFire = t + w.burstGap - w.fire; } // 3발 다 쏘면 잠깐 쉬기
+  if (ammo === 0) { burstLeft = 0; reload(); }
+}
+
+function releaseArrow() {
+  const t = performance.now(), w = WP();
+  const c = Math.min(1, bowCharge / 0.9); bowCharge = 0;
+  if (!me.alive || t - lastFire < w.fire) return;
+  lastFire = t;
+  const dir = aimDir();
+  send({ t: 'shoot', dx: dir.x, dy: dir.y, dz: dir.z, charge: c });
+  recoil = 0.04;
 }
 
 // ---------- 네트워크 ----------
@@ -546,6 +944,7 @@ function center(text, ms, html) {
   if (ms) centerTimer = setTimeout(() => ($('center').textContent = ''), ms);
 }
 function setTeamUI() {
+  if (isZombie() && pickerOpen) closePicker();
   $('teamtag').textContent = `${crown(myName)}${myName} · ${TEAM_NAME[myTeam]}${myTeam === 'zombie' ? ' 🧟' : ''}`;
   $('teamtag').style.color = TEAM_CSS[myTeam];
   me.maxHp = myTeam === 'zombie' ? cfg.zombieHp : cfg.maxHp;
@@ -556,6 +955,8 @@ function setTeamUI() {
   $('btn-fire').style.display = $('btn-reload').style.display = unarmed() ? 'none' : '';
   if (isZombie()) $('btn-reload').style.display = 'none';
   if (isZombie() || unarmed()) mouseDown = false;
+  if (isZombie() || unarmed()) setZoom(false);
+  updateWeaponButtons();
 }
 const fmtTime = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 const PHASE_TEXT = { waiting: '2명 이상 모이면 시작해요', countdown: '곧 시작!', playing: '', ended: '라운드 끝' };
@@ -565,14 +966,18 @@ function onMessage(m) {
   switch (m.t) {
     case 'welcome':
       myId = m.id; myTeam = m.team; myName = m.name; cfg = m.cfg; map = m.map; mode = m.mode; adminName = m.adminName || '';
-      ammo = cfg.mag;
+      myWList = m.myWeapons || ['wp_rifle']; myGList = m.myGadgets || [];
+      buildGadgetButtons();
+      setTimeout(() => openPicker(true), 50); // 처음 10초: 무기 고르기
+      setWeapon(m.weapon || 'wp_rifle');
       buildMap(); setTeamUI();
       document.title = m.roomTitle;
       cpInfo = { i: 0, total: (map.checkpoints?.length || 5) - 1 };
       if (IS_TOUCH) {
         $('ov-text').innerHTML = `왼쪽 조이스틱: 이동 &nbsp; 오른쪽 화면 드래그: 둘러보기<br>⬆️ 점프 &nbsp; 🔫 사격 &nbsp; 🔄 재장전 &nbsp; 💬 채팅 &nbsp; 📋 점수판 &nbsp; 👁 1인칭/3인칭<br>폰은 가로로 돌려서 하면 좋아요`;
       } else {
-        $('ov-text').innerHTML += `<br><kbd>Enter</kbd> 전체 채팅 &nbsp; <kbd>T</kbd> 팀 채팅`;
+        $('ov-text').innerHTML += `<br><kbd>Enter</kbd> 전체 채팅 &nbsp; <kbd>T</kbd> 팀 채팅`
+          + `<br><kbd>${keyLabel(ctrlKeys.fire)}</kbd> 쏘기 &nbsp; <kbd>${keyLabel(ctrlKeys.alt)}</kbd> 특수 &nbsp; <kbd>${keyLabel(ctrlKeys.pick)}</kbd> 무기 고르기 &nbsp; <kbd>${keyLabel(ctrlKeys.crouch)}</kbd> 웅크리기 &nbsp; <kbd>⬅️⬆️⬇️➡️</kbd> 화면 돌리기`;
       }
       const tapWord = IS_TOUCH ? '화면을 눌러서 시작' : '클릭해서 시작';
       if (mode === 'zombie') {
@@ -581,6 +986,9 @@ function onMessage(m) {
       } else if (mode === 'wave') {
         $('ov-title').textContent = '🧟‍♂️ 좀비 웨이브 · ' + tapWord;
         $('ov-text').innerHTML = `몰려오는 좀비 떼를 총으로 막아요! 웨이브를 깰 때마다 🪙 5코인, 5웨이브마다 🏆 트로피<br>쓰러지면 다음 웨이브에 부활 · 모두 쓰러지면 게임 오버<br><br>` + $('ov-text').innerHTML;
+      } else if (mode === 'lava') {
+        $('ov-title').textContent = '🌋 용암 타워 · ' + tapWord;
+        $('ov-text').innerHTML = `용암이 아래에서 점점 빨리 올라와요! 닿으면 바로 아웃<br>꼭대기 🏁까지 올라가면 🪙 20코인 (2명 이상이면 1등은 🏆 트로피도)<br><br>` + $('ov-text').innerHTML;
       } else if (mode === 'obby') {
         $('ov-title').textContent = '🗼 점프 타워 · ' + tapWord;
         $('ov-text').innerHTML = `빙글빙글 타워를 올라 꼭대기 🏁에 먼저 닿으면 승리!<br>🔥 빨간 블록은 밟으면 아웃 · 많이 떨어지면 🚩 체크포인트에서 다시 시작<br><br>` + $('ov-text').innerHTML;
@@ -589,6 +997,19 @@ function onMessage(m) {
         center(`${TEAM_NAME[myTeam]}이에요!`, 2500);
       }
       break;
+    case 'chatHist': { // 이 게임에서 예전에 했던 채팅 (채팅 창을 열면 보여요)
+      const log = $('chatlog');
+      const frag = document.createDocumentFragment();
+      if (m.list.length) { const h = document.createElement('div'); h.className = 'line sys old'; h.textContent = '— 예전 채팅 —'; frag.append(h); }
+      for (const e of m.list) {
+        const d = document.createElement('div'); d.className = 'line old';
+        const t = new Date(e.at);
+        d.innerHTML = `<span style="color:#8a93a8;font-size:11px">${t.getMonth() + 1}/${t.getDate()} ${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}</span> <b>${crown(e.from)}${esc(e.from)}</b>: ${esc(e.text)}`;
+        frag.append(d);
+      }
+      log.prepend(frag);
+      break;
+    }
     case 'chat': {
       const tag = m.scope === 'team' ? '<span class="tag">[팀]</span> ' : '';
       addChat(`${tag}<b style="color:${TEAM_CSS[m.team] || '#fff'}">${crown(m.from)}${esc(m.from)}</b>: ${esc(m.text)}`, m.scope === 'team' ? 'team' : '');
@@ -639,6 +1060,11 @@ function onMessage(m) {
         if (m.phase === 'break' && !roomInfo.wv) center('🧟‍♂️ 곧 좀비가 몰려와요! 준비하세요', 3000);
         break;
       }
+      if (mode === 'lava') {
+        if (m.phase === 'countdown') center('🌋 곧 용암이 올라와요! 출발선에서 기다려요', 3000);
+        if (m.phase === 'rising') center('출발! 위로 도망쳐요! 🏃💨', 1500);
+        break;
+      }
       if (mode === 'obby') {
         if (m.phase === 'countdown') { cpInfo.i = 0; center('🏁 출발선에서 기다려요! 10초 뒤 출발', 3000); }
         if (m.phase === 'playing') center('출발! 🏃💨', 1500);
@@ -648,6 +1074,19 @@ function onMessage(m) {
       if (m.phase === 'countdown') center('곧 시작해요!', 2000);
       if (m.phase === 'waiting') center('2명 이상 모이면 시작해요', 2500);
       break;
+    case 'lavadie':
+      feed(`🌋 ${esc(m.name)} 님이 용암에 빠졌어요 (${m.h}m)`);
+      if (m.name === myName) center(`🌋 용암에 빠졌어요! ${m.h}m까지 올라갔어요<br>다음 판을 기다려요`, 0, true);
+      break;
+    case 'lavawait':
+      center('🌋 이미 시작했어요! 다음 판부터 같이 해요', 4000);
+      break;
+    case 'lavaend': {
+      const top = (m.results || []).slice(0, 5).map((r, i) => `${i + 1}. ${esc(r.n)} ${r.h}m`).join(' · ');
+      const best = m.best ? `<br>🏆 최고 기록: ${m.best.time}초 (${esc(m.best.name)})` : '';
+      center(`${esc(m.text)}${top ? '<br>' + top : ''}${best}<br>곧 다음 판!`, 7500, true);
+      break;
+    }
     case 'wave':
       center(`🌊 웨이브 ${m.n} 시작! 좀비 ${m.count}마리`, 2500);
       break;
@@ -676,8 +1115,8 @@ function onMessage(m) {
     }
     case 'respawn':
       Object.assign(me, { x: m.x, y: m.y, z: m.z, yaw: m.yaw, pitch: 0, vy: 0, alive: true, hp: m.hp ?? cfg.maxHp });
-      ammo = cfg.mag; reloadUntil = 0;
-      if (/부활|일어나요/.test($('center').textContent)) center('', 0);
+      ammo = m.ammo ?? WP().mag; reloadUntil = 0; items = m.items || {}; me.crouch = false; H = STAND_H; touchCrouch = false; dashUntil = 0; knock.x = knock.z = 0; buffUntil = 0; bowCharge = 0; burstLeft = 0; setZoom(false); updateWeaponButtons();
+      if (/부활|일어나요|기다려요/.test($('center').textContent)) center('', 0);
       break;
     case 'correct':
       me.x = m.x; me.y = m.y; me.z = m.z; me.vy = 0;
@@ -700,7 +1139,7 @@ function onMessage(m) {
         if (!p) continue;
         Object.assign(p, { x: x / 100, y: y / 100, z: z / 100, yw: yw / 1000, pt: pt / 1000, hp, a });
       }
-      for (const k of ['s', 'target', 'ph', 'w', 'tl', 'wv', 'zl']) if (m[k] !== undefined) roomInfo[k] = m[k];
+      for (const k of ['s', 'target', 'ph', 'w', 'tl', 'wv', 'zl', 'lv']) if (m[k] !== undefined) roomInfo[k] = m[k];
       m = { ...roomInfo, t: 'state', p: [...roomPlayers.values()] };
       if (mode === 'fps' && !m.s) break;
     }
@@ -711,6 +1150,11 @@ function onMessage(m) {
         $('sc-r').textContent = `🌊 ${m.wv || 0}`; $('sc-r').style.color = '#6fb5ff';
         $('sc-b').textContent = `🧟 ${m.zl || 0}`; $('sc-b').style.color = '#7fe05a';
         $('sc-t').textContent = m.ph === 'wave' ? `웨이브 ${m.wv} · 남은 좀비 ${m.zl}` : m.ph === 'break' ? `다음 웨이브까지 ${m.tl}초` : m.ph === 'over' ? '게임 오버' : '';
+      } else if (mode === 'lava') {
+        const lvY = (m.lv ?? -300) / 100;
+        $('sc-r').textContent = `🌋 ${Math.max(0, lvY).toFixed(1)}m`; $('sc-r').style.color = '#ff7a2a';
+        $('sc-b').textContent = `🧍 ${Math.max(0, me.y).toFixed(1)}m`; $('sc-b').style.color = '#69db7c';
+        $('sc-t').textContent = m.ph === 'countdown' ? `출발까지 ${m.tl}초` : m.ph === 'rising' ? `🏁 ${(map.height || 35).toFixed(0)}m까지 도망쳐요!` : m.ph === 'ended' ? '다음 판 준비 중…' : '';
       } else if (mode === 'obby') {
         $('sc-r').textContent = `🏃 ${m.p.length}`; $('sc-r').style.color = '#ffb14d';
         $('sc-b').textContent = `🚩 ${cpInfo.i}/${cpInfo.total}`; $('sc-b').style.color = '#69db7c';
@@ -723,20 +1167,74 @@ function onMessage(m) {
       }
       syncOthers(m.p);
       for (const p of m.p) if (p.id === myId) {
-        const lk = (p.lk || []).join(',');
+        const lk = (p.lk || []).join(',') + '|' + (p.w || '');
         if (!meAv || meAv.team !== p.tm || meAv.look !== lk) {
           if (meAv) scene.remove(meAv.group);
-          meAv = makeAvatar(p.n, p.tm, p.lk || undefined);
+          meAv = makeAvatar(p.n, p.tm, p.lk || undefined, p.w); meAv.look = lk;
           meAv.label.visible = false;
           scene.add(meAv.group);
         }
-        if (me.alive && !p.a) { me.alive = false; if (mode !== 'wave') center(mode === 'zombie' ? '쓰러졌어요! 3초 후 다시 일어나요' : '죽었어요! 3초 후 부활', 0); }
+        if (me.alive && !p.a) { me.alive = false; if (mode !== 'wave' && mode !== 'lava') center(mode === 'zombie' ? '쓰러졌어요! 3초 후 다시 일어나요' : '죽었어요! 3초 후 부활', 0); }
         me.hp = p.hp;
       }
       if ($('board').style.display === 'block') renderBoard();
       break;
     case 'shot':
-      tracer(m.id === myId ? [me.x, me.y + EYE - 0.15, me.z] : m.o, m.e, m.id === myId);
+      { // 총알은 총구에서 나와요 (내 1인칭 총 / 3인칭 캐릭터 / 다른 사람 캐릭터의 총)
+        const v = new THREE.Vector3();
+        let o = m.o;
+        if (m.id === myId) {
+          if (thirdPerson && meAv && meAv.muzzle) o = meAv.muzzle.getWorldPosition(v).toArray();
+          else if (gunModel && flash.parent) o = flash.getWorldPosition(v).toArray();
+          else o = [me.x, me.y + eyeNow - 0.15, me.z];
+        } else {
+          const av = others.get(m.id);
+          if (av && av.muzzle) o = av.muzzle.getWorldPosition(v).toArray();
+        }
+        for (const e of m.es || [m.e]) tracer(o, e, m.id === myId);
+      }
+      break;
+    case 'weapon': {
+      setWeapon(m.w, m.ammo);
+      if (pickerOpen) $('wpick')._redraw?.();
+      const w = WP(); center(`${w.icon} ${w.name}`, 900);
+      break;
+    }
+    case 'items':
+      items = m.items || {}; updateWeaponButtons();
+      break;
+    case 'throw': {
+      const [x, y, z, vx, vy, vz] = m.p;
+      const col = { gr_smoke: 0xb0b6c0, gr_flash: 0xeeeeee, gr_molotov: 0x7a3b12 }[m.k] || 0x3d5a2a;
+      const mesh = new THREE.Mesh(m.k === 'gr_molotov' ? new THREE.CylinderGeometry(0.07, 0.09, 0.28, 8) : new THREE.SphereGeometry(0.12, 10, 8), new THREE.MeshLambertMaterial({ color: col }));
+      mesh.position.set(x, y, z); scene.add(mesh);
+      flyingGren.set(m.id, { x, y, z, vx, vy, vz, mesh });
+      break;
+    }
+    case 'pop': removeObj(flyingGren, m.id); break;
+    case 'boom': explode(m.x, m.y, m.z, m.r || 4, !!m.flash); break;
+    case 'zone': addZone(m); break;
+    case 'zoneGone': removeObj(zones, m.id); break;
+    case 'pad': addPad(m); break;
+    case 'padGone': removeObj(pads, m.id); break;
+    case 'proj': addProj(m); break;
+    case 'projEnd': removeObj(projs, m.id); break;
+    case 'knock': // 로켓 폭발에 날아가요
+      me.vy = m.v[1]; knock.x = m.v[0]; knock.z = m.v[2]; me.onGround = false;
+      break;
+    case 'flashed': {
+      const f = $('flashov'); f.style.transition = 'none'; f.style.opacity = 1;
+      setTimeout(() => { f.style.transition = `opacity ${m.ms}ms ease-in`; f.style.opacity = 0; }, 60);
+      break;
+    }
+    case 'horn':
+      feed(`📯 ${esc(m.name)} 님이 전쟁 나팔을 불었어요!`);
+      break;
+    case 'buff':
+      buffUntil = performance.now() + m.ms;
+      center(`📯 ${m.from === myName ? '' : esc(m.from) + ' 님의 '}나팔! 8초 동안 빨라지고 세져요`, 1800);
+      break;
+    case 'dash':
       break;
     case 'hurt': {
       const d = $('dmg'); d.style.opacity = 1; setTimeout(() => (d.style.opacity = 0), 150);
@@ -748,7 +1246,7 @@ function onMessage(m) {
       break;
     }
     case 'kill':
-      feed(`<span class="${cls(m.kteam)}">${esc(m.killer)}</span> ${m.head ? '🎯' : '🔫'} <span class="${cls(m.vteam)}">${esc(m.victim)}</span>`);
+      feed(`<span class="${cls(m.kteam)}">${esc(m.killer)}</span> ${esc(m.w || '🔫')}${m.head ? '🎯' : ''} <span class="${cls(m.vteam)}">${esc(m.victim)}</span>`);
       if (m.killer === myName) center(m.head ? '헤드샷 킬!' : '킬!', 900);
       break;
     case 'win':
@@ -775,6 +1273,12 @@ function onMessage(m) {
 
 function renderBoard() {
   if (!lastState) return;
+  if (mode === 'lava') {
+    const rows = [...lastState.p].sort((a, b) => b.y - a.y)
+      .map(p => `<tr class="${p.id === myId ? 'me' : ''}"><td>${crown(p.n)}${esc(p.n)}</td><td>${p.a ? Math.max(0, p.y).toFixed(1) + 'm' : '🌋 아웃'}</td></tr>`).join('');
+    $('board').innerHTML = `<div style="color:#ff7a2a;font-weight:800;margin:6px 0">🌋 용암 타워</div><table><tr><th>이름</th><th>높이</th></tr>${rows}</table>`;
+    return;
+  }
   if (mode === 'obby') {
     const rows = [...lastState.p].sort((a, b) => b.c - a.c)
       .map(p => `<tr class="${p.id === myId ? 'me' : ''}"><td>${crown(p.n)}${esc(p.n)}</td><td>🚩 ${p.c}/${cpInfo.total}</td></tr>`).join('');
@@ -804,12 +1308,32 @@ function frame() {
   const dt = Math.min(0.05, clock.getDelta());
   const t = performance.now();
 
-  if (reloadUntil && t >= reloadUntil) { ammo = cfg.mag; reloadUntil = 0; }
+  if (reloadUntil && t >= reloadUntil) { ammo = WP().mag; reloadUntil = 0; }
   if (mouseDown) fire();
 
+  // 화살표 키로 화면 돌리기 (마우스/터치패드 대신)
+  if (controlsOn()) {
+    const tr = (zoomed ? 0.6 : 2.4) * dt;
+    if (keys.ArrowLeft) me.yaw += tr;
+    if (keys.ArrowRight) me.yaw -= tr;
+    if (keys.ArrowUp) me.pitch = Math.min(1.5, me.pitch + tr * 0.7);
+    if (keys.ArrowDown) me.pitch = Math.max(-1.5, me.pitch - tr * 0.7);
+  }
+  // 웅크리기 (누르고 있는 동안 / 폰은 버튼으로 켜고 끄기)
+  {
+    const want = me.alive && !unarmed() && controlsOn() && (keys[ctrlKeys.crouch] || touchCrouch);
+    if (want && !me.crouch) { me.crouch = true; H = CROUCH_H; }
+    else if (!want && me.crouch) { // 일어나기: 머리 위가 막혀 있으면 못 일어나요
+      H = STAND_H;
+      if (hitBox(me.x, me.y, me.z)) H = CROUCH_H; else me.crouch = false;
+    }
+    eyeNow += ((me.crouch ? CROUCH_EYE : EYE) - eyeNow) * Math.min(1, dt * 14);
+  }
   if (map && me.alive) {
     // 이동
-    let speed = keys.ShiftLeft || keys.ShiftRight ? WALK : isZombie() ? 7.3 : RUN;
+    let speed = keys.ShiftLeft || keys.ShiftRight ? WALK : isZombie() ? 7.3 : RUN * (!isZombie() && WP().speed || 1);
+    if (zoomed || me.crouch) speed = me.crouch ? 2.6 : WALK;
+    if (performance.now() < buffUntil && !isZombie()) speed *= 1.3; // 📯
     let fx = 0, fz = 0;
     if (controlsOn()) {
       if (keys.KeyW) fz -= 1; if (keys.KeyS) fz += 1;
@@ -825,8 +1349,32 @@ function frame() {
     const mz = ((-fx * sin + fz * cos) / len) * speed * dt;
     if (!hitBox(me.x + mx, me.y, me.z)) me.x += mx;
     if (!hitBox(me.x, me.y, me.z + mz)) me.z += mz;
+    if (Math.abs(knock.x) + Math.abs(knock.z) > 0.05) { // 로켓 점프로 날아가는 중
+      const dx = knock.x * dt, dz = knock.z * dt;
+      if (!hitBox(me.x + dx, me.y, me.z)) me.x += dx; else knock.x = 0;
+      if (!hitBox(me.x, me.y, me.z + dz)) me.z += dz; else knock.z = 0;
+      const fr = me.onGround ? Math.pow(0.02, dt) : Math.pow(0.6, dt);
+      knock.x *= fr; knock.z *= fr;
+    }
+    // 점프패드 밟으면 슝!
+    for (const pd of pads.values()) {
+      if (me.vy <= 0.5 && Math.hypot(me.x - pd.x, me.z - pd.z) < 0.85 && Math.abs(me.y - pd.y) < 0.4) { me.vy = 15; me.onGround = false; center('🦘 슝!', 600); }
+    }
+    if (performance.now() < dashUntil) { // 카타나/낫 돌진: 보는 방향으로 쓩
+      const dx = -Math.sin(me.yaw) * 17 * dt, dz = -Math.cos(me.yaw) * 17 * dt;
+      if (!hitBox(me.x + dx, me.y, me.z)) me.x += dx;
+      if (!hitBox(me.x, me.y, me.z + dz)) me.z += dz;
+    }
     // 점프 / 중력
-    if (controlsOn() && (keys.Space || touchJump) && me.onGround) { me.vy = JUMP; me.onGround = false; }
+    // 점프 + 2단 점프 (총 게임에서만, 점프 타워/용암 타워는 1번만)
+    if (me.onGround) airJumps = 0;
+    if (controlsOn() && (keys.Space || touchJump) && me.onGround) { me.vy = JUMP; me.onGround = false; jumpQueued = false; }
+    else if (controlsOn() && jumpQueued && !me.onGround && !unarmed() && airJumps < 1) {
+      me.vy = JUMP * 0.9; airJumps++;
+      const puff = new THREE.Mesh(new THREE.RingGeometry(0.2, 0.45, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7, side: THREE.DoubleSide }));
+      puff.rotation.x = -Math.PI / 2; puff.position.set(me.x, me.y, me.z); scene.add(puff); booms.push({ m: puff, life: 0, r: 0.6 });
+    }
+    jumpQueued = false;
     me.vy -= GRAV * dt;
     let ny = me.y + me.vy * dt;
     me.onGround = false;
@@ -842,12 +1390,12 @@ function frame() {
     sendAcc += dt;
     if (sendAcc >= 0.066) { // 1초에 15번
       sendAcc = 0;
-      send({ t: 'move', x: +me.x.toFixed(3), y: +me.y.toFixed(3), z: +me.z.toFixed(3), yaw: me.yaw, pitch: me.pitch });
+      send({ t: 'move', x: +me.x.toFixed(3), y: +me.y.toFixed(3), z: +me.z.toFixed(3), yaw: me.yaw, pitch: me.pitch, c: me.crouch ? 1 : 0 });
     }
   }
 
   // 카메라
-  const eye = new THREE.Vector3(me.x, me.y + (me.alive ? EYE : 0.4), me.z);
+  const eye = new THREE.Vector3(me.x, me.y + (me.alive ? eyeNow : 0.4), me.z);
   camera.rotation.set(me.pitch, me.yaw, me.alive || thirdPerson ? 0 : 0.5);
   const tp = thirdPerson && map;
   if (tp) {
@@ -875,12 +1423,61 @@ function frame() {
       meAv.walk = moving ? meAv.walk + dt * 12 : 0;
       meAv.inner.position.y = moving ? Math.abs(Math.sin(meAv.walk)) * 0.03 : 0;
       if (meAv.legs) meAv.legs.forEach((l, i) => (l.rotation.x = moving ? Math.sin(meAv.walk) * (i ? -0.7 : 0.7) : 0)); // 다리 앞뒤로
+      crouchPose(meAv, me.crouch, dt);
       meAv.arm.rotation.x = me.pitch - Math.sin(swing * Math.PI) * 0.8;
       animateExtras(meAv, t, meAv.phase);
     }
   }
   recoil *= 0.8;
   gun.position.z = -0.35 + recoil;
+  melee = Math.max(0, melee - dt * 4);
+  const ms = Math.sin(melee * Math.PI);
+  gun.rotation.set(-ms * 1.1, curW === 'wp_katana' ? ms * 1.2 : 0, 0);  // 칼 휘두르기
+  gun.position.x = 0.22 - (curW === 'wp_katana' ? ms * 0.3 : 0);
+  if (minigunBarrels && mouseDown) minigunBarrels.rotation.z += dt * 25;
+  // 활 당기기: 누르고 있으면 차오르고, 떼면 발사
+  if (WP().charge && me.alive && !isZombie() && !unarmed()) {
+    if (mouseDown) bowCharge = Math.min(1.2, bowCharge + dt);
+    else if (bowCharge > 0) releaseArrow();
+  } else bowCharge = 0;
+  const bow = gunModel && gunModel.userData.bow;
+  if (bow) { const c = Math.min(1, bowCharge / 0.9); bow.userData.string.position.z = 0.09 + c * 0.18; bow.userData.arrow.position.z = -0.18 + c * 0.18; }
+  if (burstLeft > 0) fire(); // 점사 나머지 발
+  if (lavaMesh && roomInfo.lv !== undefined) {
+    const ty = roomInfo.lv / 100;
+    lavaMesh.position.y += (ty - lavaMesh.position.y) * Math.min(1, dt * 5);
+    lavaMesh.material.map.offset.x += dt * 0.02; lavaMesh.material.map.offset.y += dt * 0.013;
+  }
+  {
+    const now2 = performance.now();
+    for (const [id, z] of zones) {
+      if (now2 > z.until) { removeObj(zones, id); continue; }
+      if (z.k === 'fire') z.g.children.forEach(f => { if (f.userData.ph !== undefined) f.scale.y = 0.7 + Math.sin(now2 * 0.012 + f.userData.ph) * 0.35; });
+      else z.g.rotation.y += dt * 0.05;
+    }
+    for (const [id, pd] of pads) {
+      if (now2 > pd.until) { removeObj(pads, id); continue; }
+      pd.g.userData.arrow.position.y = 0.6 + Math.sin(now2 * 0.006) * 0.15;
+    }
+    for (const pj of projs.values()) {
+      pj.vy -= pj.g * dt;
+      pj.x += pj.vx * dt; pj.y += pj.vy * dt; pj.z += pj.vz * dt;
+      pj.mesh.position.set(pj.x, pj.y, pj.z);
+      pj.mesh.lookAt(pj.x + pj.vx, pj.y + pj.vy, pj.z + pj.vz);
+      if (pj.k === 'rocket') pj.mesh.rotateX(Math.PI / 2);
+    }
+  }
+  gun.visible = gun.visible && !zoomed;
+  for (const g of flyingGren.values()) {
+    for (let k = 0; k < 2; k++) grenadeStep(g, dt / 2);
+    g.mesh.position.set(g.x, g.y, g.z);
+  }
+  for (let i = booms.length - 1; i >= 0; i--) {
+    const b = booms[i]; b.life += dt;
+    b.m.scale.setScalar(0.5 + b.life * b.r * 2.2); b.m.material.opacity = Math.max(0, 0.85 - b.life * 2.2);
+    if (b.life > 0.4) { scene.remove(b.m); b.m.geometry.dispose(); b.m.material.dispose(); booms.splice(i, 1); }
+  }
+  if (shake > 0.001) { camera.position.x += (Math.random() - 0.5) * shake; camera.position.y += (Math.random() - 0.5) * shake; shake *= 0.85; }
   swing = Math.max(0, swing - dt * 5);
   claws.position.z = -Math.sin(swing * Math.PI) * 0.35;
   claws.rotation.x = -Math.sin(swing * Math.PI) * 0.5;
@@ -898,8 +1495,10 @@ function frame() {
     // 움직이면 통통 튀기
     const moving = Math.hypot(o.tx - p.x, o.tz - p.z) > 0.03;
     o.walk = moving ? o.walk + dt * 12 : 0;
-    o.inner.position.y = moving ? Math.abs(Math.sin(o.walk)) * 0.03 : o.inner.position.y * 0.8;
+    o.bounce = moving ? Math.abs(Math.sin(o.walk)) * 0.03 : (o.bounce || 0) * 0.8;
+    o.inner.position.y = o.bounce;
     if (o.legs) o.legs.forEach((l, i) => (l.rotation.x = moving ? Math.sin(o.walk) * (i ? -0.7 : 0.7) : l.rotation.x * 0.8));
+    crouchPose(o, o.crouch, dt);
     o.inner.rotation.z = moving ? Math.sin(o.walk) * 0.06 : 0;
     o.label.visible = o.alive && o.team === myTeam || o.alive && p.distanceTo(camera.position) < 25;
   }
@@ -928,7 +1527,14 @@ function frame() {
   const hpPct = Math.max(0, me.hp) / me.maxHp * 100;
   $('hpfill').style.width = hpPct + '%';
   $('hpfill').style.background = hpPct > 50 ? '#4cdc7a' : hpPct > 25 ? '#ffc23d' : '#ff4d4d';
-  if (cfg) $('ammo').innerHTML = reloadUntil ? '재장전…' : `${ammo} <small>/ ${cfg.mag}</small>`;
+  if (cfg) {
+    const w = WP();
+    const g = myGList.map(id => ` <small style="opacity:${items[id] > 0 ? 1 : 0.4}">${cfg.gadgets[id].icon}${items[id] || 0}</small>`).join('');
+    const buff = performance.now() < buffUntil ? ' <small>📯</small>' : '';
+    const main = w.melee || w.charge ? `<small>${w.name}${w.charge && bowCharge > 0 ? ' ' + '▮'.repeat(Math.round(Math.min(1, bowCharge / 0.9) * 8)) : ''}</small>`
+      : reloadUntil ? '재장전…' : `${ammo} <small>/ ${w.mag}</small>`;
+    $('ammo').innerHTML = `<small>${w.icon || ''}</small> ` + main + g + buff;
+  }
 
   renderer.render(scene, camera);
 }

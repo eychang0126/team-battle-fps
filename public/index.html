@@ -171,6 +171,9 @@
   #chatlog .line { background: rgba(0,0,0,.45); padding: 3px 9px; border-radius: 6px; width: fit-content; max-width: 100%;
     word-break: break-all; transition: opacity .6s; }
   #chatlog .line.old { opacity: 0; }
+  #chatlog.open { pointer-events: auto; max-height: 50vh; background: rgba(0,0,0,.35); border-radius: 8px; padding: 4px; }
+  #btn-chatpc { pointer-events: auto; position: absolute; left: 16px; bottom: 84px; width: auto; margin: 0; padding: 6px 12px; font-size: 13px; background: rgba(20,26,38,.75); color: #fff; border: 1px solid #3a4357; z-index: 3; }
+  body.touching #btn-chatpc { display: none; }
   #chatlog.open .line.old { opacity: 1; }
   #chatlog .team { border-left: 3px solid #ffd34d; } #chatlog .tag { color: #ffd34d; }
   #chatlog .sys { color: #ffc23d; }
@@ -199,6 +202,53 @@
   #btn-board { right: 82px; top: 70px; width: 50px; height: 50px; font-size: 22px; }
   #btn-menu { right: 24px; top: 70px; width: 50px; height: 50px; font-size: 22px; }
   #btn-view { right: 198px; top: 70px; width: 50px; height: 50px; font-size: 22px; }
+  #btn-crouch { right: 210px; bottom: 34px; width: 60px; height: 60px; font-size: 24px; }
+  #btn-crouch.on { background: rgba(77,163,255,.6); }
+  #btn-weapon { right: 34px; bottom: 214px; width: 56px; height: 56px; font-size: 24px; }
+  #btn-alt { right: 128px; bottom: 120px; width: 60px; height: 60px; font-size: 26px; }
+  .mgcards { display: flex; gap: 10px; flex-wrap: wrap; }
+  .mgcard { flex: 1; min-width: 150px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 14px 10px; margin: 0;
+    background: #1b2233; color: #fff; border: 1px solid #2f3749; border-radius: 14px; cursor: pointer; }
+  .mgcard:hover { border-color: #4da3ff; }
+  .mgcard .mgi { font-size: 36px; }
+  .mgcard small { color: #9aa3b8; }
+  .mgcard .mgbest { color: #ffd43b; }
+  #mg-modal { display: none; position: fixed; inset: 0; z-index: 65; background: rgba(5,8,14,.9); flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 10px; }
+  #mg-modal.on { display: flex; }
+  #mg-canvas { max-width: 100%; max-height: 78vh; border-radius: 12px; touch-action: none; background: #000; }
+  #mg-bar { display: flex; gap: 10px; align-items: center; color: #fff; }
+  #mg-msg { color: #ffd43b; font-weight: 700; min-height: 22px; text-align: center; }
+  #manual { display: none; position: fixed; inset: 0; z-index: 70; background: rgba(5,8,14,.88); align-items: center; justify-content: center; padding: 12px; }
+  #manual.on { display: flex; }
+  #manual .mbox { background: #141a26; border: 1px solid #2f3749; border-radius: 16px; width: min(760px, 100%); max-height: 92vh; display: flex; flex-direction: column; color: #e8ecf4; }
+  #manual .mhead { display: flex; align-items: center; gap: 8px; padding: 12px 14px 6px; }
+  #manual .mhead h1 { margin: 0; font-size: 22px; flex: 1; }
+  #manual .mtabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 14px 10px; border-bottom: 1px solid #2f3749; }
+  #manual .mtabs button { width: auto; margin: 0; padding: 6px 12px; font-size: 14px; background: #232a3a; color: #9aa3b8; }
+  #manual .mtabs button.on { background: #4da3ff; color: #0b1020; }
+  #manual .mbody { overflow: auto; padding: 12px 16px 18px; line-height: 1.7; font-size: 15px; text-align: left; }
+  #manual h3 { margin: 14px 0 6px; font-size: 17px; color: #ffd43b; }
+  #manual table { width: 100%; border-collapse: collapse; margin: 4px 0 8px; font-size: 14px; }
+  #manual td, #manual th { border-bottom: 1px solid #252c3b; padding: 6px 6px; vertical-align: top; text-align: left; }
+  #manual th { color: #8a93a8; font-weight: 600; }
+  #manual kbd { background: #232a3a; border: 1px solid #3a4357; border-bottom-width: 3px; border-radius: 6px; padding: 0 6px; font-size: 13px; white-space: nowrap; }
+  #manual .tip { background: #1d2a3f; border-left: 4px solid #4da3ff; padding: 8px 10px; border-radius: 6px; margin: 8px 0; }
+  #wpick { display: none; position: fixed; inset: 0; z-index: 40; background: rgba(8,12,22,.82); flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 16px; color: #fff; }
+  #wpick .wp-title { font-size: 24px; font-weight: 800; }
+  #wpick .wp-time { background: #ffd43b; color: #000; border-radius: 999px; padding: 2px 12px; margin-left: 8px; font-size: 18px; }
+  #wpick .wp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; width: min(720px, 100%); max-height: 60vh; overflow: auto; }
+  #wpick .wp-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 6px; margin: 0; width: auto;
+    background: #1b2233; color: #fff; border: 2px solid #2f3749; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; }
+  #wpick .wp-card.on { border-color: #4da3ff; background: #1f3355; }
+  #wpick .wp-i { font-size: 30px; }
+  #wpick .wp-n { position: absolute; left: 7px; top: 4px; font-size: 12px; color: #8a93a8; }
+  #wpick .wp-help { color: #9aa3b8; font-size: 13px; text-align: center; }
+  #wpick .wp-go { width: auto; padding: 10px 26px; margin: 0; }
+  #scope { display: none; position: fixed; inset: 0; pointer-events: none; z-index: 5;
+    background: radial-gradient(circle at center, transparent 0, transparent 33vmin, rgba(0,0,0,.92) 34vmin); }
+  #scope::before, #scope::after { content: ''; position: absolute; background: rgba(0,0,0,.8); }
+  #scope::before { left: 50%; top: calc(50% - 33vmin); width: 2px; height: 66vmin; margin-left: -1px; }
+  #scope::after { top: 50%; left: calc(50% - 33vmin); height: 2px; width: 66vmin; margin-top: -1px; }
   body.touching #hpbox { left: 175px; bottom: 24px; width: 180px; }
   body.touching #ammo { right: 200px; bottom: 120px; font-size: 26px; }
   body.touching #chatlog { bottom: 175px; font-size: 13px; }
@@ -224,7 +274,9 @@
   /* 로비 채팅 */
   .lchat { margin-top: 22px; background: #181d29; border: 1px solid #2a3142; border-radius: 16px; padding: 14px; }
   .lchat h2 { margin: 0 0 8px; font-size: 18px; }
-  #lchat-log { height: 150px; overflow-y: auto; font-size: 14px; display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+  #lchat-log .old { opacity: .75; }
+  #lchat-log .tm { color: #6f7890; font-size: 11px; margin-right: 4px; }
+  #lchat-log { height: 220px; overflow-y: auto; font-size: 14px; display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
   #lchat-log .sys { color: #ffc23d; }
   #lchat-form { display: flex; gap: 8px; }
   #lchat-form input { margin: 0; }
@@ -277,10 +329,15 @@
   <div class="lobby">
     <div class="lobby-top">
       <h1>🎮 게임 고르기</h1>
-      <div><span class="trophy" id="lobby-trophy">🏆 0</span><span class="coins" id="lobby-coins">🪙 0</span><button type="button" class="gbtn" id="btn-give">🎁 코인 보내기</button><button type="button" class="gbtn" id="btn-toadmin">📨 관리자에게 문자</button><button type="button" class="gbtn" id="btn-invite">🔗 초대 링크 복사</button><span class="who" id="lobby-who"></span><button type="button" id="btn-logout">로그아웃</button></div>
+      <div><span class="trophy" id="lobby-trophy">🏆 0</span><span class="coins" id="lobby-coins">🪙 0</span><button type="button" class="gbtn" id="btn-give">🎁 코인 보내기</button><button type="button" class="gbtn" id="btn-toadmin">📨 관리자에게 문자</button><button type="button" class="gbtn" id="btn-invite">🔗 초대 링크 복사</button><button type="button" class="gbtn" id="btn-keys">⌨️ 키 설정</button><button type="button" class="gbtn" id="btn-manual">📖 설명서</button><button type="button" class="gbtn" id="btn-rps">✊ 관리자와 가위바위보</button><span class="who" id="lobby-who"></span><button type="button" id="btn-logout">로그아웃</button></div>
     </div>
     <div id="announce-lobby"></div>
     <div class="rooms" id="rooms"><div style="color:#8a93a8">불러오는 중…</div></div>
+    <h3 style="margin:16px 0 8px">🎮 미니게임 <small style="color:#8a93a8;font-weight:400">혼자 하는 간단한 게임</small></h3>
+    <div class="mgcards">
+      <button type="button" class="mgcard" data-mg="flappy"><span class="mgi">🐤</span><b>플래피 버드</b><small>토관 20개 넘으면 🪙 20</small><small class="mgbest" id="mgb-flappy"></small></button>
+      <button type="button" class="mgcard" data-mg="dino"><span class="mgi">🦖</span><b>공룡 달리기</b><small>1000점 넘으면 🪙 20</small><small class="mgbest" id="mgb-dino"></small></button>
+    </div>
     <div id="lobby-notice"></div>
     <div class="lrow">
     <div class="rank">
@@ -316,6 +373,7 @@
           <button type="button" data-type="bcolor">👕 옷 색</button>
           <button type="button" data-type="wing">🦋 날개</button>
           <button type="button" data-type="tail">🐾 꼬리</button>
+          <button type="button" data-type="weapon">🔫 무기</button>
         </div>
         <div class="items" id="items"></div>
       </div>
@@ -344,6 +402,37 @@
 </div>
 
 <!-- 관리자에게 문자 창 -->
+<div id="keys-modal" class="modal">
+  <div class="card" style="max-width:440px">
+    <h1>⌨️ 키 설정</h1>
+    <p class="sub">PC: 칸을 누르고 원하는 키를 누르세요. 폰: 버튼이 나올 자리를 고르세요.<br>(산 아이템만 보여요)</p>
+    <div id="keys-list"></div>
+    <button type="button" id="keys-reset" style="background:#232a3a;color:#9aa3b8">처음 설정으로</button>
+    <button type="button" id="keys-close">닫기</button>
+  </div>
+</div>
+<div id="mg-modal">
+  <div id="mg-bar"><b id="mg-title">미니게임</b><span id="mg-best" style="color:#9aa3b8"></span>
+    <button type="button" id="mg-close" style="width:auto;margin:0;padding:6px 14px">나가기 ✕</button></div>
+  <canvas id="mg-canvas"></canvas>
+  <div id="mg-msg"></div>
+</div>
+<div id="rps-modal" class="modal">
+  <div class="card" style="max-width:420px;text-align:center">
+    <h1>✊✋✌️ 관리자와 가위바위보</h1>
+    <p class="sub">관리자가 수락하면 시작해요. <b>이기면 🪙 50코인!</b><br>하루에 한 번만 할 수 있어요 (비기면 다시).</p>
+    <div id="rps-body"></div>
+    <div class="err" id="rps-msg" style="color:#ffd43b;min-height:22px"></div>
+    <button type="button" id="rps-close" style="background:#232a3a;color:#9aa3b8">닫기</button>
+  </div>
+</div>
+<div id="manual">
+  <div class="mbox">
+    <div class="mhead"><h1>📖 게임 설명서</h1><button type="button" id="manual-close" style="width:auto;margin:0;padding:6px 14px">닫기 ✕</button></div>
+    <div class="mtabs" id="manual-tabs"></div>
+    <div class="mbody" id="manual-body"></div>
+  </div>
+</div>
 <div id="ta-modal" class="modal">
   <div class="card">
     <h1>📨 관리자에게 문자</h1>
@@ -378,6 +467,7 @@
     <div id="ammo">25 <small>/ 25</small></div>
     <div id="board"></div>
     <div id="chatlog"></div>
+    <button type="button" id="btn-chatpc" class="pconly">💬 채팅 <small>(Enter)</small></button>
     <form id="chatform"><button type="button" id="chatmode">전체</button><input id="chatinput" maxlength="100" autocomplete="off" placeholder="메시지 입력 후 Enter"><button>보내기</button></form>
     <div id="joy" class="touchui"><div id="joy-knob"></div></div>
     <div id="btn-fire" class="tbtn touchui">🔫</div>
@@ -387,6 +477,12 @@
     <div id="btn-board" class="tbtn touchui">📋</div>
     <div id="btn-menu" class="tbtn touchui">⏸</div>
     <div id="btn-view" class="tbtn touchui">👁</div>
+    <div id="btn-weapon" class="tbtn touchui" style="display:none">🔁</div>
+    <div id="btn-crouch" class="tbtn touchui">🦆</div>
+    <div id="btn-alt" class="tbtn touchui" style="display:none">🔭</div>
+    <div id="scope"></div>
+    <div id="wpick"></div>
+    <div id="flashov" style="position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:6"></div>
   </div>
   <div id="rotate"><div class="ph">📱</div>화면을 가로로 돌려 주세요<br><small style="color:#8a93a8">(자동 회전이 꺼져 있으면 켜 주세요)</small></div>
   <div id="overlay">
@@ -396,6 +492,10 @@
       <kbd>마우스</kbd> 조준 &nbsp; <kbd>왼쪽 클릭</kbd> 사격 &nbsp; <kbd>R</kbd> 재장전<br>
       <kbd>Tab</kbd> 점수판 &nbsp; <kbd>V</kbd> 1인칭/3인칭 &nbsp; <kbd>Esc</kbd> 마우스 풀기
     </p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+      <button type="button" id="ov-manual" style="width:auto;padding:8px 20px;margin:4px 0 0;background:#232a3a;color:#fff">📖 설명서 보기</button>
+      <button type="button" id="ov-chat" style="width:auto;padding:8px 20px;margin:4px 0 0;background:#232a3a;color:#fff">💬 채팅하기</button>
+    </div>
     <button type="button" id="ov-lobby">🏠 로비로 나가기</button>
   </div>
 </div>
@@ -479,8 +579,13 @@ function connect(token) {
       shop = m.shop; $('win-hint').textContent = `게임에서 이기면 🪙 ${m.winCoins}코인!`;
       renderShop();
     }
+    else if (m.t === 'mgResult') {
+      $('mg-msg').textContent = m.coins ? `🎉 ${m.goal}${m.g === 'flappy' ? '개' : '점'} 넘었어요! 🪙 +${m.coins}코인` : !m.ok ? '점수가 이상해서 기록되지 않았어요' : `${m.score}${m.g === 'flappy' ? '개' : '점'} · ${m.goal}${m.g === 'flappy' ? '개' : '점'} 넘으면 🪙 ${MG_COINS}코인`;
+      $('mg-best').textContent = `내 최고: ${m.best}`;
+    }
     else if (m.t === 'me') {
       me = m; $('lobby-coins').textContent = '🪙 ' + (m.inf ? '∞' : m.coins);
+      for (const g of ['flappy', 'dino']) { const el = $('mgb-' + g); if (el) el.textContent = m.mgBest && m.mgBest[g] ? `내 최고: ${m.mgBest[g]}` : ''; }
       $('lobby-trophy').textContent = '🏆 ' + (m.trophies || 0);
       $('my-rank').textContent = m.rank ? `내 순위: ${m.rank}등 · 🏆 ${m.trophies || 0}` : '';
       renderShop();
@@ -504,6 +609,15 @@ function connect(token) {
       }
     }
     else if (m.t === 'chat') lchat(`<b>${crown(m.from)}${esc(m.from)}</b>: ${esc(m.text)}`);
+    else if (m.t === 'chatHist' && m.where === 'lobby') { // 예전 채팅
+      $('lchat-log').innerHTML = '';
+      if (m.list.length) lchat('— 예전 채팅 —', 'sys');
+      for (const e of m.list) {
+        const d = new Date(e.at), tm = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        lchat(`<span class="tm">${tm}</span><b>${crown(e.from)}${esc(e.from)}</b>: ${esc(e.text)}`, 'old');
+      }
+    }
+    else if (m.t === 'rps') renderRps(m);
     else if (m.t === 'announce') {
       const a = $('announce-lobby'); a.textContent = '📢 ' + m.text; a.style.display = 'block';
       setTimeout(() => (a.style.display = 'none'), 7000);
@@ -546,6 +660,210 @@ $('f-give').onsubmit = e => {
 
 // ---------- 관리자에게 문자 ----------
 let taWaiting = false;
+// ---------- 아이템 키 설정 (게임 화면에서 읽어 가요) ----------
+const GADGET_INFO = { gr_grenade: '💣 수류탄', gr_smoke: '🌫️ 연막탄', gr_flash: '⚡ 섬광탄', gr_molotov: '🔥 화염병', gr_jumppad: '🦘 점프패드', gr_horn: '📯 전쟁 나팔' };
+const DEF_KEYS = { gr_grenade: 'KeyG', gr_smoke: 'KeyN', gr_flash: 'KeyX', gr_molotov: 'KeyZ', gr_jumppad: 'KeyB', gr_horn: 'KeyH' };
+const SLOT_NAMES = ['오른쪽 아래 1', '오른쪽 아래 2', '오른쪽 아래 3', '오른쪽 아래 4', '왼쪽 위 1', '왼쪽 위 2'];
+const loadJ = (k, d) => { try { return { ...d, ...JSON.parse(localStorage.getItem(k) || '{}') }; } catch { return { ...d }; } };
+const keyName = code => !code ? '없음' : code.startsWith('Key') ? code.slice(3) : code.startsWith('Digit') ? code.slice(5) : code;
+let waitKeyFor = null;
+const CTRL_INFO = { fire: '🔫 쏘기 (마우스 왼쪽 대신)', alt: '🔭 특수 (오른쪽 클릭 대신)', pick: '🎒 무기 고르기 창', crouch: '🦆 웅크리기 (누르고 있기)' };
+const DEF_CTRL = { fire: 'KeyF', alt: 'KeyE', pick: 'KeyI', crouch: 'KeyC' };
+function renderKeys() {
+  const keysMap = loadJ('gadgetKeys', DEF_KEYS), slots = loadJ('gadgetSlots', {}), ctrl = loadJ('ctrlKeys', DEF_CTRL);
+  const ctrlHtml = '<div style="font-weight:800;margin:6px 0">기본 조작</div>' + Object.keys(CTRL_INFO).map(id => `
+    <div style="display:flex;align-items:center;gap:8px;margin:8px 0">
+      <b style="flex:1">${CTRL_INFO[id]}</b>
+      <button type="button" data-c="${id}" style="width:auto;margin:0;padding:6px 12px;${waitKeyFor === 'c:' + id ? 'background:#ffd43b;color:#000' : ''}">${waitKeyFor === 'c:' + id ? '키를 누르세요…' : '⌨️ ' + keyName(ctrl[id])}</button>
+    </div>`).join('') + '<p class="sub" style="margin:4px 0 10px">화면 돌리기: ⬅️⬆️⬇️➡️ 화살표 키 (마우스도 돼요)</p><div style="font-weight:800;margin:6px 0">아이템</div>';
+  const mine = Object.keys(GADGET_INFO).filter(id => me && me.owned.includes(id));
+  $('keys-list').innerHTML = mine.length ? mine.map((id, i) => `
+    <div style="display:flex;align-items:center;gap:8px;margin:8px 0">
+      <b style="flex:1">${GADGET_INFO[id]}</b>
+      <button type="button" data-k="${id}" style="width:auto;margin:0;padding:6px 12px;${waitKeyFor === id ? 'background:#ffd43b;color:#000' : ''}">${waitKeyFor === id ? '키를 누르세요…' : '⌨️ ' + keyName(keysMap[id])}</button>
+      <select data-s="${id}" style="padding:6px;border-radius:8px;background:#0f131c;color:#fff;border:1px solid #2f3749">
+        ${SLOT_NAMES.map((n, j) => `<option value="${j}" ${(Number.isInteger(slots[id]) ? slots[id] : i) === j ? 'selected' : ''}>📱 ${n}</option>`).join('')}
+      </select>
+    </div>`).join('') : '<p class="sub">아직 산 아이템이 없어요. 상점 🔫 무기 칸에서 살 수 있어요!</p>';
+  $('keys-list').innerHTML = ctrlHtml + $('keys-list').innerHTML;
+  $('keys-list').querySelectorAll('button[data-c]').forEach(b => b.onclick = () => { waitKeyFor = 'c:' + b.dataset.c; renderKeys(); });
+  $('keys-list').querySelectorAll('button[data-k]').forEach(b => b.onclick = () => { waitKeyFor = b.dataset.k; renderKeys(); });
+  $('keys-list').querySelectorAll('select[data-s]').forEach(sel => sel.onchange = () => {
+    const sl = loadJ('gadgetSlots', {}); sl[sel.dataset.s] = +sel.value; localStorage.setItem('gadgetSlots', JSON.stringify(sl));
+  });
+}
+addEventListener('keydown', e => {
+  if (!waitKeyFor || !$('keys-modal').classList.contains('on')) return;
+  e.preventDefault();
+  const bad = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'KeyR', 'KeyV', 'KeyQ', 'KeyT', 'Enter', 'Tab', 'Escape', 'ShiftLeft', 'ShiftRight', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+  if (bad.includes(e.code) || /^Digit/.test(e.code)) { alert(`${keyName(e.code)} 키는 이미 다른 데 쓰고 있어요 (이동/점프/재장전/시점/무기 바꾸기/채팅/화면 돌리기/숫자)`); waitKeyFor = null; return renderKeys(); }
+  const km = loadJ('gadgetKeys', DEF_KEYS), ck = loadJ('ctrlKeys', DEF_CTRL);
+  // 같은 키는 한 곳에만
+  for (const id in km) if (km[id] === e.code) km[id] = '';
+  for (const id in ck) if (ck[id] === e.code) ck[id] = '';
+  if (waitKeyFor.startsWith('c:')) ck[waitKeyFor.slice(2)] = e.code; else km[waitKeyFor] = e.code;
+  localStorage.setItem('gadgetKeys', JSON.stringify(km)); localStorage.setItem('ctrlKeys', JSON.stringify(ck));
+  waitKeyFor = null; renderKeys();
+});
+$('btn-keys').onclick = () => { waitKeyFor = null; renderKeys(); $('keys-modal').classList.add('on'); };
+$('keys-close').onclick = () => { waitKeyFor = null; $('keys-modal').classList.remove('on'); };
+$('keys-reset').onclick = () => { localStorage.removeItem('gadgetKeys'); localStorage.removeItem('ctrlKeys'); localStorage.removeItem('gadgetSlots'); waitKeyFor = null; renderKeys(); };
+$('keys-modal').onclick = e => { if (e.target.id === 'keys-modal') { waitKeyFor = null; $('keys-modal').classList.remove('on'); } };
+// ---------- ✊ 가위바위보 ----------
+let rpsState = null;
+function renderRps(m) {
+  rpsState = m;
+  if (m.msg) $('rps-msg').textContent = m.msg;
+  if (m.msg || m.done) $('rps-modal').classList.add('on'); // 소식이 오면 창을 열어서 보여 주기
+  const B = (id, txt, extra = '') => `<button type="button" id="${id}" ${extra}>${txt}</button>`;
+  let html = '';
+  if (m.isAdmin) html = '<p>관리자는 관리자 페이지에서 신청을 받아요 😄</p>';
+  else if (m.state === 'none') html = m.usedToday ? '<p>오늘은 이미 했어요! 내일 또 와요 🌙</p>' : B('rps-req', '✊ 가위바위보 신청하기');
+  else if (m.state === 'pending') html = '<p>⏳ 관리자가 수락하기를 기다리는 중…</p>' + B('rps-cancel', '신청 취소', 'style="background:#232a3a;color:#9aa3b8"');
+  else if (m.state === 'playing') {
+    html = `<p>${m.round > 1 ? `${m.round}번째 판 · ` : ''}${m.picked ? '✅ 골랐어요! 관리자를 기다리는 중…' : '하나를 골라요!'}</p>
+      <div style="display:flex;gap:10px;justify-content:center">${['r', 'p', 's'].map(k => `<button type="button" class="rps-pick" data-k="${k}" style="width:auto;font-size:40px;padding:10px 16px;margin:0" ${m.picked ? 'disabled' : ''}>${{ r: '✊', p: '✋', s: '✌️' }[k]}</button>`).join('')}</div>
+      <p class="sub">✊ 바위 · ✋ 보 · ✌️ 가위</p>`;
+  }
+  $('rps-body').innerHTML = html;
+  const q = id => document.getElementById(id);
+  if (q('rps-req')) q('rps-req').onclick = () => { $('rps-msg').textContent = ''; ws.send(JSON.stringify({ t: 'rpsReq' })); };
+  if (q('rps-cancel')) q('rps-cancel').onclick = () => ws.send(JSON.stringify({ t: 'rpsCancel' }));
+  document.querySelectorAll('.rps-pick').forEach(b => b.onclick = () => ws.send(JSON.stringify({ t: 'rpsPick', pick: b.dataset.k })));
+  $('btn-rps').textContent = m.state === 'playing' ? '✊ 가위바위보 (지금 하는 중!)' : m.state === 'pending' ? '✊ 가위바위보 (기다리는 중)' : '✊ 관리자와 가위바위보';
+}
+$('btn-rps').onclick = () => { $('rps-msg').textContent = ''; if (rpsState) renderRps({ ...rpsState, msg: '' }); $('rps-modal').classList.add('on'); };
+$('rps-close').onclick = () => $('rps-modal').classList.remove('on');
+
+// ---------- 🎮 미니게임 ----------
+const MG_COINS = 20;
+let mgStop = null;
+document.querySelectorAll('.mgcard').forEach(b => b.onclick = async () => {
+  const kind = b.dataset.mg;
+  const { playMinigame } = await import('./minigames.js');
+  $('mg-title').textContent = kind === 'dino' ? '🦖 공룡 달리기' : '🐤 플래피 버드';
+  $('mg-best').textContent = me && me.mgBest && me.mgBest[kind] ? `내 최고: ${me.mgBest[kind]}` : '';
+  $('mg-msg').textContent = kind === 'dino' ? '1000점 넘으면 🪙 20코인 (트로피는 없어요)' : '토관 20개 넘으면 🪙 20코인 (트로피는 없어요)';
+  $('mg-modal').classList.add('on');
+  if (mgStop) mgStop();
+  mgStop = playMinigame(kind, {
+    canvas: $('mg-canvas'),
+    onStart: () => { $('mg-msg').textContent = ''; ws.send(JSON.stringify({ t: 'mgStart', g: kind })); },
+    onEnd: score => ws.send(JSON.stringify({ t: 'mgEnd', g: kind, score })),
+    hud: () => {},
+  });
+});
+$('mg-close').onclick = () => { if (mgStop) mgStop(); mgStop = null; $('mg-modal').classList.remove('on'); };
+
+// ---------- 📖 설명서 ----------
+function manualPages() {
+  const ck = loadJ('ctrlKeys', DEF_CTRL), gk = loadJ('gadgetKeys', DEF_KEYS);
+  const K = c => `<kbd>${keyName(c)}</kbd>`;
+  return [
+    ['🎮 조작', `
+      <h3>💻 컴퓨터</h3>
+      <table>
+        <tr><th>하는 것</th><th>키</th></tr>
+        <tr><td>이동 / 걷기</td><td><kbd>W A S D</kbd> / <kbd>Shift</kbd> 누르고 있기</td></tr>
+        <tr><td>점프 / 2단 점프</td><td><kbd>Space</kbd> / 공중에서 <kbd>Space</kbd> 한 번 더 (총 게임만)</td></tr>
+        <tr><td>웅크리기</td><td>${K(ck.crouch)} 누르고 있기 (작아져서 잘 안 맞아요)</td></tr>
+        <tr><td>화면 돌리기</td><td>마우스 또는 <kbd>⬅️</kbd><kbd>⬆️</kbd><kbd>⬇️</kbd><kbd>➡️</kbd></td></tr>
+        <tr><td>쏘기 / 휘두르기</td><td>마우스 왼쪽 또는 ${K(ck.fire)} 누르고 있기</td></tr>
+        <tr><td>특수 기능</td><td>마우스 오른쪽 또는 ${K(ck.alt)} (저격총 조준경, 카타나·낫 대쉬, 건블레이드 총)</td></tr>
+        <tr><td>재장전</td><td><kbd>R</kbd></td></tr>
+        <tr><td>무기 고르기 창</td><td>${K(ck.pick)} (창이 열리면 숫자 키로 고르기)</td></tr>
+        <tr><td>다음 무기로 바꾸기</td><td><kbd>Q</kbd> 또는 마우스 휠</td></tr>
+        <tr><td>아이템 쓰기</td><td>💣${K(gk.gr_grenade)} 🌫️${K(gk.gr_smoke)} ⚡${K(gk.gr_flash)} 🔥${K(gk.gr_molotov)} 🦘${K(gk.gr_jumppad)} 📯${K(gk.gr_horn)}</td></tr>
+        <tr><td>1인칭 / 3인칭</td><td><kbd>V</kbd></td></tr>
+        <tr><td>점수판</td><td><kbd>Tab</kbd> 누르고 있기</td></tr>
+        <tr><td>채팅 (전체 / 팀)</td><td><kbd>Enter</kbd> / <kbd>T</kbd></td></tr>
+        <tr><td>맵 투표</td><td>투표 창이 보일 때 숫자 키</td></tr>
+        <tr><td>멈추기 (마우스 풀기)</td><td><kbd>Esc</kbd></td></tr>
+      </table>
+      <h3>📱 폰 / 태블릿 (가로로 돌려서)</h3>
+      <table>
+        <tr><td>왼쪽 아래 동그라미</td><td>이동 (조금만 밀면 천천히)</td></tr>
+        <tr><td>화면 오른쪽 드래그</td><td>둘러보기</td></tr>
+        <tr><td>🔫 / ⬆️ / 🔄</td><td>쏘기 / 점프(한 번 더 = 2단 점프) / 재장전</td></tr>
+        <tr><td>🦆</td><td>웅크리기 (누를 때마다 켜고 끄기)</td></tr>
+        <tr><td>🔁</td><td>무기 고르기 창</td></tr>
+        <tr><td>🔭 / 💨 / 🔫</td><td>특수 기능 (무기에 따라 바뀌어요)</td></tr>
+        <tr><td>💣🌫️⚡🔥🦘📯 + 숫자</td><td>아이템 쓰기 (숫자 = 남은 개수)</td></tr>
+        <tr><td>💬 📋 👁 ⏸</td><td>채팅 / 점수판 / 시점 / 멈추기</td></tr>
+      </table>
+      <div class="tip">⌨️ 로비의 <b>키 설정</b>에서 쏘기·특수·무기 고르기·웅크리기·아이템 키를 바꿀 수 있어요. 폰은 아이템 버튼 위치를 고를 수 있어요.</div>`],
+    ['🔫 무기', `
+      <p>상점 → <b>🔫 무기</b> 칸에서 사요. 산 무기는 게임에 들어갈 때 10초 동안 나오는 <b>무기 고르기 창</b>에서 골라요. 상점에서 "처음에 들기"를 누르면 그 무기가 먼저 골라져 있어요.</p>
+      <table>
+        <tr><th>무기</th><th>코인</th><th>쓰는 법</th></tr>
+        <tr><td>🔫 돌격소총</td><td>무료</td><td>기본 총. 누르고 있으면 연사</td></tr>
+        <tr><td>🗡️ 단검</td><td>60</td><td>가까이서 찌르기 50. <b>뒤에서 찌르면 한 방!</b> 들고 있으면 빨라져요</td></tr>
+        <tr><td>💨 기관단총</td><td>80</td><td>엄청 빠른 연사, 조금 퍼져요</td></tr>
+        <tr><td>💥 샷건</td><td>120</td><td>8발이 퍼져요. 가까이선 세고 멀면 약해요</td></tr>
+        <tr><td>🏹 활</td><td>150</td><td>누르고 있으면 당겨지고(▮▮▮), <b>떼면 발사</b>. 꽉 당기면 세요. 화살은 살짝 떨어져요</td></tr>
+        <tr><td>🔂 점사 소총</td><td>180</td><td>한 번 누르면 3발 탕탕탕</td></tr>
+        <tr><td>🎯 저격총</td><td>200</td><td>헤드샷 한 방. <b>특수</b> = 조준경 (쏘면 풀려요)</td></tr>
+        <tr><td>🛡️ 폭동 방패</td><td>220</td><td>앞에서 오는 총알·화살을 막아요 (뒤는 못 막아요). 클릭 = 방패로 때리기. 조금 느려요</td></tr>
+        <tr><td>⚔️ 카타나</td><td>250</td><td>앞쪽을 넓게 베기 70. <b>특수</b> = 앞으로 돌진 (3초마다)</td></tr>
+        <tr><td>🌙 낫</td><td>300</td><td>한 바퀴 휘둘러 주변 전부 베기 60. <b>특수</b> = 대쉬 (3초마다)</td></tr>
+        <tr><td>🗡️🔫 건블레이드</td><td>350</td><td>클릭 = 베기 55, <b>특수</b> = 총 한 발</td></tr>
+        <tr><td>🌀 미니건</td><td>400</td><td>120발 계속 쏘기, 재장전이 길어요</td></tr>
+        <tr><td>🚀 RPG</td><td>450</td><td>로켓이 터져서 범위 데미지. <b>내 발밑에 쏘면 로켓 점프</b> (나는 안 다쳐요)</td></tr>
+      </table>
+      <div class="tip">💡 머리를 맞히면 더 세요(헤드샷 🎯). 점프 타워·용암 타워에서는 무기를 못 써요.</div>`],
+    ['🎒 아이템', `
+      <p>상점 → <b>🔫 무기</b> 칸에서 사요. 총을 들고 있다가 아이템 키 하나로 바로 써요. 던지는 건 보고 있는 쪽으로 날아가요.</p>
+      <table>
+        <tr><th>아이템</th><th>코인</th><th>키</th><th>설명</th><th>개수</th></tr>
+        <tr><td>💣 수류탄</td><td>150</td><td>${K(gk.gr_grenade)}</td><td>2초 뒤 펑! 주변 상대 데미지</td><td>살아날 때마다 2</td></tr>
+        <tr><td>🌫️ 연막탄</td><td>100</td><td>${K(gk.gr_smoke)}</td><td>연기 20초, 안이 안 보여요</td><td>한 판에 3</td></tr>
+        <tr><td>⚡ 섬광탄</td><td>140</td><td>${K(gk.gr_flash)}</td><td>보고 있던 상대 화면이 하얘져요 (벽 뒤는 괜찮아요)</td><td>살아날 때마다 2</td></tr>
+        <tr><td>🔥 화염병</td><td>180</td><td>${K(gk.gr_molotov)}</td><td>불바닥 20초, <b>상대 팀만</b> 다쳐요</td><td>살아날 때마다 1</td></tr>
+        <tr><td>🦘 점프패드</td><td>120</td><td>${K(gk.gr_jumppad)}</td><td>발밑에 설치, 밟으면 높이 슝 (30초)</td><td>살아날 때마다 1</td></tr>
+        <tr><td>📯 전쟁 나팔</td><td>200</td><td>${K(gk.gr_horn)}</td><td>주변 우리 팀 8초 동안 1.3배 빠르고 세져요</td><td>살아날 때마다 1</td></tr>
+      </table>`],
+    ['🕹️ 게임 모드', `
+      <h3>🔫 팀 배틀 FPS</h3><p>빨강 팀 vs 파랑 팀. 먼저 <b>5킬</b>을 채우는 팀이 이겨요. 이긴 팀은 🪙 20코인 + 🏆 트로피.</p>
+      <h3>🧟 좀비 모드</h3><p>2명 이상이면 시작. 처음 좀비가 사람을 잡으면 그 사람도 좀비! 인간은 3분 동안 버티면 승리.</p>
+      <h3>🧟‍♂️ 좀비 웨이브 (혼자서도 OK)</h3><p>🏙️ 도시에서 몰려오는 봇 좀비를 막아요. 웨이브마다 좀비가 많아지고 빨라지고 튼튼해져요. 건물 바깥 계단으로 옥상에 올라갈 수 있지만 <b>좀비도 벽을 기어올라 와요</b>! 쓰러지면 다음 웨이브에 부활, 모두 쓰러지면 게임 오버. 웨이브마다 🪙 5코인, 5웨이브마다 🏆.</p>
+      <h3>🌋 용암 타워 (혼자서도 OK)</h3><p>용암이 아래에서 점점 빨리 올라와요. <b>닿으면 바로 아웃</b>. 꼭대기 🏁에 닿으면 🪙 20코인 (2명 이상이면 1등은 🏆도).</p>
+      <h3>🗼 점프 타워</h3><p>탑을 빙글빙글 돌면서 올라가요. 2명 이상이면 경주 시작, 먼저 골인하면 🪙 20 + 🏆. 혼자 깨도 🪙 20. 🔥 작은 빨간 블록은 밟으면 체크포인트로, 많이 떨어져도 체크포인트로 돌아가요.</p>
+      <h3>🎮 미니게임 (로비 아래쪽)</h3><p>🐤 <b>플래피 버드</b>: 누르거나 Space로 날갯짓, 토관 20개 넘으면 🪙 20. 🦖 <b>공룡 달리기</b>: Space/↑ 점프(꾹 누르면 더 높이), ↓ 숙이기, 1000점 넘으면 🪙 20. 미니게임은 트로피가 없어요.</p>
+      <div class="tip">🔗 모든 게임은 중간에 들어갈 수 있어요. 팀 배틀과 좀비 모드는 판이 끝날 때 다음 맵을 투표해요 (숫자 키).</div>`],
+    ['🪙 코인·상점', `
+      <table>
+        <tr><td>🪙 코인 받기</td><td>이기기 20, 좀비 웨이브 클리어 5, 점프 타워·용암 타워 깨기 20, 친구가 보내 주기</td></tr>
+        <tr><td>🏆 트로피</td><td>이기면 1개. 로비 순위표에 나와요</td></tr>
+        <tr><td>🛍️ 상점</td><td>모자, 얼굴, 눈 색, 피부, 머리, 머리 색, 옷 색, 날개, 꼬리, 무기·아이템. 왼쪽 미리보기에서 바로 볼 수 있어요</td></tr>
+        <tr><td>🎁 코인 보내기</td><td>로비 버튼, 또는 채팅에 <code>/코인 아이디 숫자</code></td></tr>
+      </table>`],
+    ['💬 채팅·기타', `
+      <table>
+        <tr><td><code>/코인 아이디 숫자</code></td><td>친구에게 내 코인 보내기</td></tr>
+        <tr><td><code>/관리자 내용</code></td><td>관리자에게만 문자 (로비의 📨 버튼도 돼요)</td></tr>
+        <tr><td>🔗 초대 링크</td><td>로비에서 복사해서 친구에게 보내면 입장 비밀번호 없이 들어와요. 게임 카드의 🔗는 그 게임으로 바로 가는 링크</td></tr>
+        <tr><td>👁 3인칭</td><td>내 캐릭터를 뒤에서 보면서 할 수 있어요</td></tr>
+        <tr><td>💬 채팅 버튼</td><td>게임 화면 왼쪽 아래 <b>💬 채팅</b> 버튼, 또는 Esc 화면의 <b>💬 채팅하기</b>. 채팅 창을 열면 예전 채팅도 다 보여요</td></tr>
+        <tr><td>✊ 가위바위보</td><td>로비의 <b>✊ 관리자와 가위바위보</b> → 신청 → 관리자가 수락하면 ✊✋✌️ 고르기. <b>이기면 🪙 50코인</b>, 하루에 한 번 (비기면 다시)</td></tr>
+      </table>
+      <div class="tip">너무 빨리 채팅하면 잠깐 막혀요. 나쁜 말을 하면 관리자가 채팅을 막을 수 있어요.</div>`],
+  ];
+}
+let manualTab = 0;
+function openManual(tab) {
+  if (Number.isInteger(tab)) manualTab = tab;
+  const pages = manualPages();
+  $('manual-tabs').innerHTML = pages.map(([t], i) => `<button type="button" data-i="${i}" class="${i === manualTab ? 'on' : ''}">${t}</button>`).join('');
+  $('manual-tabs').querySelectorAll('button').forEach(b => b.onclick = e => { e.stopPropagation(); openManual(+b.dataset.i); });
+  $('manual-body').innerHTML = pages[manualTab][1];
+  $('manual-body').scrollTop = 0;
+  $('manual').classList.add('on');
+}
+window.openManual = openManual; // 게임 화면에서도 열 수 있게
+$('btn-manual').onclick = () => openManual();
+$('ov-manual').onclick = e => { e.stopPropagation(); if (document.exitPointerLock) document.exitPointerLock(); openManual(); };
+$('manual-close').onclick = e => { e.stopPropagation(); $('manual').classList.remove('on'); };
+$('manual').onclick = e => { e.stopPropagation(); if (e.target.id === 'manual') $('manual').classList.remove('on'); };
 $('btn-toadmin').onclick = () => { $('ta-msg').textContent = ''; $('ta-modal').classList.add('on'); $('ta-text').focus(); };
 $('ta-cancel').onclick = () => $('ta-modal').classList.remove('on');
 $('ta-modal').onclick = e => { if (e.target.id === 'ta-modal') $('ta-modal').classList.remove('on'); };
@@ -561,7 +879,7 @@ $('f-ta').onsubmit = e => {
 function lchat(html, cls = '') {
   const d = document.createElement('div'); d.className = cls; d.innerHTML = html;
   $('lchat-log').append(d);
-  while ($('lchat-log').children.length > 60) $('lchat-log').firstChild.remove();
+  while ($('lchat-log').children.length > 250) $('lchat-log').firstChild.remove();
   $('lchat-log').scrollTop = 1e6;
 }
 $('lchat-form').onsubmit = e => {
@@ -640,22 +958,25 @@ function renderShop() {
   updatePreview();
   document.querySelectorAll('#gsel button').forEach(b => b.classList.toggle('on', b.dataset.g === me.gender));
 
-  const list = shop.filter(i => i.type === shopType);
+  const list = shop.filter(i => i.type === shopType || (shopType === 'weapon' && i.type === 'gadget'));
+  const isW = shopType === 'weapon'; // 무기는 '없음'이 없고, 기본은 돌격소총
+  const eqOf = type => me.equip[type] || (type === 'weapon' ? 'wp_rifle' : null);
   const noneEq = !me.equip[shopType];
-  const noneCard = `<div class="item ${noneEq ? 'eq' : ''}">
+  const noneCard = isW ? '' : `<div class="item ${noneEq ? 'eq' : ''}">
       <div class="ic">${NONE[shopType].icon}</div>
       <div class="nm">${NONE[shopType].name}</div><div class="pr">무료</div>
       <button type="button" class="${noneEq ? 'eqb' : 'own'}" data-act="equip" data-id="">${noneEq ? '착용 중' : '착용'}</button></div>`;
   $('items').innerHTML = noneCard + list.map(it => {
-    const own = owns(it), eq = me.equip[it.type] === it.id;
+    const own = owns(it), eq = eqOf(it.type) === it.id;
     const icon = it.icon ? it.icon : `<div class="sw" style="background:${it.color}"></div>`;
     let btn;
-    if (eq) btn = `<button type="button" class="eqb" disabled>착용 중</button>`;
-    else if (own) btn = `<button type="button" class="own" data-act="equip" data-id="${it.id}">착용</button>`;
+    if (it.type === 'gadget' && own) btn = `<button type="button" class="eqb" disabled>보유 중 ✓</button>`;
+    else if (eq) btn = `<button type="button" class="eqb" disabled>${isW ? '처음에 들기 ✓' : '착용 중'}</button>`;
+    else if (own) btn = `<button type="button" class="own" data-act="equip" data-id="${it.id}">${isW ? '처음에 들기' : '착용'}</button>`;
     else if (me.coins >= it.price) btn = `<button type="button" data-act="buy" data-id="${it.id}">🪙 ${priceOf(it)} 사기</button>`;
     else btn = `<button type="button" class="poor" disabled>${it.priceText ? '너무 비싸요 😱' : '🪙 ' + it.price}</button>`;
     return `<div class="item ${eq ? 'eq' : ''}"><div class="ic">${icon}</div><div class="nm">${esc(it.name)}</div>
-      <div class="pr">${it.price === 0 ? '무료' : own ? '보유 중' : '🪙 ' + priceOf(it)}</div>${btn}</div>`;
+      <div class="pr">${it.price === 0 ? '무료' : own ? '보유 중' : '🪙 ' + priceOf(it)}</div>${it.desc ? `<div class="pr" style="font-size:11px;opacity:.8">${esc(it.desc)}</div>` : ''}${btn}</div>`;
   }).join('');
   $('items').querySelectorAll('button[data-act]').forEach(b => b.onclick = () => {
     const id = b.dataset.id || null;
