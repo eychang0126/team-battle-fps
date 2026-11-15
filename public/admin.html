@@ -60,6 +60,15 @@
     </div>
 
     <div class="card">
+      <h2>🔗 초대 링크 <span style="font-size:13px;color:#8a93a8;font-weight:500">(누르면 입장 비밀번호 없이 들어와요)</span></h2>
+      <div class="row">
+        <input id="inv-link" readonly style="flex:1;min-width:240px">
+        <button class="blue" onclick="navigator.clipboard.writeText($('inv-link').value).then(()=>alert('복사했어요!')).catch(()=>prompt('복사하세요', $('inv-link').value))">복사</button>
+        <button class="danger" onclick="if(confirm('새 링크를 만들까요? 예전 링크로는 더 이상 못 들어와요.')) cmd({t:'newInvite'})">🔄 새 링크 만들기</button>
+      </div>
+    </div>
+
+    <div class="card">
       <h2>게임 관리</h2>
       <div id="roomstat" style="margin-bottom:12px;line-height:1.9"></div>
       <div id="mapctl" style="margin-bottom:14px"></div>
@@ -111,6 +120,11 @@
         <input id="coinn" type="number" placeholder="코인 (빼려면 -20처럼)" style="width:200px">
         <button class="blue">🪙 적용</button>
       </form>
+      <div class="row" style="margin-top:10px">
+        <input id="alln" type="number" min="1" placeholder="모두에게 줄 코인" style="width:200px">
+        <button class="green" onclick="giveAllAdmin('online')">🟢 접속한 사람 모두에게</button>
+        <button class="green" onclick="giveAllAdmin('all')">👥 가입한 계정 모두에게</button>
+      </div>
     </div>
 
     <div class="card">
@@ -184,6 +198,7 @@ function render(m) {
   if (!targetTouched && document.activeElement !== $('target')) $('target').value = fps.killTarget;
   $('empty').style.display = m.players.length ? 'none' : 'block';
   renderChat(m.chat || []);
+  if (m.invite) $('inv-link').value = `${location.origin}/?invite=${m.invite}`;
   renderInbox(m.inbox || []);
   renderAccounts(m.accountList || []);
   $('list').innerHTML = m.players.map(p => `
@@ -288,6 +303,11 @@ $('btn-play').onclick = async () => {
   if (!r.ok) return alert(j.error || '실패했어요');
   window.open('/#t=' + encodeURIComponent(j.token), '_blank');
 };
+function giveAllAdmin(scope) {
+  const n = Math.floor(+$('alln').value);
+  if (!(n >= 1)) return alert('1 이상의 숫자를 써 주세요.');
+  if (confirm(`${scope === 'all' ? '가입한 계정 모두' : '지금 접속한 사람 모두'}에게 🪙 ${n}코인씩 줄까요?`)) { cmd({ t: 'giveAll', n, scope }); $('alln').value = ''; }
+}
 $('f-coin').onsubmit = e => {
   e.preventDefault(); const name = $('coinname').value.trim(), n = +$('coinn').value;
   if (name && n) { cmd({ t: 'giveCoins', name, n }); $('coinn').value = ''; }

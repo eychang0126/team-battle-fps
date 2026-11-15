@@ -131,6 +131,8 @@
   #give-modal.on { display: flex; }
   .modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 30; }
   .modal.on { display: flex; }
+  .rlink { float: right; color: #6fb5ff; font-weight: 600; cursor: pointer; padding: 0 4px; border-radius: 6px; }
+  .rlink:hover { background: rgba(77,163,255,.15); }
   #give-modal .card h1 { font-size: 22px; }
   .gbtn { width: auto !important; margin: 0 8px 0 0 !important; padding: 6px 12px !important; font-size: 13px !important;
     background: #3a2f10 !important; color: #ffd34d !important; border-radius: 99px !important; }
@@ -275,7 +277,7 @@
   <div class="lobby">
     <div class="lobby-top">
       <h1>🎮 게임 고르기</h1>
-      <div><span class="trophy" id="lobby-trophy">🏆 0</span><span class="coins" id="lobby-coins">🪙 0</span><button type="button" class="gbtn" id="btn-give">🎁 코인 보내기</button><button type="button" class="gbtn" id="btn-toadmin">📨 관리자에게 문자</button><span class="who" id="lobby-who"></span><button type="button" id="btn-logout">로그아웃</button></div>
+      <div><span class="trophy" id="lobby-trophy">🏆 0</span><span class="coins" id="lobby-coins">🪙 0</span><button type="button" class="gbtn" id="btn-give">🎁 코인 보내기</button><button type="button" class="gbtn" id="btn-toadmin">📨 관리자에게 문자</button><button type="button" class="gbtn" id="btn-invite">🔗 초대 링크 복사</button><span class="who" id="lobby-who"></span><button type="button" id="btn-logout">로그아웃</button></div>
     </div>
     <div id="announce-lobby"></div>
     <div class="rooms" id="rooms"><div style="color:#8a93a8">불러오는 중…</div></div>
@@ -327,6 +329,11 @@
     <h1>🎁 코인 보내기</h1>
     <p class="sub">내 코인을 친구에게 선물해요</p>
     <form id="f-give">
+      <div class="gpick" style="flex-wrap:wrap">
+        <label><input type="radio" name="gscope" value="one" checked><span>👤 한 명</span></label>
+        <label><input type="radio" name="gscope" value="online"><span>🟢 접속한 사람 모두</span></label>
+        <label><input type="radio" name="gscope" value="all"><span>👥 가입한 계정 모두</span></label>
+      </div>
       <input id="give-to" placeholder="받을 사람 아이디" autocomplete="off">
       <input id="give-n" type="number" min="1" placeholder="보낼 코인 개수">
       <button type="submit">보내기</button>
@@ -468,6 +475,7 @@ function connect(token) {
     if (m.t === 'hello') {
       adminName = m.adminName;
       $('lobby-who').textContent = crown(m.name) + m.name + ' 님'; myName = m.name;
+      inviteCode = m.invite || '';
       shop = m.shop; $('win-hint').textContent = `게임에서 이기면 🪙 ${m.winCoins}코인!`;
       renderShop();
     }
@@ -477,7 +485,12 @@ function connect(token) {
       $('my-rank').textContent = m.rank ? `내 순위: ${m.rank}등 · 🏆 ${m.trophies || 0}` : '';
       renderShop();
     }
-    else if (m.t === 'lobby') { renderRooms(m.rooms); renderRank(m.top || []); }
+    else if (m.t === 'lobby') {
+      renderRooms(m.rooms); renderRank(m.top || []);
+      // 초대 링크에 게임이 정해져 있으면 그 게임으로 바로 들어가기
+      if (pendingRoom) { const id = pendingRoom; pendingRoom = null; ws.send(JSON.stringify({ t: 'join', room: id })); }
+    }
+    else if (m.t === 'invite') inviteCode = m.invite;
     else if (m.t === 'notice') {
       $('lobby-notice').textContent = m.text; lchat(`⚠️ ${esc(m.text)}`, 'sys');
       if (taWaiting) {
@@ -514,14 +527,21 @@ let giveWaiting = false;
 $('btn-give').onclick = () => { $('give-msg').textContent = ''; $('give-modal').classList.add('on'); $('give-to').focus(); };
 $('give-cancel').onclick = () => $('give-modal').classList.remove('on');
 $('give-modal').onclick = e => { if (e.target.id === 'give-modal') $('give-modal').classList.remove('on'); };
+const gscope = () => (document.querySelector('input[name="gscope"]:checked') || {}).value || 'one';
+document.querySelectorAll('input[name="gscope"]').forEach(r => r.onchange = () => {
+  $('give-to').style.display = gscope() === 'one' ? 'block' : 'none';
+  $('give-n').placeholder = gscope() === 'one' ? '보낼 코인 개수' : '한 명에게 보낼 코인 개수';
+});
 $('f-give').onsubmit = e => {
   e.preventDefault();
-  const to = $('give-to').value.trim(), n = Math.floor(+$('give-n').value);
-  if (!to) { $('give-msg').textContent = '받을 사람 아이디를 써 주세요.'; return; }
+  const scope = gscope(), to = $('give-to').value.trim(), n = Math.floor(+$('give-n').value);
+  if (scope === 'one' && !to) { $('give-msg').textContent = '받을 사람 아이디를 써 주세요.'; return; }
   if (!(n >= 1)) { $('give-msg').textContent = '1 이상의 숫자를 써 주세요.'; return; }
-  if (!confirm(`${to} 님에게 🪙 ${n}코인을 보낼까요?`)) return;
+  const who = scope === 'one' ? `${to} 님에게` : scope === 'online' ? '지금 접속한 사람 모두(나 빼고)에게' : '가입한 계정 모두(나 빼고)에게';
+  const cost = scope === 'one' || (me && me.inf) ? '' : '\n받는 사람 수만큼 코인이 들어요.';
+  if (!confirm(`${who} 🪙 ${n}코인씩 보낼까요?${cost}`)) return;
   giveWaiting = true;
-  ws.send(JSON.stringify({ t: 'give', to, n }));
+  ws.send(JSON.stringify({ t: 'give', to, n, scope }));
 };
 
 // ---------- 관리자에게 문자 ----------
@@ -664,10 +684,15 @@ function renderRooms(rooms) {
       <div class="icon">${r.icon}</div>
       <div class="title">${esc(r.title)}</div>
       <div class="desc">${esc(r.desc)}</div>
-      <div class="count">👥 ${r.count} / ${r.max}명</div>
+      <div class="count">👥 ${r.count} / ${r.max}명
+        <span class="rlink" data-room="${esc(r.id)}" title="이 게임으로 바로 오는 초대 링크 복사">🔗 링크</span></div>
       <button type="button">${full ? '꽉 찼어요' : '들어가기'}</button>
     </div>`;
   }).join('');
+  document.querySelectorAll('.rlink').forEach(el => el.onclick = e => {
+    e.stopPropagation();
+    copyLink(inviteLink(el.dataset.room), `${el.closest('.room').querySelector('.title').textContent} 초대 링크`);
+  });
   document.querySelectorAll('.room:not(.full)').forEach(el => {
     el.onclick = () => { $('lobby-notice').textContent = ''; ws.send(JSON.stringify({ t: 'join', room: el.dataset.id })); };
   });
@@ -691,9 +716,30 @@ if (location.hash.startsWith('#t=')) {
   sessionStorage.setItem('token', decodeURIComponent(location.hash.slice(3)));
   history.replaceState(null, '', '/');
 }
-const savedToken = sessionStorage.getItem('token');
-if (savedToken) connect(savedToken);
-else if (entryCode) show('s-auth');
+// ---------- 초대 링크 ----------
+let inviteCode = '', pendingRoom = null;
+const inviteLink = room => `${location.origin}/?invite=${encodeURIComponent(inviteCode)}${room ? '&room=' + encodeURIComponent(room) : ''}`;
+async function copyLink(link, what) {
+  try { await navigator.clipboard.writeText(link); lchat(`🔗 ${esc(what)}를 복사했어요! 친구에게 붙여 넣어 보내 주세요.`, 'sys'); }
+  catch { prompt(`${what} (길게 눌러 복사하세요)`, link); }
+}
+$('btn-invite').onclick = () => copyLink(inviteLink(), '초대 링크');
+
+(async () => {
+  const q = new URLSearchParams(location.search);
+  const inv = q.get('invite'), room = q.get('room');
+  if (inv || room) history.replaceState(null, '', '/'); // 주소창 깨끗하게
+  if (room) pendingRoom = room;
+  if (inv) {
+    try {
+      await post('/api/entry', { code: inv });
+      entryCode = inv; sessionStorage.setItem('entryCode', inv); // 입장 비밀번호 건너뛰기
+    } catch (err) { $('entry-err').textContent = err.message; }
+  }
+  const savedToken = sessionStorage.getItem('token');
+  if (savedToken) connect(savedToken);
+  else if (entryCode) show('s-auth');
+})();
 </script>
 </body>
 </html>

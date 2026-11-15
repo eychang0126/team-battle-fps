@@ -19,7 +19,7 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const ACCOUNTS_FILE = path.join(DATA_DIR, 'accounts.json');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
-const TICK_MS = 50;              // 초당 20번 상태 전송
+const TICK_MS = 66;              // 초당 15번 상태 전송 (데이터 아끼기)
 const MAX_HP = 100;
 const BODY_DAMAGE = 25;
 const HEAD_DAMAGE = 60;
@@ -483,6 +483,7 @@ function joinRoom(c, roomId) {
     respawnAt: 0, protectUntil: 0, lastMoveAt: now(), cp: 0,
   });
   room.players.set(c.id, c);
+  room.forceFull = true; // 새로 온 사람에게 전부 보내기
   sendTo(c, {
     t: 'welcome', id: c.id, name: c.name, team: c.team, map: room.map, adminName: ADMIN_NAME,
     mode: room.mode, roomTitle: room.title,
@@ -496,6 +497,8 @@ function leaveRoom(c) {
   const room = c.room;
   if (!room) return;
   room.players.delete(c.id);
+  room.forceFull = true;
+  if (room.lastSent) room.lastSent.delete(c.id);
   if (room.votes.delete(c.name)) roomBroadcast(room, voteInfo(room));
   c.room = null;
   roomBroadcast(room, { t: 'left', name: c.name });
@@ -736,7 +739,8 @@ function handleShoot(room, p, msg) {
     if (tt < best) { best = tt; hitPlayer = q; }
   }
   const end = [o[0] + d[0] * best, o[1] + d[1] * best, o[2] + d[2] * best];
-  roomBroadcast(room, { t: 'shot', id: p.id, o, e: end });
+  const r2 = v => Math.round(v * 100) / 100;
+  roomBroadcast(room, { t: 'shot', id: p.id, o: o.map(r2), e: end.map(r2) });
 
   if (hitPlayer) {
     const q = hitPlayer;
@@ -804,6 +808,19 @@ function handleChat(c, msg) {
 }
 
 // 채팅 명령어: /코인 아이디 개수  (내 코인을 친구에게 보내기)
+// ---------- 초대 링크 ----------
+// 링크에 들어 있는 초대 코드는 입장 비밀번호 대신 쓸 수 있어요. 관리자가 새로 만들면 예전 링크는 막혀요.
+function inviteCode() {
+  const a = acct(ADMIN_NAME);
+  if (!a.invite) { a.invite = 'inv-' + crypto.randomBytes(6).toString('hex'); saveAccounts(); }
+  return a.invite;
+}
+function entryOk(code) {
+  code = String(code || '');
+  if (safeEqual(code, ENTRY_PASSWORD)) return true;
+  return code.startsWith('inv-') && safeEqual(code, inviteCode());
+}
+
 // ---------- 관리자에게 문자 ----------
 function adminInbox() {
   const a = acct(ADMIN_NAME);
@@ -836,9 +853,42 @@ function deliverMail(name) {
   saveAccounts();
 }
 
+// 여러 명에게 한 번에 코인 보내기 (scope: 'online' = 지금 접속한 사람, 'all' = 가입한 계정 전부)
+function giveAll(c, n, scope) {
+  const note = text => sendTo(c, { t: 'notice', text });
+  if (!Number.isFinite(n) || n < 1) return note('1 이상의 숫자를 써 주세요.');
+  if (n > 1e12) return note('한 명에게 1조 코인까지만 보낼 수 있어요.');
+  const names = scope === 'all'
+    ? Object.keys(accounts).filter(k => !accounts[k].banned)
+    : [...new Set([...clients.values()].map(x => x.name))];
+  const targets = names.filter(k => k !== c.name && !isAdminName(k)); // 나와 관리자는 빼기
+  if (!targets.length) return note(scope === 'all' ? '보낼 계정이 없어요.' : '지금 접속한 다른 사람이 없어요.');
+  const total = n * targets.length;
+  const admin = isAdminName(c.name);
+  if (!admin && coinsOf(c.name) < total) {
+    return note(`코인이 부족해요. ${targets.length}명 × ${n} = 🪙 ${total}코인이 필요해요. (가진 코인: ${coinsOf(c.name)})`);
+  }
+  if (!admin) acct(c.name).coins -= total;
+  for (const k of targets) acct(k).coins += n;
+  saveAccounts();
+  note(`${scope === 'all' ? '가입한 계정' : '접속한 사람'} ${targets.length}명에게 🪙 ${n}코인씩 보냈어요! (총 ${total})`);
+  sendTo(c, meInfo(c.name));
+  sendTo(c, { t: 'coins', delta: 0, coins: coinsOf(c.name), inf: admin });
+  const set = new Set(targets);
+  for (const x of clients.values()) if (set.has(x.name)) {
+    sendTo(x, { t: 'notice', text: `${c.name} 님이 모두에게 🪙 ${n}코인을 선물했어요! 🎁` });
+    sendTo(x, meInfo(x.name));
+    sendTo(x, { t: 'coins', delta: n, coins: coinsOf(x.name) });
+  }
+  chatLog.push({ time: new Date().toISOString(), from: c.name, where: '코인 보내기', text: `${scope === 'all' ? '가입한 계정' : '접속한 사람'} ${targets.length}명에게 ${n}코인씩` });
+  if (chatLog.length > 100) chatLog.shift();
+}
+
 function chatCommand(c, text) {
   const [cmd, who, num] = text.split(' ');
   if (cmd === '/관리자' || cmd === '/admin') return handleToAdmin(c, text.slice(cmd.length));
+  if ((cmd === '/코인' || cmd === '/give') && (who === '모두' || who === 'all')) return giveAll(c, Math.floor(Number(num)), 'online');
+  if ((cmd === '/코인' || cmd === '/give') && who === '전체') return giveAll(c, Math.floor(Number(num)), 'all');
   if (cmd === '/코인' || cmd === '/give') {
     const n = Math.floor(Number(num));
     const target = who && Object.keys(accounts).find(k => k.toLowerCase() === who.toLowerCase());
@@ -864,7 +914,7 @@ function chatCommand(c, text) {
     if (chatLog.length > 100) chatLog.shift();
     return;
   }
-  sendTo(c, { t: 'notice', text: '명령어: /코인 아이디 개수 (코인 보내기) · /관리자 내용 (관리자에게 문자)' });
+  sendTo(c, { t: 'notice', text: '명령어: /코인 아이디 개수 · /코인 모두 개수 (접속한 사람 모두) · /코인 전체 개수 (가입한 계정 모두) · /관리자 내용' });
 }
 
 function kickClient(c, reason, block) {
@@ -880,9 +930,14 @@ function lobbyInfo() {
   };
 }
 
-// 주기적 업데이트
+// 주기적 업데이트 (데이터 아끼기)
+//  - roster(이름, 팀, 꾸미기, 킬/데스): 바뀔 때만 보내요
+//  - state(위치): 짧은 숫자 배열로, 움직인 사람만 보내요. 1초마다 한 번은 전부 보내요
+let tickCount = 0;
 setInterval(() => {
   const t = now();
+  tickCount++;
+  const keyframe = tickCount % 15 === 0;
   for (const room of rooms.values()) {
     if (room.mode === 'zombie') zombieTick(room, t);
     if (room.mode === 'obby') obbyTick(room, t);
@@ -890,21 +945,31 @@ setInterval(() => {
       if (!p.alive && t >= p.respawnAt && !(room.mode === 'fps' && room.roundOver)) spawn(room, p);
     }
     if (!room.players.size) continue;
-    const state = {
-      t: 'state',
-      p: [...room.players.values()].map(p => ({
-        id: p.id, n: p.name, tm: p.team,
-        x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2),
-        yw: +p.yaw.toFixed(3), pt: +p.pitch.toFixed(3),
-        hp: Math.max(0, p.hp), a: p.alive ? 1 : 0, k: p.kills, d: p.deaths, lk: lookOf(p.name), c: p.cp || 0,
-      })),
-    };
-    if (room.mode === 'fps') { state.s = room.scores; state.target = room.killTarget; }
-    else {
-      state.ph = room.phase; state.w = room.wins;
-      state.tl = Math.max(0, Math.ceil((room.phaseEnd - t) / 1000));
+    // 1) 명단: 바뀌었을 때만
+    const roster = [...room.players.values()].map(p => ({ id: p.id, n: p.name, tm: p.team, lk: lookOf(p.name), k: p.kills, d: p.deaths, c: p.cp || 0 }));
+    const rosterKey = JSON.stringify(roster);
+    if (rosterKey !== room.lastRoster || room.forceFull) {
+      room.lastRoster = rosterKey;
+      roomBroadcast(room, { t: 'roster', p: roster });
     }
-    roomBroadcast(room, state);
+    // 2) 위치: [id, x*100, y*100, z*100, yaw*1000, pitch*1000, hp, 살아있음]
+    if (!room.lastSent) room.lastSent = new Map();
+    const full = keyframe || room.forceFull;
+    const rows = [];
+    for (const p of room.players.values()) {
+      const row = [p.id, Math.round(p.x * 100), Math.round(p.y * 100), Math.round(p.z * 100),
+        Math.round(p.yaw * 1000), Math.round(p.pitch * 1000), Math.max(0, Math.round(p.hp)), p.alive ? 1 : 0];
+      const key = row.join(',');
+      if (full || room.lastSent.get(p.id) !== key) { rows.push(row); room.lastSent.set(p.id, key); }
+    }
+    // 3) 점수/시간: 바뀌었을 때만
+    const info = room.mode === 'fps' ? { s: room.scores, target: room.killTarget }
+      : { ph: room.phase, w: room.wins, tl: Math.max(0, Math.ceil((room.phaseEnd - t) / 1000)) };
+    const infoKey = JSON.stringify(info);
+    const state = { t: 'state', p: rows };
+    if (full || infoKey !== room.lastInfo) { Object.assign(state, info); room.lastInfo = infoKey; }
+    room.forceFull = false;
+    if (rows.length || state.s || state.ph) roomBroadcast(room, state);
   }
 }, TICK_MS);
 
@@ -935,6 +1000,7 @@ function adminSnapshot() {
       coins: isAdminName(c.name) ? '∞' : coinsOf(c.name), muted: !!(acct(c.name) && acct(c.name).muted),
     })),
     chat: chatLog.slice(-40),
+    invite: inviteCode(),
     inbox: adminInbox().slice(-60).reverse(),
     accountList: (() => {
       const r = ranking(), online = new Set([...clients.values()].map(c => c.name));
@@ -989,6 +1055,13 @@ function handleAdminCommand(ws, msg) {
       break;
     }
     case 'reopen': shutdown = false; break;
+    case 'newInvite': { // 새 초대 링크 (예전 링크는 막혀요)
+      acct(ADMIN_NAME).invite = 'inv-' + crypto.randomBytes(6).toString('hex');
+      saveAccounts();
+      const inv = inviteCode();
+      for (const x of clients.values()) sendTo(x, { t: 'invite', invite: inv });
+      break;
+    }
     case 'setMap': {
       const room = rooms.get(msg.room);
       if (!room || !hasVote(room)) break;
@@ -1006,6 +1079,22 @@ function handleAdminCommand(ws, msg) {
       if (a) {
         a.muted = !!msg.on; saveAccounts();
         for (const c of clients.values()) if (c.name === msg.name) sendTo(c, { t: 'notice', text: a.muted ? '관리자가 채팅을 막았어요.' : '다시 채팅할 수 있어요.' });
+      }
+      break;
+    }
+    case 'giveAll': { // 관리자 화면에서 모두에게 주기
+      const n = Math.round(Number(msg.n));
+      if (!(n >= 1 && n <= 1e12)) break;
+      const scope = msg.scope === 'all' ? 'all' : 'online';
+      const names = scope === 'all' ? Object.keys(accounts).filter(k => !accounts[k].banned) : [...new Set([...clients.values()].map(x => x.name))];
+      const targets = names.filter(k => !isAdminName(k));
+      for (const k of targets) acct(k).coins += n;
+      saveAccounts();
+      const set = new Set(targets);
+      for (const x of clients.values()) if (set.has(x.name)) {
+        sendTo(x, { t: 'notice', text: `👑 관리자가 모두에게 🪙 ${n}코인을 선물했어요! 🎁` });
+        sendTo(x, meInfo(x.name));
+        sendTo(x, { t: 'coins', delta: n, coins: coinsOf(x.name) });
       }
       break;
     }
@@ -1157,7 +1246,7 @@ function handlePlayer(ws, token, ip) {
 
   const c = { id: nextId++, name, ip, ws, room: null };
   clients.set(c.id, c);
-  ws.send({ t: 'hello', name, shop: SHOP, winCoins: WIN_COINS, adminName: ADMIN_NAME });
+  ws.send({ t: 'hello', name, shop: SHOP, winCoins: WIN_COINS, adminName: ADMIN_NAME, invite: inviteCode() });
   ws.send(meInfo(name));
   setTimeout(() => deliverMail(name), 500); // 못 받은 관리자 답장 보여 주기
   ws.send(lobbyInfo());
@@ -1172,7 +1261,8 @@ function handlePlayer(ws, token, ip) {
     else if (msg.t === 'vote') handleVote(c, String(msg.map));
     else if (msg.t === 'give') { // 코인 보내기 버튼
       const to = String(msg.to || '').trim().replace(/\s+/g, ''), n = Math.floor(Number(msg.n));
-      chatCommand(c, `/코인 ${to} ${n}`);
+      if (msg.scope === 'online' || msg.scope === 'all') giveAll(c, n, msg.scope);
+      else chatCommand(c, `/코인 ${to} ${n}`);
     }
     else if (!room) return;
     else if (msg.t === 'move') handleMove(room, c, msg);
@@ -1244,7 +1334,11 @@ async function api(req, res, pathname) {
   }
 
   if (shutdown) return json(res, 503, { error: '서버가 닫혀 있어요.' });
-  if (!safeEqual(body.code || '', ENTRY_PASSWORD)) { failAttempt(ip); return json(res, 401, { error: '입장 비밀번호가 틀렸어요.' }); }
+  if (!entryOk(body.code)) {
+    failAttempt(ip);
+    const inv = String(body.code || '').startsWith('inv-');
+    return json(res, 401, { error: inv ? '초대 링크가 바뀌었어요. 새 링크를 받거나 입장 비밀번호를 써 주세요.' : '입장 비밀번호가 틀렸어요.' });
+  }
 
   if (pathname === '/api/entry') return json(res, 200, { ok: true });
 
@@ -1252,6 +1346,7 @@ async function api(req, res, pathname) {
   const password = String(body.password || '');
   if (pathname === '/api/signup') {
     if (!NAME_RE.test(username)) return json(res, 400, { error: '아이디는 한글/영어/숫자/_ 로 2~12글자여야 해요.' });
+    if (['모두', '전체', 'all', '관리자', 'admin'].includes(username.toLowerCase())) return json(res, 400, { error: '그 아이디는 쓸 수 없어요.' });
     if (password.length < 4 || password.length > 50) return json(res, 400, { error: '비밀번호는 4글자 이상이어야 해요.' });
     const lower = username.toLowerCase();
     if (isAdminName(username) || Object.keys(accounts).some(n => n.toLowerCase() === lower)) return json(res, 409, { error: '이미 있는 아이디예요.' });

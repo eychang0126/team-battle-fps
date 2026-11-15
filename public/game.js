@@ -21,6 +21,8 @@ let ammo = 25, reloadUntil = 0, lastFire = 0, mouseDown = false, recoil = 0;
 const keys = {};
 const others = new Map(); // id -> { group, target, ... }
 let lastState = null;
+const roomPlayers = new Map(); // id -> 플레이어 정보 (명단 + 위치)
+const roomInfo = {};           // 점수, 시간 등
 
 // ---------- three.js 기본 ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -649,7 +651,28 @@ function onMessage(m) {
     case 'correct':
       me.x = m.x; me.y = m.y; me.z = m.z; me.vy = 0;
       break;
-    case 'state':
+    case 'roster': { // 명단 (이름, 팀, 꾸미기, 킬/데스) - 바뀔 때만 와요
+      const ids = new Set();
+      for (const r of m.p) {
+        ids.add(r.id);
+        const p = roomPlayers.get(r.id) || { x: 0, y: 0, z: 0, yw: 0, pt: 0, hp: 100, a: 1 };
+        Object.assign(p, r);
+        roomPlayers.set(r.id, p);
+      }
+      for (const id of [...roomPlayers.keys()]) if (!ids.has(id)) roomPlayers.delete(id);
+      return onMessage({ t: 'state', p: [] }); // 화면 바로 갱신
+    }
+    case 'state': {
+      // 짧은 숫자 배열을 풀어서 합치기
+      for (const [id, x, y, z, yw, pt, hp, a] of m.p) {
+        const p = roomPlayers.get(id);
+        if (!p) continue;
+        Object.assign(p, { x: x / 100, y: y / 100, z: z / 100, yw: yw / 1000, pt: pt / 1000, hp, a });
+      }
+      for (const k of ['s', 'target', 'ph', 'w', 'tl']) if (m[k] !== undefined) roomInfo[k] = m[k];
+      m = { ...roomInfo, t: 'state', p: [...roomPlayers.values()] };
+      if (mode === 'fps' && !m.s) break;
+    }
       lastState = m;
       if (mode === 'fps') {
         $('sc-r').textContent = m.s.red; $('sc-b').textContent = m.s.blue; $('sc-t').textContent = `목표 ${m.target}`;
@@ -776,7 +799,7 @@ function frame() {
     me.y = ny;
 
     sendAcc += dt;
-    if (sendAcc >= 0.05) {
+    if (sendAcc >= 0.066) { // 1초에 15번
       sendAcc = 0;
       send({ t: 'move', x: +me.x.toFixed(3), y: +me.y.toFixed(3), z: +me.z.toFixed(3), yaw: me.yaw, pitch: me.pitch });
     }
