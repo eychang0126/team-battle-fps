@@ -854,17 +854,24 @@ document.addEventListener('mousedown', e => {
 document.addEventListener('mouseup', e => { if (e.button === 0) mouseDown = false; if (e.button === 2) altAction(false); });
 document.addEventListener('keydown', e => {
   if (chatOpen || ended) return;
-  if ((e.code === 'Enter' || e.code === 'KeyT') && (locked() || touchActive)) { e.preventDefault(); openChat(e.code === 'KeyT'); return; }
+  // Enter가 여러 곳에 겹치지 않게: 게임오버 창 > 무기 고르기 창 > 채팅 순서로 하나만
+  if (e.code === 'Enter' || e.code === 'NumpadEnter') {
+    e.preventDefault();
+    if (e.repeat) return; // 꾹 누르고 있으면 한 번만
+    if (gameOverOpen()) { retryWave(); return; }
+    if (pickerOpen) { closePicker(true); return; }
+    if (overlayShown()) { startPlaying(); return; } // '눌러서 시작' 화면에서는 Enter = 시작
+  }
+  if ((e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'KeyT') && !pickerOpen && !gameOverOpen() && (locked() || touchActive)) { e.preventDefault(); if (!e.repeat) openChat(e.code === 'KeyT'); return; }
   keys[e.code] = true;
   if (e.code === 'Tab') { e.preventDefault(); $('board').style.display = 'block'; renderBoard(); }
   if (e.code === 'KeyR') reload();
   if (e.code === 'KeyV') toggleView();
-  if (gameOverOpen() && e.code === 'Enter') { e.preventDefault(); retryWave(); return; }
+  if (e.code === 'KeyM' && window.Music) { const on = window.Music.toggle(); window.musicUI && window.musicUI(); center(on ? `🎵 음악 켜짐 · ${window.Music.trackName}` : '🔇 음악 꺼짐', 1200); }
   if (e.code === 'Space' && !e.repeat) jumpQueued = true;
   if (e.code === 'KeyQ') cycleWeapon(1);
   if (e.code === ctrlKeys.pick) { pickerOpen ? closePicker(true) : openPicker(false); }
   if (pickerOpen && /^Digit[1-9]$/.test(e.code)) { const id = myWList[+e.code.slice(5) - 1]; if (id) pickWeapon(id, !pickerTimed); return; } // 처음 창에서는 고르기만 (맵 투표도 해야 하니까)
-  if (pickerOpen && e.code === 'Enter') { e.preventDefault(); closePicker(true); return; }
   if (e.code.startsWith('Arrow')) e.preventDefault(); // 화살표로 화면 돌리기 (아래 매 프레임에서)
   if (!e.repeat && e.code === ctrlKeys.fire && controlsOn()) { if (isZombie()) attack(); else if (!unarmed()) mouseDown = true; }
   if (!e.repeat && e.code === ctrlKeys.alt && controlsOn() && !isZombie() && !unarmed()) altAction(true);
@@ -969,6 +976,7 @@ function showGameOver(html) {
 }
 function hideGameOver() { $('gameover').style.display = 'none'; }
 function retryWave() { hideGameOver(); send({ t: 'waveRetry' }); startPlaying(); }
+const overlayShown = () => { const o = $('overlay'); return !!o && !o.classList.contains('hide') && o.style.display !== 'none' && !document.querySelector('#manual.on, .modal.on, #mg-modal[style*="flex"]'); };
 const gameOverOpen = () => $('gameover') && $('gameover').style.display === 'flex';
 function center(text, ms, html) {
   if (html) $('center').innerHTML = text; else $('center').textContent = text;
@@ -998,6 +1006,7 @@ function onMessage(m) {
   switch (m.t) {
     case 'welcome':
       myId = m.id; myTeam = m.team; myName = m.name; cfg = m.cfg; map = m.map; mode = m.mode; adminName = m.adminName || '';
+      import('./music.js').then(({ TRACK_FOR_MODE }) => window.Music && window.Music.play(TRACK_FOR_MODE[m.mode] || 'lobby')).catch(() => {}); // 🎵 모드마다 다른 곡
       myWList = m.myWeapons || ['wp_rifle']; myGList = m.myGadgets || []; myUp = m.myUp || myUp;
       buildGadgetButtons();
       setTimeout(() => openPicker(true), 50); // 처음 10초: 무기 고르기
@@ -1020,7 +1029,7 @@ function onMessage(m) {
         $('ov-text').innerHTML = `나만 들어온 연습장이에요. 좀비 3마리가 계속 쫓아와요.<br>모든 무기·아이템을 써 볼 수 있어요 (I 키로 바꾸기). 코인·트로피는 없어요.<br><br>` + $('ov-text').innerHTML;
       } else if (mode === 'wave') {
         $('ov-title').textContent = '🧟‍♂️ 좀비 웨이브 · ' + tapWord;
-        $('ov-text').innerHTML = `몰려오는 좀비 떼를 총으로 막아요! 웨이브를 깰 때마다 🪙 5코인, 5웨이브마다 🏆 트로피<br>쓰러지면 20초 뒤 부활 · 모두 쓰러지면 게임 오버<br><br>` + $('ov-text').innerHTML;
+        $('ov-text').innerHTML = `몰려오는 좀비 떼를 총으로 막아요! 웨이브를 깰 때마다 🪙 5코인, 5웨이브마다 🏆 트로피<br>쓰러지면 10초 뒤 부활 · 모두 쓰러지면 게임 오버<br><br>` + $('ov-text').innerHTML;
       } else if (mode === 'lava') {
         $('ov-title').textContent = '🌋 용암 타워 · ' + tapWord;
         $('ov-text').innerHTML = `용암이 아래에서 점점 빨리 올라와요! 닿으면 바로 아웃<br>꼭대기 🏁까지 올라가면 🪙 20코인 (2명 이상이면 1등은 🏆 트로피도)<br><br>` + $('ov-text').innerHTML;
@@ -1135,8 +1144,8 @@ function onMessage(m) {
     case 'waveClear':
       center(`✅ 웨이브 ${m.n} 클리어!${m.record ? ' 🏆 새 최고 기록!' : ''}`, 2400);
       break;
-    case 'wavedead': { // 20초 뒤 부활 (카운트다운)
-      let left = m.secs || 20;
+    case 'wavedead': { // 10초 뒤 부활 (카운트다운)
+      let left = m.secs || 10;
       clearInterval(reviveTimer);
       center(`쓰러졌어요! ${left}초 뒤에 부활해요 💫`, 0);
       reviveTimer = setInterval(() => {
@@ -1172,6 +1181,7 @@ function onMessage(m) {
       Object.assign(me, { x: m.x, y: m.y, z: m.z, yaw: m.yaw, pitch: 0, vy: 0, alive: true, hp: m.hp ?? cfg.maxHp });
       ammo = m.ammo ?? WP().mag; reloadUntil = 0; items = m.items || {}; me.crouch = false; H = STAND_H; touchCrouch = false; dashUntil = 0; knock.x = knock.z = 0; buffUntil = 0; bowCharge = 0; burstLeft = 0; setZoom(false); updateWeaponButtons();
       clearInterval(reviveTimer); if (/부활|일어나요|기다려요/.test($('center').textContent)) center('', 0);
+      if (gameOverOpen()) hideGameOver(); // 살아났는데 게임오버 창이 남아 있지 않게
       break;
     case 'correct':
       me.x = m.x; me.y = m.y; me.z = m.z; me.vy = 0;

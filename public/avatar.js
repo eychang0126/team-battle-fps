@@ -29,7 +29,9 @@ export const DEFAULT_HAIR = { m: 'h_short', f: 'h_long', n: 'h_bob' };
 const DEFAULT_SKIN = 0xffdcc0;
 const DEFAULT_HAIR_COLOR = 0x6b4423;
 // 머리 윗부분을 덮는 모자 (이 모자를 쓰면 위로 솟은 머리카락은 모자 속에 들어가요)
-import { FACES_2D, FACE2D_W, FACE2D_H } from './faces2d.js';
+// 그림 얼굴 파일이 없어도 게임이 멈추지 않게 (없으면 그림 얼굴만 빠져요)
+let FACES_2D = {}, FACE2D_W = 512, FACE2D_H = 480;
+try { ({ FACES_2D, FACE2D_W, FACE2D_H } = await import('./faces2d.js')); } catch (e) { console.warn('faces2d.js를 못 불러왔어요', e); }
 const COVER_HATS = new Set(['cap', 'beanie', 'helmet', 'tophat', 'octopus', 'santa']);
 
 const lam = (c, extra = {}) => new THREE.MeshLambertMaterial({ color: c, ...extra });

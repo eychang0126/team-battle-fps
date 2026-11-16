@@ -1192,7 +1192,7 @@ function handleWeapon(c, w) {
 // =====================================================
 //  좀비 웨이브 (봇 좀비, 혼자서도 OK)
 // =====================================================
-const WAVE_BREAK_MS = 6000, WAVE_OVER_MS = 120000, WAVE_REVIVE_MS = 20000, MAX_BOTS_ALIVE = 24, WAVE_COINS = 5;
+const WAVE_BREAK_MS = 6000, WAVE_OVER_MS = 120000, WAVE_REVIVE_MS = 10000, MAX_BOTS_ALIVE = 24, WAVE_COINS = 5;
 const WAVE_SPAWNS = [[-36, -36], [36, -36], [-36, 36], [36, 36], [0, -37], [0, 37], [-37, 0], [37, 0],
   [-20, -37], [20, -37], [-20, 37], [20, 37], [-37, -20], [37, -20], [-37, 20], [37, 20]];
 const BOT_HAIRS = ['h_short', 'h_spiky', 'h_curly', 'h_bald', 'h_long', 'h_bob'];
@@ -1260,6 +1260,7 @@ function spawnBot(room) {
   room.bots.set(b.id, b);
 }
 function wavePlayerDie(room, q) {
+  if (!q.alive) return; // 이미 쓰러진 사람을 또 쓰러뜨리지 않기 (부활 시간이 계속 늘어나는 버그)
   if (room.mode === 'range') { // 시험장: 3초 뒤 다시
     q.alive = false; q.hp = 0; q.deaths++; q.respawnAt = now() + RESPAWN_MS;
     sendTo(q, { t: 'wavedead', secs: RESPAWN_MS / 1000 });
@@ -1267,7 +1268,7 @@ function wavePlayerDie(room, q) {
   }
   q.alive = false; q.hp = 0; q.deaths++;
   const alone = ![...room.players.values()].some(p => p.alive);
-  q.respawnAt = alone ? Infinity : now() + WAVE_REVIVE_MS; // 20초 뒤 부활 (모두 쓰러지면 게임 오버라서 부활 없음)
+  q.respawnAt = alone ? Infinity : now() + WAVE_REVIVE_MS; // 10초 뒤 부활 (모두 쓰러지면 게임 오버라서 부활 없음)
   roomBroadcast(room, { t: 'kill', killer: '좀비', kteam: 'zombie', victim: q.name, vteam: 'human', head: false });
   if (!alone) sendTo(q, { t: 'wavedead', secs: WAVE_REVIVE_MS / 1000 });
 }
@@ -1278,7 +1279,8 @@ function moveBots(room, t) {
   const list = botsAlive(room);
   for (const b of list) {
     let q = null, qd = Infinity;
-    for (const p of targets) { const d = Math.hypot(p.x - b.x, p.z - b.z); if (d < qd) { qd = d; q = p; } }
+    for (const p of targets) { if (!p.alive) continue; const d = Math.hypot(p.x - b.x, p.z - b.z); if (d < qd) { qd = d; q = p; } }
+    if (!q) break; // 모두 쓰러졌어요
     const dx = q.x - b.x, dz = q.z - b.z, d = qd || 0.001;
     b.yaw = Math.atan2(-dx, -dz);
     // 가까우면 물기
@@ -1327,6 +1329,8 @@ function waveRecord(room) {
 }
 function waveClear(room) {
   const n = room.waveNum;
+  // 웨이브를 깨면 쓰러져 있던 사람도 바로 부활
+  for (const p of room.players.values()) if (!p.alive && p.respawnAt !== Infinity) spawn(room, p);
   const trophy = n % 5 === 0 ? 1 : 0;
   for (const p of room.players.values()) {
     const a = acct(p.name);
