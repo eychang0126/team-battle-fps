@@ -206,6 +206,7 @@ function connect() {
     const m = JSON.parse(e.data);
     if (m.t === 'denied') { sessionStorage.removeItem('adminToken'); $('panel').style.display = 'none'; $('login').style.display = 'block'; return; }
     if (m.t === 'admin') render(m);
+    if (m.t === 'pwReset') alert(m.error ? `❌ ${m.error}` : `🔑 ${m.name}의 새 비밀번호: ${m.pw}\n\n이 비밀번호를 ${m.name}에게 알려 주세요. (갠톡으로 보내도 돼요)\n로그인한 다음 로비의 🔑 버튼으로 직접 바꿀 수 있어요.`);
     if (m.t === 'dmThread' && m.name === dmWho) { dmMsgs = m.list; drawDm(); }
     if (m.t === 'dmNew') {
       if (m.name === dmWho) { dmMsgs.push(m.msg); drawDm(); if (m.msg.who === 'u') cmd({ t: 'dmOpen', name: dmWho }); }
@@ -301,6 +302,7 @@ function renderAccounts(list) {
       <td>${status}</td>
       <td class="row" style="justify-content:flex-end">${x.admin ? '' : `
         <button onclick="takeFromRow('${n}')">➖ 코인 빼기</button>
+        <button onclick="resetPw('${n}')">🔑 비번 새로 정하기</button>
         ${x.banned ? `<button class="green" onclick="cmd({t:'ban', name:'${n}', on:false})">밴 풀기</button>`
                    : `<button onclick="if(confirm('${n} 계정을 밴할까요? 로그인을 못 하게 돼요.')) cmd({t:'ban', name:'${n}', on:true})">⛔ 밴</button>`}
         <button class="danger" onclick="if(confirm('${n} 계정을 완전히 삭제할까요? 코인, 트로피, 산 물건이 모두 사라지고 되돌릴 수 없어요.')) cmd({t:'deleteAccount', name:'${n}'})">🗑 삭제</button>`}</td>
@@ -413,6 +415,11 @@ function takeCoins(name, n) {
   if (confirm(`${name}에게서 🪙 ${n}코인을 뺏을까요? (모자라면 마이너스가 돼요)`)) cmd({ t: 'giveCoins', name, n: -n });
 }
 $('btn-take').onclick = () => { takeCoins($('coinname').value.trim(), $('coinn').value); $('coinn').value = ''; };
+function resetPw(name) {
+  const v = prompt(`${name}의 새 비밀번호를 써 주세요 (4글자 이상).\n비워 두면 숫자 4자리를 자동으로 만들어 줘요.\n※ 원래 비밀번호는 아무도 볼 수 없어서, 새로 정해 주는 거예요.`);
+  if (v === null) return;
+  cmd({ t: 'resetPw', name, pw: v.trim() });
+}
 function takeFromRow(name) {
   const v = prompt(`${name}에게서 뺏을 코인 수를 써 주세요\n(가진 것보다 많이 쓰면 마이너스, "전부"라고 쓰면 0개로)`);
   if (v === null) return;

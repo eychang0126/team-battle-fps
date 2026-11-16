@@ -644,7 +644,7 @@ export function makeGlasses(id) {
   const EYE_Y = HY + 0.02, Z = -0.282; // 눈 높이, 얼굴 바로 앞
   g.position.set(0, EYE_Y, Z);
   const box = (w, h, d, c, x, y, z, mat) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat || lam(c)); m.position.set(x, y, z); g.add(m); return m; };
-  const frameCol = { g_round: 0x2b2b2b, g_sun: 0x111111, g_heart: 0xff4fa0, g_pixel: 0x111111, g_alien: 0x1d1d1d }[id] ?? 0x222222;
+  const frameCol = { g_round: 0x2b2b2b, g_sun: 0x111111, g_heart: 0xff4fa0, g_pixel: 0x111111, g_alien: 0x39e05a }[id] ?? 0x222222;
   // 안경다리: 렌즈 바깥에서 귀까지
   for (const s of [-1, 1]) {
     box(0.1, 0.014, 0.014, frameCol, s * 0.22, 0.01, 0.015);
@@ -685,7 +685,7 @@ export function makeGlasses(id) {
     for (const s of [-1, 1]) {
       const lens = new THREE.Mesh(new THREE.SphereGeometry(0.1, 20, 14), new THREE.MeshLambertMaterial({ color: 0x0b2a14 }));
       lens.scale.set(1.0, 0.55, 0.22); lens.position.set(s * 0.105, 0.01, 0); lens.rotation.z = s * 0.45; g.add(lens);
-      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.008, 6, 28), lam(0x1d1d1d));
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.014, 8, 32), lam(0x39e05a)); // 👽 초록 테두리
       rim.scale.set(1.0, 0.55, 1); rim.position.set(s * 0.105, 0.01, 0.005); rim.rotation.z = s * 0.45; g.add(rim);
       ball(g, 0.015, 0x9dffb0, s * 0.105 - 0.03, 0.035, -0.022); // 초록 반짝
     }

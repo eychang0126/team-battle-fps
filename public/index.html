@@ -282,6 +282,10 @@
   @media (max-width: 640px) { .lrow { grid-template-columns: 1fr; } }
   .rank { background: #181d29; border: 1px solid #2a3142; border-radius: 16px; padding: 14px; }
   .rank h2 { margin: 0 0 8px; font-size: 18px; }
+  #ppl-list { max-height: 220px; overflow-y: auto; font-size: 14px; }
+  #ppl-list .p { display: flex; justify-content: space-between; gap: 8px; padding: 4px 2px; border-bottom: 1px solid #222a3a; }
+  #ppl-list .p.off { color: #7d8598; }
+  #ppl-list .w { color: #9aa3b8; font-size: 12px; white-space: nowrap; }
   .rank ol { margin: 0; padding: 0; list-style: none; font-size: 15px; }
   .rank li { display: flex; justify-content: space-between; padding: 5px 8px; border-radius: 8px; }
   .rank li.me { background: rgba(77,163,255,.18); }
@@ -335,6 +339,7 @@
       </div>
       <button type="submit" id="auth-btn">로그인</button>
       <div class="err" id="auth-err"></div>
+      <p class="sub" style="margin-top:6px;font-size:12px">비밀번호를 까먹었나요? 관리자에게 말하면 새로 정해 줄 수 있어요.</p>
     </form>
     <div class="help">비밀번호는 서버에 암호화되어 저장돼요.<br>다른 사이트에서 쓰는 비밀번호는 쓰지 마세요.</div>
   </div>
@@ -345,7 +350,7 @@
   <div class="lobby">
     <div class="lobby-top">
       <h1>🎮 게임 고르기</h1>
-      <div><span class="trophy" id="lobby-trophy">🏆 0</span><span class="coins" id="lobby-coins">🪙 0</span><button type="button" class="gbtn" id="btn-give">🎁 코인 보내기</button><button type="button" class="gbtn" id="btn-toadmin">💬 관리자와 갠톡 <span id="dm-badge" style="display:none;background:#ff4d4f;color:#fff;border-radius:999px;padding:0 7px;font-size:12px;margin-left:2px"></span></button><button type="button" class="gbtn" id="btn-invite">🔗 초대 링크 복사</button><button type="button" class="gbtn" id="btn-keys">⌨️ 키 설정</button><button type="button" class="gbtn" id="btn-manual">📖 설명서</button><button type="button" class="gbtn" id="btn-rps">✊ 관리자와 가위바위보</button><span class="who" id="lobby-who"></span><button type="button" id="btn-logout">로그아웃</button></div>
+      <div><span class="trophy" id="lobby-trophy">🏆 0</span><span class="coins" id="lobby-coins">🪙 0</span><button type="button" class="gbtn" id="btn-give">🎁 코인 보내기</button><button type="button" class="gbtn" id="btn-toadmin">💬 관리자와 갠톡 <span id="dm-badge" style="display:none;background:#ff4d4f;color:#fff;border-radius:999px;padding:0 7px;font-size:12px;margin-left:2px"></span></button><button type="button" class="gbtn" id="btn-invite">🔗 초대 링크 복사</button><button type="button" class="gbtn" id="btn-keys">⌨️ 키 설정</button><button type="button" class="gbtn" id="btn-manual">📖 설명서</button><button type="button" class="gbtn" id="btn-rps">✊ 관리자와 가위바위보</button><button type="button" class="gbtn" id="btn-pw">🔑 비번 바꾸기</button><span class="who" id="lobby-who"></span><button type="button" id="btn-logout">로그아웃</button></div>
     </div>
     <div id="announce-lobby"></div>
     <div class="rooms" id="rooms"><div style="color:#8a93a8">불러오는 중…</div></div>
@@ -361,6 +366,8 @@
       <h2>🏆 트로피 순위 <span style="font-size:12px;color:#8a93a8;font-weight:500">(이길 때마다 🏆 +1)</span></h2>
       <ol id="rank-list"><li style="color:#8a93a8">불러오는 중…</li></ol>
       <div class="myrank" id="my-rank"></div>
+      <h2 style="margin-top:16px">👥 접속 현황 <span id="ppl-count" style="font-size:13px;color:#7fe05a;font-weight:600"></span></h2>
+      <div id="ppl-list"></div>
     </div>
     <div class="lchat">
       <h2>💬 로비 채팅</h2>
@@ -443,6 +450,20 @@
     <button type="button" id="wd-try">🎯 시험장에서 써 보기 <small>(좀비 3마리 · 코인 없음)</small></button>
     <button type="button" id="wd-arm" style="background:#2f6b3a">🎒 업그레이드 · 색 바꾸기</button>
     <button type="button" id="wd-close" style="background:#232a3a;color:#9aa3b8">닫기</button>
+  </div>
+</div>
+<div id="pw-modal" class="modal">
+  <div class="card" style="max-width:380px">
+    <h1>🔑 비밀번호 바꾸기</h1>
+    <form id="f-pw">
+      <input id="pw-old" type="password" placeholder="지금 비밀번호" autocomplete="current-password">
+      <input id="pw-new" type="password" placeholder="새 비밀번호 (4글자 이상)" autocomplete="new-password">
+      <input id="pw-new2" type="password" placeholder="새 비밀번호 한 번 더" autocomplete="new-password">
+      <button type="submit">바꾸기</button>
+      <button type="button" id="pw-close" style="background:#232a3a;color:#9aa3b8">닫기</button>
+      <div class="err" id="pw-msg"></div>
+      <p class="sub" style="margin-top:8px">비밀번호를 까먹었으면 💬 관리자에게 말하면 새로 정해 줄 수 있어요.</p>
+    </form>
   </div>
 </div>
 <div id="rps-modal" class="modal">
@@ -621,7 +642,7 @@ function connect(token) {
       renderShop();
     }
     else if (m.t === 'lobby') {
-      renderRooms(m.rooms); renderRank(m.top || []);
+      renderRooms(m.rooms); renderRank(m.top || []); renderPeople(m.people || []);
       // 초대 링크에 게임이 정해져 있으면 그 게임으로 바로 들어가기
       if (pendingRoom) { const id = pendingRoom; pendingRoom = null; ws.send(JSON.stringify({ t: 'join', room: id })); }
     }
@@ -648,6 +669,7 @@ function connect(token) {
       }
     }
     else if (m.t === 'rps') renderRps(m);
+    else if (m.t === 'pwResult') { $('pw-msg').textContent = m.text; if (m.text.startsWith('✅')) { $('f-pw').reset(); setTimeout(() => $('pw-modal').classList.remove('on'), 1200); } }
     else if (m.t === 'dmThread') { dmList = m.list || []; setDmBadge(m.unread || 0); if (dmOpen()) renderDm(); }
     else if (m.t === 'dm') {
       dmList.push(m.msg); if (dmList.length > 100) dmList.shift();
@@ -769,6 +791,13 @@ function renderRps(m) {
   $('btn-rps').textContent = m.state === 'playing' ? '✊ 가위바위보 (지금 하는 중!)' : m.state === 'pending' ? '✊ 가위바위보 (기다리는 중)' : '✊ 관리자와 가위바위보';
 }
 $('btn-rps').onclick = () => { $('rps-msg').textContent = ''; if (rpsState) renderRps({ ...rpsState, msg: '' }); $('rps-modal').classList.add('on'); };
+$('btn-pw').onclick = () => { $('pw-msg').textContent = ''; $('pw-modal').classList.add('on'); $('pw-old').focus(); };
+$('pw-close').onclick = () => $('pw-modal').classList.remove('on');
+$('f-pw').onsubmit = e => {
+  e.preventDefault();
+  if ($('pw-new').value !== $('pw-new2').value) { $('pw-msg').textContent = '새 비밀번호 두 개가 달라요.'; return; }
+  ws.send(JSON.stringify({ t: 'changePw', old: $('pw-old').value, pw: $('pw-new').value }));
+};
 $('wd-close').onclick = () => $('wd-modal').classList.remove('on');
 $('wd-modal').onclick = e => { if (e.target.id === 'wd-modal') $('wd-modal').classList.remove('on'); };
 $('rps-close').onclick = () => $('rps-modal').classList.remove('on');
@@ -841,13 +870,13 @@ function manualPages() {
         <tr><td>💥 샷건</td><td>120</td><td>8발이 퍼져요. 가까이선 세고 멀면 약해요</td></tr>
         <tr><td>🏹 활</td><td>150</td><td>누르고 있으면 당겨지고(▮▮▮), <b>떼면 발사</b>. 꽉 당기면 세요. 화살은 살짝 떨어져요</td></tr>
         <tr><td>🔂 점사 소총</td><td>180</td><td>한 번 누르면 3발 탕탕탕</td></tr>
-        <tr><td>🎯 저격총</td><td>200</td><td>헤드샷 한 방. <b>특수</b> = 조준경 (쏘면 풀려요)</td></tr>
+        <tr><td>🎯 저격총</td><td>200</td><td>머리 150 (한 방!) · 몸 50. <b>특수</b> = 조준경 (쏘면 풀려요)</td></tr>
         <tr><td>🛡️ 폭동 방패</td><td>220</td><td>앞에서 오는 총알·화살을 막아요 (뒤는 못 막아요). 클릭 = 방패로 때리기. 조금 느려요</td></tr>
         <tr><td>⚔️ 카타나</td><td>250</td><td>앞쪽을 넓게 베기 70. <b>특수</b> = 앞으로 돌진 (3초마다)</td></tr>
         <tr><td>🌙 낫</td><td>300</td><td>한 바퀴 휘둘러 주변 전부 베기 60. <b>특수</b> = 대쉬 (3초마다)</td></tr>
         <tr><td>🗡️🔫 건블레이드</td><td>350</td><td>클릭 = 베기 55, <b>특수</b> = 총 한 발</td></tr>
         <tr><td>🌀 미니건</td><td>400</td><td>120발 계속 쏘기, 재장전이 길어요</td></tr>
-        <tr><td>🚀 RPG</td><td>450</td><td>로켓이 터져서 범위 데미지. <b>내 발밑에 쏘면 로켓 점프</b> (나는 안 다쳐요)</td></tr>
+        <tr><td>🚀 RPG</td><td>450</td><td>로켓이 터지면 범위 안 모두 50 데미지. <b>내 발밑에 쏘면 로켓 점프</b> (나는 안 다쳐요)</td></tr>
       </table>
       <div class="tip">🎒 상점의 <b>내 무기</b> 칸에서 재장전 업그레이드(3단계)와 무기 색(무기마다 따로)을 살 수 있어요. 무기 카드의 <b>🔍 자세히 보기</b>에서 자세한 숫자를 보고, <b>🎯 무기 시험장</b>에서 안 산 무기도 좀비 3마리로 써 볼 수 있어요 (코인·트로피 없음).</div>
       <div class="tip">💡 머리를 맞히면 더 세요(헤드샷 🎯). 점프 타워·용암 타워에서는 무기를 못 써요.</div>`],
@@ -1053,7 +1082,7 @@ const WINFO = {
   wp_rifle: ['균형 잡힌 기본 총이에요. 누르고 있으면 계속 쏴요.', '머리를 노리면 60 데미지! 처음엔 이걸로 연습해 보세요.'],
   wp_smg: ['엄청 빠르게 쏘지만 한 발은 약하고 총알이 조금 퍼져요.', '가까이 붙어서 싸울 때 강해요.'],
   wp_shotgun: ['한 번에 총알 8개가 퍼져 나가요. 14m보다 멀면 데미지가 반으로 줄어요.', '코너에서 기다렸다가 가까이서 쏘세요.'],
-  wp_sniper: ['느리지만 머리에 맞으면 무조건 한 방이에요. 오른쪽 클릭(E)으로 조준경.', '조준경을 켜면 걷기 속도가 돼요. 쏘면 조준경이 풀려요.'],
+  wp_sniper: ['느리지만 머리에 맞으면 150, 한 방이에요! 몸은 50. 오른쪽 클릭(E)으로 조준경.', '조준경을 켜면 걷기 속도가 돼요. 쏘면 조준경이 풀려요.'],
   wp_minigun: ['120발을 쉬지 않고 쏴요. 쏠 때 총열이 돌아가요.', '재장전이 길어서 업그레이드하면 좋아요.'],
   wp_dagger: ['가까이서 빠르게 찌르기 50. 들고 있으면 15% 빨리 달려요.', '상대 뒤에서 찌르면 한 방에 쓰러져요! 🗡️💀'],
   wp_katana: ['앞쪽을 넓게 베어서 여러 명을 한 번에 맞혀요. 오른쪽 클릭(E)으로 돌진.', '돌진은 3초에 한 번. 돌진으로 붙어서 바로 베세요.'],
@@ -1062,7 +1091,7 @@ const WINFO = {
   wp_shield: ['들고 있으면 앞에서 오는 총알·화살을 막아요. 클릭하면 방패로 때려요(30).', '뒤나 옆은 못 막아요. 조금 느려져요.'],
   wp_scythe: ['한 바퀴 휘둘러서 주변 3m를 전부 베요(60). 오른쪽 클릭(E)으로 대쉬.', '좀비에게 둘러싸였을 때 최고예요.'],
   wp_gunblade: ['클릭하면 칼로 베기(55), 오른쪽 클릭(E)이면 총 한 발(머리 90).', '멀리 있으면 총, 가까이 오면 칼!'],
-  wp_rpg: ['로켓이 부딪히면 펑! 4.5m 안에 있으면 다 맞아요(최대 110).', '내 발밑에 쏘면 로켓 점프! 나는 안 다쳐요.'],
+  wp_rpg: ['로켓이 부딪히면 펑! 4.5m 안에 있으면 다 50씩 맞아요.', '내 발밑에 쏘면 로켓 점프! 나는 안 다쳐요.'],
 };
 function weaponStats(id) {
   const W = (me.weapons || {})[id]; if (!W) return '';
@@ -1071,7 +1100,7 @@ function weaponStats(id) {
   let r = '';
   if (W.melee) r += row('데미지', W.body + (W.backstab ? ' (뒤에서는 한 방)' : '')) + row('닿는 거리', W.range + 'm' + (W.multi ? ' · 여러 명 한 번에' : '')) + row('휘두르는 간격', (W.fire / 1000) + '초');
   else if (W.charge) r += row('데미지', `몸 ${W.body} · 머리 ${W.head} (꽉 당겼을 때)`) + row('쏘는 간격', (W.fire / 1000) + '초');
-  else if (W.proj === 'rocket') r += row('폭발 데미지', `최대 ${W.body} · 범위 4.5m`) + row('탄창', W.mag + '발');
+  else if (W.proj === 'rocket') r += row('폭발 데미지', `${W.body} · 범위 4.5m`) + row('탄창', W.mag + '발');
   else r += row('데미지', `몸 ${W.body} · 머리 ${W.head}${W.pellets > 1 ? ` (×${W.pellets}발)` : ''}`) + row('1초에', Math.round(1000 / (W.burst ? W.burstGap / W.burst : W.fire) * 10) / 10 + '발') + row('탄창', W.mag + '발');
   if (W.reload) r += row('재장전', `${(W.reload * (1 - step * lv) / 1000).toFixed(2)}초${lv ? ` (🔧 ${lv}단계, 원래 ${(W.reload / 1000).toFixed(1)}초)` : ''}`);
   if (W.speed) r += row('달리기', W.speed > 1 ? `${Math.round((W.speed - 1) * 100)}% 빨라요` : `${Math.round((1 - W.speed) * 100)}% 느려요`);
@@ -1126,6 +1155,23 @@ function renderArmory() {
   $('arm-range').onclick = () => { ws.send(JSON.stringify({ t: 'join', room: 'range' })); };
 }
 
+// 👥 누가 온라인인지 (🟢 = 지금 접속 중, 어디 있는지 / ⚪ = 마지막 접속)
+let lastPplKey = '';
+function agoText(t) {
+  if (!t) return '오래전';
+  const m = Math.floor((Date.now() - t) / 60000);
+  if (m < 1) return '방금 전'; if (m < 60) return `${m}분 전`;
+  const h = Math.floor(m / 60); if (h < 24) return `${h}시간 전`;
+  return `${Math.floor(h / 24)}일 전`;
+}
+function renderPeople(list) {
+  const key = JSON.stringify(list.map(p => [p.n, p.on, p.w, Math.floor((Date.now() - p.ls) / 60000)]));
+  if (key === lastPplKey) return; lastPplKey = key;
+  const on = list.filter(p => p.on).length;
+  $('ppl-count').textContent = `🟢 ${on}명 접속 중`;
+  $('ppl-list').innerHTML = list.map(p => `<div class="p ${p.on ? '' : 'off'}"><span>${p.on ? '🟢' : '⚪'} ${crown(p.n)}${esc(p.n)}${p.n === myName ? ' (나)' : ''}</span>
+    <span class="w">${p.on ? esc(p.w) : agoText(p.ls)}</span></div>`).join('') || '<div style="color:#8a93a8">아무도 없어요</div>';
+}
 let lastRankKey = '', myName = '';
 function renderRank(top) {
   const key = JSON.stringify(top) + (me ? me.rank : '');

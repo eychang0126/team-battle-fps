@@ -20,7 +20,7 @@ const ACCOUNTS_FILE = path.join(DATA_DIR, 'accounts.json');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
 const TICK_MS = 66;              // 초당 15번 상태 전송 (데이터 아끼기)
-const MAX_HP = 100;
+const MAX_HP = 150; // 인간 체력
 const BODY_DAMAGE = 25;
 const HEAD_DAMAGE = 60;
 const FIRE_INTERVAL = 110;       // ms
@@ -1092,7 +1092,7 @@ const WEAPONS = {
   wp_rifle: { name: '돌격소총', icon: '🔫', body: 25, head: 60, fire: 110, mag: 25, reload: 1600, pellets: 1, spread: 0 },
   wp_smg: { name: '기관단총', icon: '💨', body: 16, head: 38, fire: 70, mag: 35, reload: 1400, pellets: 1, spread: 0.035 },
   wp_shotgun: { name: '샷건', icon: '💥', body: 13, head: 20, fire: 850, mag: 6, reload: 2200, pellets: 8, spread: 0.075, far: 14 },
-  wp_sniper: { name: '저격총', icon: '🎯', body: 90, head: 200, fire: 1300, mag: 5, reload: 2500, pellets: 1, spread: 0, zoom: true },
+  wp_sniper: { name: '저격총', icon: '🎯', body: 50, head: 150, fire: 1300, mag: 5, reload: 2500, pellets: 1, spread: 0, zoom: true },
   wp_minigun: { name: '미니건', icon: '🌀', body: 12, head: 26, fire: 55, mag: 120, reload: 3200, pellets: 1, spread: 0.05 },
   // 근접 무기: range = 닿는 거리, cone = 앞쪽 몇 도까지 (cos 값), multi = 여러 명 한 번에
   wp_dagger: { name: '단검', icon: '🗡️', melee: true, body: 50, head: 50, fire: 380, range: 2.2, cone: 0.7, backstab: true, speed: 1.15, mag: 0 },
@@ -1103,7 +1103,7 @@ const WEAPONS = {
     altShot: { body: 45, head: 90, cd: 900, pellets: 1, spread: 0 } },
   wp_burst: { name: '점사 소총', icon: '🔂', body: 28, head: 65, fire: 65, mag: 24, reload: 1700, pellets: 1, spread: 0, burst: 3, burstGap: 430 },
   wp_bow: { name: '활', icon: '🏹', proj: 'arrow', body: 100, head: 160, fire: 350, mag: 0, charge: true },
-  wp_rpg: { name: 'RPG', icon: '🚀', proj: 'rocket', body: 110, fire: 500, mag: 1, reload: 2600 },
+  wp_rpg: { name: 'RPG', icon: '🚀', proj: 'rocket', body: 50, fire: 500, mag: 1, reload: 2600 },
 };
 // 아이템: per = 몇 개 (life = 살아날 때마다, match = 한 판에)
 const GADGETS = {
@@ -1567,7 +1567,7 @@ function launchProj(room, p, kind, d, speed, extra) {
   roomBroadcast(room, { t: 'proj', id: o.id, k: kind, g: o.grav, p: [o.x, o.y, o.z, o.vx, o.vy, o.vz].map(r2), from: p.id });
 }
 // 폭발 (수류탄, 로켓): 상대는 다치고, 로켓은 가까이 있는 모두를 밀어내요 (쏜 사람은 안 다쳐요)
-function explodeAt(room, p, x, y, z, radius, maxDmg, icon, knock) {
+function explodeAt(room, p, x, y, z, radius, maxDmg, icon, knock, flat) {
   const t = now();
   roomBroadcast(room, { t: 'boom', x: r2(x), y: r2(y), z: r2(z), r: radius });
   if (!room.players.has(p.id)) return;
@@ -1583,7 +1583,7 @@ function explodeAt(room, p, x, y, z, radius, maxDmg, icon, knock) {
     }
     if (!canHurt(room, p, q)) continue;
     p.killIcon = icon;
-    applyDamage(room, p, q, Math.round(maxDmg * (1 - d / radius * 0.7)), false, t);
+    applyDamage(room, p, q, flat ? maxDmg : Math.round(maxDmg * (1 - d / radius * 0.7)), false, t);
     p.killIcon = null;
   }
 }
@@ -1662,7 +1662,7 @@ function objectsTick(room, t) {
       if (!done && (t - o.born > 4000 || o.y < -40)) done = { x: o.x, y: o.y, z: o.z, q: null };
       if (!done) { left.push(o); continue; }
       roomBroadcast(room, { t: 'projEnd', id: o.id, x: r2(done.x), y: r2(done.y), z: r2(done.z) });
-      if (o.kind === 'rocket') explodeAt(room, o.owner, done.x, done.y, done.z, 4.5, WEAPONS.wp_rpg.body, '🚀', 14);
+      if (o.kind === 'rocket') explodeAt(room, o.owner, done.x, done.y, done.z, 4.5, WEAPONS.wp_rpg.body, '🚀', 14, true); // 맞으면 50
       else if (done.q && room.players.has(o.owner.id)) {
         if (shieldBlocks(done.q, o.owner.x, o.owner.z)) sendTo(o.owner, { t: 'hitmark', block: true });
         else {
@@ -1919,9 +1919,17 @@ function kickClient(c, reason, block) {
   setTimeout(() => c.ws.close(), 100);
 }
 
+// 👥 접속 현황: 누가 온라인인지, 어디 있는지 (오프라인은 마지막 접속)
+function peopleList() {
+  const where = new Map();
+  for (const c of clients.values()) if (c.name) where.set(c.name, c.room ? (c.room.mode === 'range' ? '🎯 무기 시험장' : `${c.room.icon} ${c.room.title}`) : '🏠 로비');
+  return Object.entries(accounts).filter(([, a]) => !a.banned)
+    .map(([n, a]) => ({ n, on: where.has(n), w: where.get(n) || '', ls: a.lastSeen || 0 }))
+    .sort((x, y) => (y.on - x.on) || (y.ls - x.ls)).slice(0, 80);
+}
 function lobbyInfo() {
   return {
-    t: 'lobby', top: ranking().slice(0, 10),
+    t: 'lobby', top: ranking().slice(0, 10), people: peopleList(),
     rooms: [...rooms.values()].filter(r => r.mode !== 'range').map(r => {
       const o = { id: r.id, icon: r.icon, title: r.title, desc: r.desc, count: r.players.size, max: MAX_PLAYERS };
       if (r.mode === 'wave') { const wb = waveRecord(r); if (wb) o.note = `🏆 최고 기록: 웨이브 ${wb.wave} (${wb.names.join(', ')})`; }
@@ -2033,8 +2041,21 @@ setInterval(() => {
   for (const a of admins) a.send(s);
 }, 1000);
 
+// 🔑 비밀번호 다시 정해 주기 (비밀번호는 암호처럼 바꿔서 저장해서, 원래 비밀번호는 아무도 볼 수 없어요)
+function setPassword(a, pw) { const salt = crypto.randomBytes(16).toString('hex'); a.salt = salt; a.hash = hashPassword(pw, salt); }
 function handleAdminCommand(ws, msg) {
   if (msg.t === 'rpsAccept' || msg.t === 'rpsDecline' || msg.t === 'rpsPick') return handleRpsAdmin(msg);
+  if (msg.t === 'resetPw') {
+    const name = String(msg.name || ''), a = acct(name);
+    if (!a || isAdminName(name)) return;
+    let pw = String(msg.pw || '').trim();
+    if (!pw) pw = String(1000 + crypto.randomInt(9000)); // 안 쓰면 숫자 4자리로 만들어 줘요
+    if (pw.length < 4 || pw.length > 50) return ws.send(JSON.stringify({ t: 'pwReset', name, error: '비밀번호는 4글자 이상이어야 해요.' }));
+    setPassword(a, pw); saveAccounts();
+    chatLog.push({ time: new Date().toISOString(), from: '관리자', where: '비밀번호', text: `${name} 비밀번호를 새로 정해 줬어요` });
+    ws.send(JSON.stringify({ t: 'pwReset', name, pw }));
+    return;
+  }
   switch (msg.t) {
     case 'kick': {
       const c = clients.get(Number(msg.id));
@@ -2301,6 +2322,14 @@ function handlePlayer(ws, token, ip) {
     else if (msg.t === 'mgStart' || msg.t === 'mgEnd') handleMinigame(c, msg);
     else if (msg.t === 'rpsReq' || msg.t === 'rpsCancel' || msg.t === 'rpsPick') handleRpsUser(c, msg);
     else if (msg.t === 'dmSeen') dmSeenByUser(c);
+    else if (msg.t === 'changePw') { // 내 비밀번호 바꾸기
+      const a = acct(c.name), note = text => sendTo(c, { t: 'pwResult', text });
+      const old = String(msg.old || ''), nw = String(msg.pw || '');
+      if (!a || isAdminName(c.name)) return note('관리자 비밀번호는 Render 설정에서 바꿔요.');
+      if (!safeEqual(hashPassword(old, a.salt), a.hash)) return note('지금 비밀번호가 틀렸어요.');
+      if (nw.length < 4 || nw.length > 50) return note('새 비밀번호는 4글자 이상이어야 해요.');
+      setPassword(a, nw); saveAccounts(); note('✅ 비밀번호를 바꿨어요!');
+    }
     else if (msg.t === 'vote') handleVote(c, String(msg.map));
     else if (msg.t === 'give') { // 코인 보내기 버튼
       const to = String(msg.to || '').trim().replace(/\s+/g, ''), n = Math.floor(Number(msg.n));
@@ -2326,6 +2355,7 @@ function handlePlayer(ws, token, ip) {
   ws.onclose = () => {
     leaveRoom(c);
     if (clients.get(c.id) === c) clients.delete(c.id);
+    const a = acct(c.name); if (a) { a.lastSeen = Date.now(); saveAccounts(); } // 마지막 접속 시간
   };
 }
 
