@@ -1179,6 +1179,7 @@ function onMessage(m) {
     }
     case 'respawn':
       Object.assign(me, { x: m.x, y: m.y, z: m.z, yaw: m.yaw, pitch: 0, vy: 0, alive: true, hp: m.hp ?? cfg.maxHp });
+      { const mp = roomPlayers.get(myId); if (mp) Object.assign(mp, { x: m.x, y: m.y, z: m.z, a: 1, hp: me.hp }); } // 예전 '쓰러짐' 정보가 남아서 다시 눕지 않게
       ammo = m.ammo ?? WP().mag; reloadUntil = 0; items = m.items || {}; me.crouch = false; H = STAND_H; touchCrouch = false; dashUntil = 0; knock.x = knock.z = 0; buffUntil = 0; bowCharge = 0; burstLeft = 0; setZoom(false); updateWeaponButtons();
       clearInterval(reviveTimer); if (/부활|일어나요|기다려요/.test($('center').textContent)) center('', 0);
       if (gameOverOpen()) hideGameOver(); // 살아났는데 게임오버 창이 남아 있지 않게
