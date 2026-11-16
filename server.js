@@ -9,7 +9,7 @@ const crypto = require('crypto');
 
 // ---------- 설정 ----------
 const PORT = process.env.PORT || 3000;
-const ENTRY_PASSWORD = process.env.ENTRY_PASSWORD || '0602';
+
 // 관리자 비밀번호는 코드에 적지 않고, 호스팅 사이트의 환경변수 ADMIN_PASSWORD 로 넣어요.
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 // 관리자 계정 닉네임 (게임 안에서 이름 옆에 👑, 코인 무한)
@@ -163,6 +163,27 @@ const SHOP = [
   { id: 'f_cat', type: 'face', name: '고양이 입', icon: '😺', price: 30 },
   { id: 'f_star', type: 'face', name: '반짝 눈', icon: '🤩', price: 40 },
   { id: 'f_heart', type: 'face', name: '하트 눈', icon: '😍', price: 40 },
+  // 그림 얼굴 (사진 스타일을 참고해서 새로 그렸어요)
+  { id: 'f_squint', type: 'face', name: '찡긋 >_<', icon: '😆', price: 50 },
+  { id: 'f_xd', type: 'face', name: '활짝 >▽<', icon: '😝', price: 50 },
+  { id: 'f_kawaii', type: 'face', name: '반짝 하트 눈', icon: '💖', price: 70 },
+  { id: 'f_starry', type: 'face', name: '별빛 눈', icon: '🌟', price: 70 },
+  { id: 'f_glossy', type: 'face', name: '초롱초롱 큰 눈', icon: '🥺', price: 60 },
+  { id: 'f_closed', type: 'face', name: '눈웃음', icon: '☺️', price: 60 },
+  { id: 'f_cry', type: 'face', name: '엉엉', icon: '😭', price: 50 },
+  { id: 'f_dizzy', type: 'face', name: '빙글빙글', icon: '😵‍💫', price: 50 },
+  { id: 'f_hearteyes', type: 'face', name: '분홍 하트 눈', icon: '😍', price: 60 },
+  { id: 'f_smug', type: 'face', name: '시크', icon: '😏', price: 50 },
+  { id: 'f_derp', type: 'face', name: '메롱', icon: '😛', price: 40 },
+  { id: 'f_round', type: 'face', name: '동그란 눈', icon: '😶', price: 40 },
+  { id: 'f_mad', type: 'face', name: '흥! 💢', icon: '😤', price: 50 },
+  { id: 'f_uwu', type: 'face', name: 'uwu', icon: '🥰', price: 40 },
+  { id: 'f_beam', type: 'face', name: '방긋', icon: '😁', price: 40 },
+  // ✏️ 직접 그린 얼굴
+  { id: 'f_my1', type: 'face', name: '✏️ 메롱 히죽', icon: '😜', price: 50 },
+  { id: 'f_my2', type: 'face', name: '✏️ 울먹울먹', icon: '🥹', price: 50 },
+  { id: 'f_my3', type: 'face', name: '✏️ 멍~ 메롱', icon: '😛', price: 50 },
+  { id: 'f_my4', type: 'face', name: '✏️ 부끄부끄', icon: '😌', price: 50 },
   // 눈 색
   { id: 'e_brown', type: 'ecolor', name: '갈색', color: '#6b3e1f', price: 0 },
   { id: 'e_blue', type: 'ecolor', name: '파랑', color: '#2f6fd6', price: 0 },
@@ -1754,11 +1775,8 @@ function inviteCode() {
   if (!a.invite) { a.invite = 'inv-' + crypto.randomBytes(6).toString('hex'); saveAccounts(); }
   return a.invite;
 }
-function entryOk(code) {
-  code = String(code || '');
-  if (safeEqual(code, ENTRY_PASSWORD)) return true;
-  return code.startsWith('inv-') && safeEqual(code, inviteCode());
-}
+// 입장 비밀번호는 없앴어요 (누구나 바로 가입/로그인 화면으로)
+function entryOk() { return true; }
 
 // ---------- 관리자에게 문자 ----------
 // ---------- 💬 관리자 갠톡 (플레이어마다 대화방 하나) ----------

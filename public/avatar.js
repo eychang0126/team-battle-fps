@@ -29,6 +29,7 @@ export const DEFAULT_HAIR = { m: 'h_short', f: 'h_long', n: 'h_bob' };
 const DEFAULT_SKIN = 0xffdcc0;
 const DEFAULT_HAIR_COLOR = 0x6b4423;
 // 머리 윗부분을 덮는 모자 (이 모자를 쓰면 위로 솟은 머리카락은 모자 속에 들어가요)
+import { FACES_2D, FACE2D_W, FACE2D_H } from './faces2d.js';
 const COVER_HATS = new Set(['cap', 'beanie', 'helmet', 'tophat', 'octopus', 'santa']);
 
 const lam = (c, extra = {}) => new THREE.MeshLambertMaterial({ color: c, ...extra });
@@ -286,7 +287,32 @@ function starShape(s) {
   }
   return st;
 }
+// 그림 얼굴: 캔버스에 그린 얼굴을 머리 앞면(둥근 원기둥)에 붙여요
+const face2dCache = new Map();
+// ✏️ 직접 그린 얼굴 그림 (public/faces/ 안의 그림 파일)
+const IMAGE_FACES = { f_my1: 'faces/my1.png', f_my2: 'faces/my2.png', f_my3: 'faces/my3.png', f_my4: 'faces/my4.png' };
+function makeFace2D(parent, face, eyeColor) {
+  const key = face + ':' + eyeColor;
+  let tex = face2dCache.get(key);
+  if (!tex && IMAGE_FACES[face]) {
+    tex = new THREE.TextureLoader().load(new URL(IMAGE_FACES[face], import.meta.url).href);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    face2dCache.set(key, tex);
+  }
+  if (!tex) {
+    const cv = document.createElement('canvas'); cv.width = FACE2D_W; cv.height = FACE2D_H;
+    FACES_2D[face](cv.getContext('2d'), eyeColor === 0x1b1b1b ? 0x5a4636 : eyeColor); // 눈 색 안 골랐으면 갈색 눈
+    tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    face2dCache.set(key, tex);
+  }
+  const span = 1.6; // 얼굴이 감싸는 각도
+  const geo = new THREE.CylinderGeometry(R + 0.004, R + 0.004, 0.4, 24, 1, true, Math.PI - span / 2, span);
+  const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.03, depthWrite: false }));
+  m.position.y = HEAD_Y; m.renderOrder = 1;
+  parent.add(m);
+}
 export function makeFace(parent, face, gender, eyeColor) {
+  if ((FACES_2D[face] || IMAGE_FACES[face]) && typeof document !== 'undefined') return makeFace2D(parent, face, eyeColor);
   const g = new THREE.Group(); g.position.y = HEAD_Y; g.scale.set(FK, FK, FK); parent.add(g);
   const HY = 0, R = FR; // 이 안에서는 가상 좌표
   const EY = HY + 0.03, MY = HY - 0.11, DARK = 0x1b1b1b;

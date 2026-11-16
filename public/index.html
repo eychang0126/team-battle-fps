@@ -303,7 +303,7 @@
 <body>
 
 <!-- 1단계: 입장 비밀번호 -->
-<div class="screen on" id="s-entry">
+<div class="screen" id="s-entry">
   <div class="card">
     <h1><span class="r">팀</span> 배틀 <span class="b">FPS</span></h1>
     <p class="sub">입장 비밀번호를 입력하세요</p>
@@ -316,7 +316,7 @@
 </div>
 
 <!-- 2단계: 로그인 / 회원가입 -->
-<div class="screen" id="s-auth">
+<div class="screen on" id="s-auth">
   <div class="card">
     <h1>계정</h1>
     <p class="sub">처음이면 계정을 만들고, 있으면 로그인하세요</p>
@@ -586,7 +586,7 @@ $('f-auth').onsubmit = async e => {
     connect(r.token);
   } catch (err) {
     $('auth-err').textContent = err.message;
-    if (err.message.includes('입장 비밀번호')) { sessionStorage.removeItem('entryCode'); show('s-entry'); }
+
   }
 };
 
@@ -1197,7 +1197,7 @@ $('btn-invite').onclick = () => copyLink(inviteLink(), '초대 링크');
   }
   const savedToken = sessionStorage.getItem('token');
   if (savedToken) connect(savedToken);
-  else if (entryCode) show('s-auth');
+  else show('s-auth'); // 입장 비밀번호 없이 바로 가입/로그인
 })();
 </script>
 </body>
