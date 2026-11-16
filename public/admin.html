@@ -104,6 +104,28 @@
     </div>
 
     <div class="card">
+      <h2 style="margin:0 0 8px">💬 갠톡 <span id="dm-unread" style="color:#ff7070"></span></h2>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:180px;max-width:260px">
+          <form class="row" id="f-dmto" style="margin-bottom:8px">
+            <input id="dm-to" list="dm-names" placeholder="아이디로 새 갠톡" style="flex:1">
+            <datalist id="dm-names"></datalist>
+            <button class="blue">열기</button>
+          </form>
+          <div id="dm-list" style="max-height:300px;overflow-y:auto"></div>
+        </div>
+        <div style="flex:2;min-width:260px">
+          <div id="dm-who" style="font-weight:700;margin-bottom:6px;color:#aab3c7">왼쪽에서 사람을 고르세요</div>
+          <div id="dm-log" style="height:260px;overflow-y:auto;background:#0f131c;border:1px solid #2a3245;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px"></div>
+          <form class="row" id="f-dm" style="margin-top:8px">
+            <input id="dm-text" maxlength="300" placeholder="메시지 (Enter로 보내기)" style="flex:1" disabled>
+            <button class="blue" id="dm-send" disabled>보내기</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
       <div class="row" style="justify-content:space-between;margin-bottom:10px">
         <h2 style="margin:0">📨 받은 문자 <span id="inbox-unread" style="color:#ff7070"></span></h2>
         <button onclick="cmd({t:'inboxRead'})">모두 읽음</button>
@@ -125,8 +147,9 @@
       <h2>코인 주기 / 빼기</h2>
       <form class="row" id="f-coin">
         <input id="coinname" placeholder="아이디" style="flex:1">
-        <input id="coinn" type="number" placeholder="코인 (빼려면 -20처럼)" style="width:200px">
-        <button class="blue">🪙 적용</button>
+        <input id="coinn" type="number" min="1" placeholder="코인 수" style="width:140px">
+        <button class="blue" type="submit">🪙 주기</button>
+        <button class="danger" type="button" id="btn-take">➖ 빼기</button>
       </form>
       <div class="row" style="margin-top:10px">
         <input id="alln" type="number" min="1" placeholder="모두에게 줄 코인" style="width:200px">
@@ -183,6 +206,11 @@ function connect() {
     const m = JSON.parse(e.data);
     if (m.t === 'denied') { sessionStorage.removeItem('adminToken'); $('panel').style.display = 'none'; $('login').style.display = 'block'; return; }
     if (m.t === 'admin') render(m);
+    if (m.t === 'dmThread' && m.name === dmWho) { dmMsgs = m.list; drawDm(); }
+    if (m.t === 'dmNew') {
+      if (m.name === dmWho) { dmMsgs.push(m.msg); drawDm(); if (m.msg.who === 'u') cmd({ t: 'dmOpen', name: dmWho }); }
+      else if (m.msg.who === 'u' && window.Notification && Notification.permission === 'granted') new Notification('💬 ' + m.name + ' 님의 갠톡', { body: m.msg.text });
+    }
   };
   ws.onclose = () => { if ($('panel').style.display === 'block') setTimeout(connect, 2000); };
 }
@@ -211,6 +239,7 @@ function render(m) {
   renderInbox(m.inbox || []);
   renderRps(m.rps || []);
   renderAccounts(m.accountList || []);
+  renderDmList(m.dms || [], m.accountList || []);
   $('list').innerHTML = m.players.map(p => `
     <tr>
       <td>${esc(p.name)}</td>
@@ -271,6 +300,7 @@ function renderAccounts(list) {
       <td>${x.coins}</td>
       <td>${status}</td>
       <td class="row" style="justify-content:flex-end">${x.admin ? '' : `
+        <button onclick="takeFromRow('${n}')">➖ 코인 빼기</button>
         ${x.banned ? `<button class="green" onclick="cmd({t:'ban', name:'${n}', on:false})">밴 풀기</button>`
                    : `<button onclick="if(confirm('${n} 계정을 밴할까요? 로그인을 못 하게 돼요.')) cmd({t:'ban', name:'${n}', on:true})">⛔ 밴</button>`}
         <button class="danger" onclick="if(confirm('${n} 계정을 완전히 삭제할까요? 코인, 트로피, 산 물건이 모두 사라지고 되돌릴 수 없어요.')) cmd({t:'deleteAccount', name:'${n}'})">🗑 삭제</button>`}</td>
@@ -278,6 +308,41 @@ function renderAccounts(list) {
   }).join('') || '<tr><td colspan="6" style="color:#6e7891">계정이 없어요.</td></tr>';
 }
 let lastInboxKey = '';
+// ---------- 💬 갠톡 ----------
+let dmWho = null, dmMsgs = [], lastDmKey = '';
+const dmTime = at => { const d = new Date(at); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+function renderDmList(list, accounts) {
+  const key = JSON.stringify(list) + accounts.length;
+  if (key === lastDmKey) return; lastDmKey = key;
+  const unread = list.reduce((s, x) => s + x.unread, 0);
+  $('dm-unread').textContent = unread ? `(안 읽음 ${unread})` : '';
+  $('dm-names').innerHTML = accounts.filter(a => !a.admin).map(a => `<option value="${esc(a.name)}">`).join('');
+  $('dm-list').innerHTML = list.length ? list.map(x => `<div class="dmitem" data-n="${esc(x.name)}" style="padding:8px;border-radius:8px;cursor:pointer;margin-bottom:4px;background:${x.name === dmWho ? '#24324d' : '#171d2a'}">
+      <b>${esc(x.name)}</b> ${x.unread ? `<span style="background:#ff4d4f;border-radius:999px;padding:0 7px;font-size:12px">${x.unread}</span>` : ''}
+      <div style="color:#8a93a8;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(x.last)}</div></div>`).join('')
+    : '<div style="color:#6f7890">아직 대화가 없어요</div>';
+  document.querySelectorAll('.dmitem').forEach(d => d.onclick = () => openDm(d.dataset.n));
+}
+function openDm(name) {
+  dmWho = name; dmMsgs = [];
+  $('dm-who').textContent = `💬 ${name} 님과의 갠톡`;
+  $('dm-text').disabled = $('dm-send').disabled = false; $('dm-text').focus();
+  lastDmKey = ''; drawDm();
+  cmd({ t: 'dmOpen', name });
+}
+function drawDm() {
+  $('dm-log').innerHTML = dmMsgs.length ? dmMsgs.map(m => `<div style="max-width:80%;padding:7px 11px;border-radius:12px;font-size:14px;word-break:break-word;${m.who === 'a' ? 'align-self:flex-end;background:#2b6fd1' : 'align-self:flex-start;background:#262f42'}">${esc(m.text)}<span style="display:block;font-size:10px;opacity:.65">${dmTime(m.at)}</span></div>`).join('')
+    : '<div style="color:#6f7890;margin:auto">아직 대화가 없어요. 먼저 보내 보세요!</div>';
+  $('dm-log').scrollTop = 1e6;
+}
+$('f-dmto').onsubmit = e => { e.preventDefault(); const n = $('dm-to').value.trim(); if (n) { openDm(n); $('dm-to').value = ''; } };
+$('f-dm').onsubmit = e => {
+  e.preventDefault();
+  const text = $('dm-text').value.trim();
+  if (!dmWho || !text) return;
+  cmd({ t: 'dm', to: dmWho, text }); $('dm-text').value = '';
+};
+try { if (window.Notification && Notification.permission === 'default') Notification.requestPermission(); } catch { }
 let lastRpsKey = '';
 function renderRps(list) {
   const key = JSON.stringify(list);
@@ -336,9 +401,23 @@ function giveAllAdmin(scope) {
   if (confirm(`${scope === 'all' ? '가입한 계정 모두' : '지금 접속한 사람 모두'}에게 🪙 ${n}코인씩 줄까요?`)) { cmd({ t: 'giveAll', n, scope }); $('alln').value = ''; }
 }
 $('f-coin').onsubmit = e => {
-  e.preventDefault(); const name = $('coinname').value.trim(), n = +$('coinn').value;
+  e.preventDefault(); const name = $('coinname').value.trim(), n = Math.abs(Math.floor(+$('coinn').value));
   if (name && n) { cmd({ t: 'giveCoins', name, n }); $('coinn').value = ''; }
 };
+// 코인 빼기 (가진 것보다 많이 빼면 마이너스가 돼요)
+function takeCoins(name, n) {
+  if (!name) return alert('아이디를 써 주세요.');
+  if (n === 'all') { if (confirm(`${name}의 코인을 전부 뺏을까요? (0개가 돼요)`)) cmd({ t: 'giveCoins', name, all: true }); return; }
+  n = Math.abs(Math.floor(+n));
+  if (!(n >= 1)) return alert('1 이상의 숫자를 써 주세요.');
+  if (confirm(`${name}에게서 🪙 ${n}코인을 뺏을까요? (모자라면 마이너스가 돼요)`)) cmd({ t: 'giveCoins', name, n: -n });
+}
+$('btn-take').onclick = () => { takeCoins($('coinname').value.trim(), $('coinn').value); $('coinn').value = ''; };
+function takeFromRow(name) {
+  const v = prompt(`${name}에게서 뺏을 코인 수를 써 주세요\n(가진 것보다 많이 쓰면 마이너스, "전부"라고 쓰면 0개로)`);
+  if (v === null) return;
+  takeCoins(name, v.trim() === '전부' ? 'all' : v);
+}
 $('btn-down').onclick = () => { if (confirm('정말 전체 셧다운할까요? 모두 게임에서 나가져요.')) cmd({ t: 'shutdown' }); };
 $('btn-open').onclick = () => cmd({ t: 'reopen' });
 

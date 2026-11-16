@@ -142,6 +142,7 @@
   .stabs button { width: auto; margin: 0; padding: 7px 14px; font-size: 14px; background: #232a3a; color: #9aa3b8; }
   .stabs button.on { background: #4da3ff; color: #0b1020; }
   .items { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+  .item .infob { width: auto; margin: 4px auto; padding: 3px 10px; font-size: 12px; background: #232a3a; color: #c9d3e6; display: block; }
   .item { background: #181d29; border: 1px solid #2a3142; border-radius: 12px; padding: 12px 8px; text-align: center; }
   .item.eq { border-color: #6fe39a; }
   .item .ic { font-size: 34px; height: 42px; display: flex; align-items: center; justify-content: center; }
@@ -218,6 +219,12 @@
   #mg-canvas { max-width: 100%; max-height: 78vh; border-radius: 12px; touch-action: none; background: #000; }
   #mg-bar { display: flex; gap: 10px; align-items: center; color: #fff; }
   #mg-msg { color: #ffd43b; font-weight: 700; min-height: 22px; text-align: center; }
+  #dm-log { height: 240px; overflow-y: auto; background: #0f131c; border: 1px solid #2f3749; border-radius: 10px; padding: 10px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 6px; text-align: left; }
+  #dm-log .b { max-width: 80%; padding: 7px 11px; border-radius: 12px; font-size: 14px; line-height: 1.4; word-break: break-word; }
+  #dm-log .b.u { align-self: flex-end; background: #2b6fd1; color: #fff; border-bottom-right-radius: 4px; }
+  #dm-log .b.a { align-self: flex-start; background: #262f42; color: #fff; border-bottom-left-radius: 4px; }
+  #dm-log .tm { display: block; font-size: 10px; opacity: .65; margin-top: 2px; }
+  #dm-log .empty { color: #6f7890; text-align: center; margin: auto; }
   #manual { display: none; position: fixed; inset: 0; z-index: 70; background: rgba(5,8,14,.88); align-items: center; justify-content: center; padding: 12px; }
   #manual.on { display: flex; }
   #manual .mbox { background: #141a26; border: 1px solid #2f3749; border-radius: 16px; width: min(760px, 100%); max-height: 92vh; display: flex; flex-direction: column; color: #e8ecf4; }
@@ -233,6 +240,15 @@
   #manual th { color: #8a93a8; font-weight: 600; }
   #manual kbd { background: #232a3a; border: 1px solid #3a4357; border-bottom-width: 3px; border-radius: 6px; padding: 0 6px; font-size: 13px; white-space: nowrap; }
   #manual .tip { background: #1d2a3f; border-left: 4px solid #4da3ff; padding: 8px 10px; border-radius: 6px; margin: 8px 0; }
+  #gameover { display: none; position: fixed; inset: 0; z-index: 45; background: rgba(40,0,0,.55); align-items: center; justify-content: center; padding: 16px; }
+  #gameover .go-box { background: #141a26; border: 2px solid #ff6b6b; border-radius: 18px; padding: 24px 28px; text-align: center; color: #fff; max-width: 440px; width: 100%; }
+  #gameover .go-t { font-size: 40px; font-weight: 900; color: #ff6b6b; }
+  #gameover .go-s { font-size: 18px; margin: 8px 0; }
+  #gameover .go-k { color: #c9d3e6; font-size: 14px; margin: 4px 0; }
+  #gameover .go-q { font-size: 20px; font-weight: 800; margin: 16px 0 10px; }
+  #gameover .go-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  #gameover .go-btns button { width: auto; margin: 0; padding: 12px 22px; font-size: 17px; }
+  #gameover .go-sub { background: #232a3a; color: #c9d3e6; }
   #wpick { display: none; position: fixed; inset: 0; z-index: 40; background: rgba(8,12,22,.82); flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 16px; color: #fff; }
   #wpick .wp-title { font-size: 24px; font-weight: 800; }
   #wpick .wp-time { background: #ffd43b; color: #000; border-radius: 999px; padding: 2px 12px; margin-left: 8px; font-size: 18px; }
@@ -329,13 +345,14 @@
   <div class="lobby">
     <div class="lobby-top">
       <h1>🎮 게임 고르기</h1>
-      <div><span class="trophy" id="lobby-trophy">🏆 0</span><span class="coins" id="lobby-coins">🪙 0</span><button type="button" class="gbtn" id="btn-give">🎁 코인 보내기</button><button type="button" class="gbtn" id="btn-toadmin">📨 관리자에게 문자</button><button type="button" class="gbtn" id="btn-invite">🔗 초대 링크 복사</button><button type="button" class="gbtn" id="btn-keys">⌨️ 키 설정</button><button type="button" class="gbtn" id="btn-manual">📖 설명서</button><button type="button" class="gbtn" id="btn-rps">✊ 관리자와 가위바위보</button><span class="who" id="lobby-who"></span><button type="button" id="btn-logout">로그아웃</button></div>
+      <div><span class="trophy" id="lobby-trophy">🏆 0</span><span class="coins" id="lobby-coins">🪙 0</span><button type="button" class="gbtn" id="btn-give">🎁 코인 보내기</button><button type="button" class="gbtn" id="btn-toadmin">💬 관리자와 갠톡 <span id="dm-badge" style="display:none;background:#ff4d4f;color:#fff;border-radius:999px;padding:0 7px;font-size:12px;margin-left:2px"></span></button><button type="button" class="gbtn" id="btn-invite">🔗 초대 링크 복사</button><button type="button" class="gbtn" id="btn-keys">⌨️ 키 설정</button><button type="button" class="gbtn" id="btn-manual">📖 설명서</button><button type="button" class="gbtn" id="btn-rps">✊ 관리자와 가위바위보</button><span class="who" id="lobby-who"></span><button type="button" id="btn-logout">로그아웃</button></div>
     </div>
     <div id="announce-lobby"></div>
     <div class="rooms" id="rooms"><div style="color:#8a93a8">불러오는 중…</div></div>
     <h3 style="margin:16px 0 8px">🎮 미니게임 <small style="color:#8a93a8;font-weight:400">혼자 하는 간단한 게임</small></h3>
     <div class="mgcards">
       <button type="button" class="mgcard" data-mg="flappy"><span class="mgi">🐤</span><b>플래피 버드</b><small>토관 20개 넘으면 🪙 20</small><small class="mgbest" id="mgb-flappy"></small></button>
+      <button type="button" class="mgcard" id="mg-range"><span class="mgi">🎯</span><b>무기 시험장</b><small>좀비 3마리로 모든 무기 연습</small><small class="mgbest">코인·트로피 없음</small></button>
       <button type="button" class="mgcard" data-mg="dino"><span class="mgi">🦖</span><b>공룡 달리기</b><small>1000점 넘으면 🪙 20</small><small class="mgbest" id="mgb-dino"></small></button>
     </div>
     <div id="lobby-notice"></div>
@@ -372,9 +389,11 @@
           <button type="button" data-type="hcolor">🌈 머리 색</button>
           <button type="button" data-type="bcolor">👕 윗옷 색</button>
           <button type="button" data-type="pcolor">👖 바지 색</button>
+          <button type="button" data-type="glasses">👓 안경</button>
           <button type="button" data-type="wing">🦋 날개</button>
           <button type="button" data-type="tail">🐾 꼬리</button>
           <button type="button" data-type="weapon">🔫 무기</button>
+          <button type="button" data-type="armory">🎒 내 무기</button>
         </div>
         <div class="items" id="items"></div>
       </div>
@@ -418,6 +437,14 @@
   <canvas id="mg-canvas"></canvas>
   <div id="mg-msg"></div>
 </div>
+<div id="wd-modal" class="modal">
+  <div class="card" style="max-width:440px;text-align:center">
+    <div id="wd-body"></div>
+    <button type="button" id="wd-try">🎯 시험장에서 써 보기 <small>(좀비 3마리 · 코인 없음)</small></button>
+    <button type="button" id="wd-arm" style="background:#2f6b3a">🎒 업그레이드 · 색 바꾸기</button>
+    <button type="button" id="wd-close" style="background:#232a3a;color:#9aa3b8">닫기</button>
+  </div>
+</div>
 <div id="rps-modal" class="modal">
   <div class="card" style="max-width:420px;text-align:center">
     <h1>✊✋✌️ 관리자와 가위바위보</h1>
@@ -436,13 +463,14 @@
 </div>
 <div id="ta-modal" class="modal">
   <div class="card">
-    <h1>📨 관리자에게 문자</h1>
-    <p class="sub">관리자만 볼 수 있어요. 버그 제보, 건의, 신고 등을 보내 주세요.</p>
+    <h1>💬 관리자와 갠톡</h1>
+    <p class="sub">나랑 관리자만 볼 수 있어요. 버그 제보, 건의, 신고도 여기로!</p>
+    <div id="dm-log"></div>
     <form id="f-ta">
-      <textarea id="ta-text" maxlength="200" rows="4" placeholder="내용 (200자까지)"
+      <textarea id="ta-text" maxlength="200" rows="2" placeholder="내용 (200자까지)"
         style="width:100%;padding:12px;border-radius:10px;border:1px solid #2f3749;background:#0f131c;color:#fff;font-size:15px;resize:vertical;font-family:inherit"></textarea>
       <button type="submit">보내기</button>
-      <button type="button" id="ta-cancel" style="background:#232a3a;color:#9aa3b8">취소</button>
+      <button type="button" id="ta-cancel" style="background:#232a3a;color:#9aa3b8">닫기</button>
       <div class="err" id="ta-msg"></div>
     </form>
   </div>
@@ -483,6 +511,7 @@
     <div id="btn-alt" class="tbtn touchui" style="display:none">🔭</div>
     <div id="scope"></div>
     <div id="wpick"></div>
+    <div id="gameover"></div>
     <div id="flashov" style="position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:6"></div>
   </div>
   <div id="rotate"><div class="ph">📱</div>화면을 가로로 돌려 주세요<br><small style="color:#8a93a8">(자동 회전이 꺼져 있으면 켜 주세요)</small></div>
@@ -601,7 +630,7 @@ function connect(token) {
       $('lobby-notice').textContent = m.text; lchat(`⚠️ ${esc(m.text)}`, 'sys');
       if (taWaiting) {
         $('ta-msg').textContent = m.text;
-        if (m.text.includes('보냈어요')) { taWaiting = false; $('ta-text').value = ''; setTimeout(() => $('ta-modal').classList.remove('on'), 1200); }
+        if (m.text.includes('보냈어요')) { taWaiting = false; $('ta-text').value = ''; $('ta-msg').textContent = ''; }
         else if (!m.text.startsWith('📩')) taWaiting = false;
       }
       if (giveWaiting) {
@@ -619,6 +648,12 @@ function connect(token) {
       }
     }
     else if (m.t === 'rps') renderRps(m);
+    else if (m.t === 'dmThread') { dmList = m.list || []; setDmBadge(m.unread || 0); if (dmOpen()) renderDm(); }
+    else if (m.t === 'dm') {
+      dmList.push(m.msg); if (dmList.length > 100) dmList.shift();
+      if (dmOpen()) { renderDm(); ws.send(JSON.stringify({ t: 'dmSeen' })); }
+      else if (m.msg.who === 'a') { setDmBadge(m.unread); lchat(`📩 <b>👑 관리자</b>의 갠톡: ${esc(m.msg.text)} <small>(💬 버튼으로 답장)</small>`, 'sys'); }
+    }
     else if (m.t === 'announce') {
       const a = $('announce-lobby'); a.textContent = '📢 ' + m.text; a.style.display = 'block';
       setTimeout(() => (a.style.display = 'none'), 7000);
@@ -734,6 +769,8 @@ function renderRps(m) {
   $('btn-rps').textContent = m.state === 'playing' ? '✊ 가위바위보 (지금 하는 중!)' : m.state === 'pending' ? '✊ 가위바위보 (기다리는 중)' : '✊ 관리자와 가위바위보';
 }
 $('btn-rps').onclick = () => { $('rps-msg').textContent = ''; if (rpsState) renderRps({ ...rpsState, msg: '' }); $('rps-modal').classList.add('on'); };
+$('wd-close').onclick = () => $('wd-modal').classList.remove('on');
+$('wd-modal').onclick = e => { if (e.target.id === 'wd-modal') $('wd-modal').classList.remove('on'); };
 $('rps-close').onclick = () => $('rps-modal').classList.remove('on');
 
 // ---------- 🎮 미니게임 ----------
@@ -754,6 +791,7 @@ document.querySelectorAll('.mgcard').forEach(b => b.onclick = async () => {
     hud: () => {},
   });
 });
+$('mg-range').onclick = () => { $('lobby-notice').textContent = ''; ws.send(JSON.stringify({ t: 'join', room: 'range' })); };
 $('mg-close').onclick = () => { if (mgStop) mgStop(); mgStop = null; $('mg-modal').classList.remove('on'); };
 
 // ---------- 📖 설명서 ----------
@@ -811,6 +849,7 @@ function manualPages() {
         <tr><td>🌀 미니건</td><td>400</td><td>120발 계속 쏘기, 재장전이 길어요</td></tr>
         <tr><td>🚀 RPG</td><td>450</td><td>로켓이 터져서 범위 데미지. <b>내 발밑에 쏘면 로켓 점프</b> (나는 안 다쳐요)</td></tr>
       </table>
+      <div class="tip">🎒 상점의 <b>내 무기</b> 칸에서 재장전 업그레이드(3단계)와 무기 색(무기마다 따로)을 살 수 있어요. 무기 카드의 <b>🔍 자세히 보기</b>에서 자세한 숫자를 보고, <b>🎯 무기 시험장</b>에서 안 산 무기도 좀비 3마리로 써 볼 수 있어요 (코인·트로피 없음).</div>
       <div class="tip">💡 머리를 맞히면 더 세요(헤드샷 🎯). 점프 타워·용암 타워에서는 무기를 못 써요.</div>`],
     ['🎒 아이템', `
       <p>상점 → <b>🔫 무기</b> 칸에서 사요. 총을 들고 있다가 아이템 키 하나로 바로 써요. 던지는 건 보고 있는 쪽으로 날아가요.</p>
@@ -826,7 +865,7 @@ function manualPages() {
     ['🕹️ 게임 모드', `
       <h3>🔫 팀 배틀 FPS</h3><p>처음 시작할 때 10초 동안 맵 투표 (🌳 기본 · 🎄 크리스마스 · 🏙️ 도시, 관리자가 고르면 그 맵). 빨강 팀 vs 파랑 팀. 먼저 <b>5킬</b>을 채우는 팀이 이겨요. 이긴 팀은 🪙 20코인 + 🏆 트로피.</p>
       <h3>🧟 좀비 모드</h3><p>맵은 항상 🏙️ 도시. 2명 이상이면 시작. 처음 좀비가 사람을 잡으면 그 사람도 좀비! 인간은 3분 동안 버티면 승리.</p>
-      <h3>🧟‍♂️ 좀비 웨이브 (혼자서도 OK)</h3><p>🏙️ 도시에서 몰려오는 봇 좀비를 막아요. 웨이브마다 좀비가 많아지고 빨라지고 튼튼해져요. 건물 바깥 계단으로 옥상에 올라갈 수 있지만 <b>좀비도 벽을 기어올라 와요</b>! 쓰러지면 다음 웨이브에 부활, 모두 쓰러지면 게임 오버. 웨이브마다 🪙 5코인, 5웨이브마다 🏆.</p>
+      <h3>🧟‍♂️ 좀비 웨이브 (혼자서도 OK)</h3><p>🏙️ 도시에서 몰려오는 봇 좀비를 막아요. 웨이브마다 좀비가 많아지고 빨라지고 튼튼해져요. 건물 바깥 계단으로 옥상에 올라갈 수 있지만 <b>좀비도 벽을 기어올라 와요</b>! 쓰러지면 20초 뒤에 부활, 모두 쓰러지면 게임 오버 (다시 할지 물어봐요). 웨이브마다 🪙 5코인, 5웨이브마다 🏆.</p>
       <h3>🌋 용암 타워 (혼자서도 OK)</h3><p>용암이 아래에서 점점 빨리 올라와요. <b>닿으면 바로 아웃</b>. 꼭대기 🏁에 닿으면 🪙 20코인 (2명 이상이면 1등은 🏆도).</p>
       <h3>🗼 점프 타워</h3><p>탑을 빙글빙글 돌면서 올라가요. 2명 이상이면 경주 시작, 먼저 골인하면 🪙 20 + 🏆. 혼자 깨도 🪙 20. 🔥 작은 빨간 블록은 밟으면 체크포인트로, 많이 떨어져도 체크포인트로 돌아가요.</p>
       <h3>🎮 미니게임 (로비 아래쪽)</h3><p>🐤 <b>플래피 버드</b>: 누르거나 Space로 날갯짓, 토관 20개 넘으면 🪙 20. 🦖 <b>공룡 달리기</b>: Space/↑ 점프(꾹 누르면 더 높이), ↓ 숙이기, 1000점 넘으면 🪙 20. 미니게임은 트로피가 없어요.</p>
@@ -835,13 +874,13 @@ function manualPages() {
       <table>
         <tr><td>🪙 코인 받기</td><td>이기기 20, 좀비 웨이브 클리어 5, 점프 타워·용암 타워 깨기 20, 친구가 보내 주기</td></tr>
         <tr><td>🏆 트로피</td><td>이기면 1개. 로비 순위표에 나와요</td></tr>
-        <tr><td>🛍️ 상점</td><td>모자, 얼굴, 눈 색, 피부, 머리, 머리 색, 윗옷 색, 바지 색, 날개, 꼬리, 무기·아이템. 왼쪽 미리보기에서 바로 볼 수 있어요</td></tr>
+        <tr><td>🛍️ 상점</td><td>모자, 얼굴, 눈 색, 피부, 머리, 머리 색, 윗옷 색, 바지 색, 안경, 날개, 꼬리, 무기·아이템. 왼쪽 미리보기에서 바로 볼 수 있어요</td></tr>
         <tr><td>🎁 코인 보내기</td><td>로비 버튼, 또는 채팅에 <code>/코인 아이디 숫자</code></td></tr>
       </table>`],
     ['💬 채팅·기타', `
       <table>
         <tr><td><code>/코인 아이디 숫자</code></td><td>친구에게 내 코인 보내기</td></tr>
-        <tr><td><code>/관리자 내용</code></td><td>관리자에게만 문자 (로비의 📨 버튼도 돼요)</td></tr>
+        <tr><td><code>/관리자 내용</code></td><td>관리자에게 갠톡 보내기 (로비의 💬 관리자와 갠톡 버튼에서 대화 전체를 볼 수 있어요)</td></tr>
         <tr><td>🔗 초대 링크</td><td>로비에서 복사해서 친구에게 보내면 입장 비밀번호 없이 들어와요. 게임 카드의 🔗는 그 게임으로 바로 가는 링크</td></tr>
         <tr><td>👁 3인칭</td><td>내 캐릭터를 뒤에서 보면서 할 수 있어요</td></tr>
         <tr><td>💬 채팅 버튼</td><td>게임 화면 왼쪽 아래 <b>💬 채팅</b> 버튼, 또는 Esc 화면의 <b>💬 채팅하기</b>. 채팅 창을 열면 예전 채팅도 다 보여요</td></tr>
@@ -865,8 +904,23 @@ $('btn-manual').onclick = () => openManual();
 $('ov-manual').onclick = e => { e.stopPropagation(); if (document.exitPointerLock) document.exitPointerLock(); openManual(); };
 $('manual-close').onclick = e => { e.stopPropagation(); $('manual').classList.remove('on'); };
 $('manual').onclick = e => { e.stopPropagation(); if (e.target.id === 'manual') $('manual').classList.remove('on'); };
-$('btn-toadmin').onclick = () => { $('ta-msg').textContent = ''; $('ta-modal').classList.add('on'); $('ta-text').focus(); };
+// ---------- 💬 관리자와 갠톡 ----------
+let dmList = [];
+const dmTime = at => { const d = new Date(at); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+function renderDm() {
+  const log = $('dm-log');
+  log.innerHTML = dmList.length ? dmList.map(m => `<div class="b ${m.who}">${m.who === 'a' ? '<b>👑 관리자</b><br>' : ''}${esc(m.text)}<span class="tm">${dmTime(m.at)}</span></div>`).join('')
+    : '<div class="empty">아직 대화가 없어요. 관리자에게 먼저 말 걸어 봐요!</div>';
+  log.scrollTop = 1e6;
+}
+function setDmBadge(n) { const b = $('dm-badge'); b.style.display = n ? '' : 'none'; b.textContent = n; }
+const dmOpen = () => $('ta-modal').classList.contains('on');
+$('btn-toadmin').onclick = () => {
+  $('ta-msg').textContent = ''; renderDm(); $('ta-modal').classList.add('on'); $('ta-text').focus();
+  setDmBadge(0); ws && ws.send(JSON.stringify({ t: 'dmSeen' }));
+};
 $('ta-cancel').onclick = () => $('ta-modal').classList.remove('on');
+$('ta-text').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('f-ta').requestSubmit(); } }); // Enter = 보내기
 $('ta-modal').onclick = e => { if (e.target.id === 'ta-modal') $('ta-modal').classList.remove('on'); };
 $('f-ta').onsubmit = e => {
   e.preventDefault();
@@ -903,6 +957,7 @@ const NONE = {
   wing: { icon: '🚫', name: '없음' }, tail: { icon: '🚫', name: '없음' },
   bcolor: { icon: '<div class="sw" style="background:#3d8bff"></div>', name: '기본 파랑' },
   pcolor: { icon: '👕', name: '윗옷 색에 맞추기' },
+  glasses: { icon: '🚫', name: '안경 없음' },
 };
 document.querySelectorAll('#gsel button').forEach(b => b.onclick = () => ws && ws.send(JSON.stringify({ t: 'gender', g: b.dataset.g })));
 
@@ -937,7 +992,7 @@ async function initPreview() {
 function updatePreview() {
   if (!pv || !me) return;
   const e = me.equip;
-  const look = [e.hat || '', e.face || '', e.skin || '', e.hair || '', e.hcolor || '', me.gender || 'n', e.ecolor || '', e.wing || '', e.tail || '', e.bcolor || '', e.pcolor || ''];
+  const look = [e.hat || '', e.face || '', e.skin || '', e.hair || '', e.hcolor || '', me.gender || 'n', e.ecolor || '', e.wing || '', e.tail || '', e.bcolor || '', e.pcolor || '', e.glasses || ''];
   const key = look.join(',');
   if (key === pvKey) return; pvKey = key;
   if (pv.char) pv.sc.remove(pv.char);
@@ -960,6 +1015,7 @@ function renderShop() {
   updatePreview();
   document.querySelectorAll('#gsel button').forEach(b => b.classList.toggle('on', b.dataset.g === me.gender));
 
+  if (shopType === 'armory') return renderArmory();
   const list = shop.filter(i => i.type === shopType || (shopType === 'weapon' && i.type === 'gadget'));
   const isW = shopType === 'weapon'; // 무기는 '없음'이 없고, 기본은 돌격소총
   const eqOf = type => me.equip[type] || (type === 'weapon' ? 'wp_rifle' : null);
@@ -977,17 +1033,97 @@ function renderShop() {
     else if (own) btn = `<button type="button" class="own" data-act="equip" data-id="${it.id}">${isW ? '처음에 들기' : '착용'}</button>`;
     else if (me.coins >= it.price) btn = `<button type="button" data-act="buy" data-id="${it.id}">🪙 ${priceOf(it)} 사기</button>`;
     else btn = `<button type="button" class="poor" disabled>${it.priceText ? '너무 비싸요 😱' : '🪙 ' + it.price}</button>`;
-    return `<div class="item ${eq ? 'eq' : ''}"><div class="ic">${icon}</div><div class="nm">${esc(it.name)}</div>
+    const info = it.type === 'weapon' ? `<button type="button" class="infob" data-act="info" data-id="${it.id}">🔍 자세히 보기</button>` : '';
+    return `<div class="item ${eq ? 'eq' : ''}"><div class="ic">${icon}</div><div class="nm">${esc(it.name)}</div>${info}
       <div class="pr">${it.price === 0 ? '무료' : own ? '보유 중' : '🪙 ' + priceOf(it)}</div>${it.desc ? `<div class="pr" style="font-size:11px;opacity:.8">${esc(it.desc)}</div>` : ''}${btn}</div>`;
   }).join('');
   $('items').querySelectorAll('button[data-act]').forEach(b => b.onclick = () => {
     const id = b.dataset.id || null;
+    if (b.dataset.act === 'info') return openWeaponInfo(id);
     if (b.dataset.act === 'buy') {
       const it = get(id);
       if (!confirm(`${it.name}을(를) 🪙 ${priceOf(it)}코인에 살까요?`)) return;
       ws.send(JSON.stringify({ t: 'buy', item: id }));
     } else ws.send(JSON.stringify({ t: 'equip', type: shopType, item: id }));
   });
+}
+
+// ---------- 🔍 무기 자세히 보기 / 🎒 내 무기 (업그레이드, 색) ----------
+const WINFO = {
+  wp_rifle: ['균형 잡힌 기본 총이에요. 누르고 있으면 계속 쏴요.', '머리를 노리면 60 데미지! 처음엔 이걸로 연습해 보세요.'],
+  wp_smg: ['엄청 빠르게 쏘지만 한 발은 약하고 총알이 조금 퍼져요.', '가까이 붙어서 싸울 때 강해요.'],
+  wp_shotgun: ['한 번에 총알 8개가 퍼져 나가요. 14m보다 멀면 데미지가 반으로 줄어요.', '코너에서 기다렸다가 가까이서 쏘세요.'],
+  wp_sniper: ['느리지만 머리에 맞으면 무조건 한 방이에요. 오른쪽 클릭(E)으로 조준경.', '조준경을 켜면 걷기 속도가 돼요. 쏘면 조준경이 풀려요.'],
+  wp_minigun: ['120발을 쉬지 않고 쏴요. 쏠 때 총열이 돌아가요.', '재장전이 길어서 업그레이드하면 좋아요.'],
+  wp_dagger: ['가까이서 빠르게 찌르기 50. 들고 있으면 15% 빨리 달려요.', '상대 뒤에서 찌르면 한 방에 쓰러져요! 🗡️💀'],
+  wp_katana: ['앞쪽을 넓게 베어서 여러 명을 한 번에 맞혀요. 오른쪽 클릭(E)으로 돌진.', '돌진은 3초에 한 번. 돌진으로 붙어서 바로 베세요.'],
+  wp_bow: ['누르고 있으면 당겨지고, 떼면 화살이 나가요. 꽉 당기면 100, 머리는 160!', '화살은 조금씩 떨어져요. 멀리 쏠 땐 살짝 위를 노리세요.'],
+  wp_burst: ['한 번 누르면 3발이 연속으로 나가요. 한 발 28, 머리 65.', '3발 다 머리에 맞히면 엄청 세요.'],
+  wp_shield: ['들고 있으면 앞에서 오는 총알·화살을 막아요. 클릭하면 방패로 때려요(30).', '뒤나 옆은 못 막아요. 조금 느려져요.'],
+  wp_scythe: ['한 바퀴 휘둘러서 주변 3m를 전부 베요(60). 오른쪽 클릭(E)으로 대쉬.', '좀비에게 둘러싸였을 때 최고예요.'],
+  wp_gunblade: ['클릭하면 칼로 베기(55), 오른쪽 클릭(E)이면 총 한 발(머리 90).', '멀리 있으면 총, 가까이 오면 칼!'],
+  wp_rpg: ['로켓이 부딪히면 펑! 4.5m 안에 있으면 다 맞아요(최대 110).', '내 발밑에 쏘면 로켓 점프! 나는 안 다쳐요.'],
+};
+function weaponStats(id) {
+  const W = (me.weapons || {})[id]; if (!W) return '';
+  const lv = (me.wpUp || {})[id] || 0, step = me.upStep || 0.15;
+  const row = (k, v) => `<tr><td style="color:#9aa3b8">${k}</td><td><b>${v}</b></td></tr>`;
+  let r = '';
+  if (W.melee) r += row('데미지', W.body + (W.backstab ? ' (뒤에서는 한 방)' : '')) + row('닿는 거리', W.range + 'm' + (W.multi ? ' · 여러 명 한 번에' : '')) + row('휘두르는 간격', (W.fire / 1000) + '초');
+  else if (W.charge) r += row('데미지', `몸 ${W.body} · 머리 ${W.head} (꽉 당겼을 때)`) + row('쏘는 간격', (W.fire / 1000) + '초');
+  else if (W.proj === 'rocket') r += row('폭발 데미지', `최대 ${W.body} · 범위 4.5m`) + row('탄창', W.mag + '발');
+  else r += row('데미지', `몸 ${W.body} · 머리 ${W.head}${W.pellets > 1 ? ` (×${W.pellets}발)` : ''}`) + row('1초에', Math.round(1000 / (W.burst ? W.burstGap / W.burst : W.fire) * 10) / 10 + '발') + row('탄창', W.mag + '발');
+  if (W.reload) r += row('재장전', `${(W.reload * (1 - step * lv) / 1000).toFixed(2)}초${lv ? ` (🔧 ${lv}단계, 원래 ${(W.reload / 1000).toFixed(1)}초)` : ''}`);
+  if (W.speed) r += row('달리기', W.speed > 1 ? `${Math.round((W.speed - 1) * 100)}% 빨라요` : `${Math.round((1 - W.speed) * 100)}% 느려요`);
+  if (W.zoom) r += row('특수 (E)', '🔭 조준경');
+  if (W.dash) r += row('특수 (E)', '💨 돌진 (3초마다)');
+  if (W.altShot) r += row('특수 (E)', `🔫 총 한 발 (몸 ${W.altShot.body} · 머리 ${W.altShot.head})`);
+  return `<table style="width:100%;border-collapse:collapse;text-align:left;font-size:14px">${r}</table>`;
+}
+function openWeaponInfo(id) {
+  const it = shop.find(i => i.id === id), W = (me.weapons || {})[id];
+  if (!it || !W) return;
+  const own = owns(it), [desc, tip] = WINFO[id] || ['', ''];
+  $('wd-body').innerHTML = `<div style="font-size:48px">${it.icon}</div><h1 style="margin:4px 0">${esc(it.name)}</h1>
+    <div class="sub" style="margin-bottom:8px">${it.price === 0 ? '무료' : own ? '✅ 가지고 있어요' : '🪙 ' + priceOf(it)}</div>
+    <p style="text-align:left">${desc}</p>${weaponStats(id)}
+    <p style="text-align:left;color:#7fe05a;margin-top:8px">💡 ${tip}</p>`;
+  $('wd-try').onclick = () => { $('wd-modal').classList.remove('on'); $('lobby-notice').textContent = ''; ws.send(JSON.stringify({ t: 'join', room: 'range', weapon: id })); };
+  $('wd-arm').style.display = own ? '' : 'none';
+  $('wd-arm').onclick = () => { $('wd-modal').classList.remove('on'); shopType = 'armory'; document.querySelectorAll('.stabs button').forEach(b => b.classList.toggle('on', b.dataset.type === 'armory')); renderShop(); };
+  $('wd-modal').classList.add('on');
+}
+function renderArmory() {
+  const ws_ = Object.keys(me.weapons || {}).filter(id => { const it = shop.find(i => i.id === id); return it && owns(it); });
+  const cols = me.weaponColors || {}, costs = me.upCosts || [50, 100, 200], step = me.upStep || 0.15;
+  $('items').innerHTML = `<div style="grid-column:1/-1;color:#9aa3b8;font-size:13px;text-align:left">가지고 있는 무기를 업그레이드하고 색을 바꿔요. 색은 무기마다 따로 사요.
+    <button type="button" id="arm-range" style="width:auto;margin:0 0 0 6px;padding:4px 10px;font-size:13px">🎯 무기 시험장 가기</button></div>` + ws_.map(id => {
+    const it = shop.find(i => i.id === id), W = me.weapons[id];
+    const lv = (me.wpUp || {})[id] || 0, cur = (me.wpColor || {})[id] || '', have = (me.wpColors || {})[id] || [];
+    const bars = costs.map((_, i) => `<span style="display:inline-block;width:18px;height:8px;border-radius:4px;margin:0 1px;background:${i < lv ? '#7fe05a' : '#2f3749'}"></span>`).join('');
+    const up = !W.reload ? '<div class="pr" style="font-size:12px">재장전이 없는 무기예요</div>'
+      : lv >= costs.length ? '<button type="button" class="eqb" disabled>🔧 최고 단계 ✓</button>'
+      : `<button type="button" data-up="${id}" ${me.inf || me.coins >= costs[lv] ? '' : 'class="poor" disabled'}>🔧 재장전 ${Math.round(step * 100)}% 빨리 · 🪙 ${costs[lv]}</button>`;
+    const sw = (k, c) => { const ownC = !k || have.includes(k); const bg = !k ? '#555' : k === 'rainbow' ? 'conic-gradient(red,orange,yellow,lime,cyan,blue,magenta,red)' : '#' + c.hex.toString(16).padStart(6, '0');
+      return `<button type="button" data-wc="${id}" data-c="${k}" title="${k ? c.name + (ownC ? '' : ' · 🪙' + c.price) : '기본 색'}"
+        style="width:28px;height:28px;padding:0;margin:2px;border-radius:50%;background:${bg};border:3px solid ${cur === k ? '#ffd43b' : ownC ? '#7fe05a' : '#2f3749'};opacity:${ownC ? 1 : 0.55}">${!k ? '✕' : ''}</button>`; };
+    return `<div class="item ${cur || lv ? 'eq' : ''}"><div class="ic">${it.icon}</div><div class="nm">${esc(it.name)}</div>
+      <div class="pr">${W.reload ? `재장전 ${(W.reload * (1 - step * lv) / 1000).toFixed(2)}초` : '&nbsp;'}</div><div style="margin:4px 0">${W.reload ? bars : ''}</div>${up}
+      <div style="margin-top:6px;font-size:12px;color:#9aa3b8">🎨 색 (테두리 초록 = 가지고 있음)</div>
+      <div>${sw('', null)}${Object.entries(cols).map(([k, c]) => sw(k, c)).join('')}</div>
+      <button type="button" class="infob" data-info="${id}">🔍 자세히 보기</button></div>`;
+  }).join('');
+  $('items').querySelectorAll('button[data-up]').forEach(b => b.onclick = () => {
+    const id = b.dataset.up, lv = (me.wpUp || {})[id] || 0;
+    if (confirm(`${(me.weapons[id] || {}).name} 재장전 업그레이드 ${lv + 1}단계를 🪙 ${costs[lv]}코인에 할까요?`)) ws.send(JSON.stringify({ t: 'upgrade', w: id }));
+  });
+  $('items').querySelectorAll('button[data-wc]').forEach(b => b.onclick = () => {
+    const id = b.dataset.wc, c = b.dataset.c, have = (me.wpColors || {})[id] || [];
+    if (c && !have.includes(c) && !confirm(`${me.weapons[id].name}을(를) ${cols[c].name} 색으로 🪙 ${cols[c].price}코인에 살까요?`)) return;
+    ws.send(JSON.stringify({ t: 'wcolor', w: id, color: c }));
+  });
+  $('items').querySelectorAll('button[data-info]').forEach(b => b.onclick = () => openWeaponInfo(b.dataset.info));
+  $('arm-range').onclick = () => { ws.send(JSON.stringify({ t: 'join', room: 'range' })); };
 }
 
 let lastRankKey = '', myName = '';

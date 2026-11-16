@@ -2,7 +2,7 @@
 //  1인칭 팀전 게임 화면 (three.js)
 // =====================================================
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-import { buildCharacter, animateExtras } from './avatar.js';
+import { buildCharacter, animateExtras, tintWeapon } from './avatar.js';
 
 const $ = id => document.getElementById(id);
 const TEAM_COLOR = { red: 0xe84848, blue: 0x3d8bff, human: 0x3d8bff, zombie: 0x4f9a3a, runner: 0xff9f1c };
@@ -55,7 +55,7 @@ addEventListener('resize', () => {
 // ---------- 내 총 (화면에 보이는 것) ----------
 const gun = new THREE.Group();
 const flash = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffd060 }));
-flash.visible = false;
+flash.visible = false; flash.userData.noTint = true;
 gun.position.set(0.22, -0.2, -0.35);
 camera.add(gun);
 let gunModel = null, minigunBarrels = null;
@@ -125,6 +125,8 @@ function buildGunModel(id) {
     default: // 돌격소총
       B(0.08, 0.1, 0.5, 0x2b2f38, 0, 0, -0.2); B(0.07, 0.16, 0.08, 0x2b2f38, 0, -0.1, -0.02); B(0.04, 0.04, 0.25, 0x15171c, 0, 0.02, -0.55);
   }
+  const wc = myUp.color && myUp.color[id];
+  if (wc) tintWeapon(gunModel, wc, 0); // 🎨 내가 산 무기 색
   if (tip !== null) { flash.position.set(0, 0.02, tip); gunModel.add(flash); }
   if (id === 'wp_katana' || id === 'wp_dagger' || id === 'wp_gunblade') gunModel.rotation.set(0.35, 0, 0.25); // 칼은 비스듬히 들기
   if (id === 'wp_scythe') gunModel.rotation.set(0.5, 0.3, 0.4);
@@ -132,6 +134,8 @@ function buildGunModel(id) {
 }
 // ---------- 무기 상태 ----------
 let curW = 'wp_rifle', myWList = ['wp_rifle'], myGList = [], items = {};
+let myUp = { lv: {}, color: {} }; // 🔧 재장전 업그레이드, 🎨 무기 색
+const reloadMs = () => Math.round(WP().reload * (1 - 0.15 * (mode === 'range' ? 0 : (myUp.lv[curW] || 0))));
 let zoomed = false, dashUntil = 0, lastDash = 0, melee = 0, bowCharge = 0, burstLeft = 0, lastAlt = 0, buffUntil = 0;
 const knock = { x: 0, z: 0 }; // 로켓 점프로 날아가는 힘
 // 아이템 키 (로비의 ⌨️ 키 설정에서 바꿀 수 있어요)
@@ -418,7 +422,7 @@ function applyTheme(xmas) {
     snow = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.15, transparent: true, opacity: 0.9 }));
     mapGroup.add(snow);
   } else {
-    const zombieSky = mode === 'zombie' || mode === 'wave';
+    const zombieSky = mode === 'zombie' || mode === 'wave' || mode === 'range';
     scene.background.set(zombieSky ? 0x6f7f94 : 0x9fc7ee); scene.fog.color.set(zombieSky ? 0x6f7f94 : 0x9fc7ee);
     scene.fog.near = 40; scene.fog.far = 110;
     if (hemi) { hemi.color.set(0xffffff); hemi.intensity = 0.9; }
@@ -607,13 +611,13 @@ function nameSprite(text, color) {
   return s;
 }
 // ---------- 블록 캐릭터 (avatar.js) ----------
-function makeAvatar(name, team, look = [], weapon) {
+function makeAvatar(name, team, look = [], weapon, weaponColor) {
   const teamColor = team === 'red' || team === 'blue' ? TEAM_COLOR[team] : undefined; // 팀전만 팀 색 옷
-  const { inner, arm, body, wings, tail, legs, muzzle } = buildCharacter(look, { zombie: team === 'zombie', teamColor, weapon: unarmed() ? 'none' : weapon });
+  const { inner, arm, body, wings, tail, legs, muzzle, weaponParts } = buildCharacter(look, { zombie: team === 'zombie', teamColor, weapon: unarmed() ? 'none' : weapon, weaponColor });
   const label = nameSprite(name, TEAM_CSS[team] || '#fff');
   label.position.y = 2.55;
   const grp = new THREE.Group(); grp.add(inner, label);
-  return { group: grp, inner, arm, label, body, wings, tail, legs, muzzle, team, look: look.join(','), swing: 0, walk: 0, phase: Math.random() * 6 };
+  return { group: grp, inner, arm, label, body, wings, tail, legs, muzzle, weaponParts, team, look: look.join(','), swing: 0, walk: 0, phase: Math.random() * 6 };
 }
 function syncOthers(list) {
   const seen = new Set();
@@ -621,11 +625,11 @@ function syncOthers(list) {
     if (p.id === myId) continue;
     seen.add(p.id);
     let o = others.get(p.id);
-    const lk = (p.lk || []).join(',') + '|' + (p.w || '');
+    const lk = (p.lk || []).join(',') + '|' + (p.w || '') + '|' + (p.wc || '');
     if (!o || o.team !== p.tm || o.look !== lk) {
       const old = o;
       if (old) scene.remove(old.group);
-      o = makeAvatar(p.n, p.tm, p.lk || undefined, p.w); o.look = lk;
+      o = makeAvatar(p.n, p.tm, p.lk || undefined, p.w, p.wc); o.look = lk;
       if (p.id >= 1000000) o.label.visible = false; // 봇 좀비는 이름표 없음
       if (old) { o.group.position.copy(old.group.position); o.group.rotation.y = old.group.rotation.y; }
       else o.group.position.set(p.x, p.y, p.z);
@@ -855,6 +859,7 @@ document.addEventListener('keydown', e => {
   if (e.code === 'Tab') { e.preventDefault(); $('board').style.display = 'block'; renderBoard(); }
   if (e.code === 'KeyR') reload();
   if (e.code === 'KeyV') toggleView();
+  if (gameOverOpen() && e.code === 'Enter') { e.preventDefault(); retryWave(); return; }
   if (e.code === 'Space' && !e.repeat) jumpQueued = true;
   if (e.code === 'KeyQ') cycleWeapon(1);
   if (e.code === ctrlKeys.pick) { pickerOpen ? closePicker(true) : openPicker(false); }
@@ -884,7 +889,7 @@ function reload() {
   if (isZombie() || unarmed()) return;
   const w = WP();
   if (w.melee || reloadUntil || ammo >= w.mag || !me.alive) return;
-  reloadUntil = performance.now() + w.reload;
+  reloadUntil = performance.now() + reloadMs();
   send({ t: 'reload' });
 }
 
@@ -950,6 +955,21 @@ function feed(html) {
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const cls = t => ({ red: 'r', blue: 'b', human: 'b', zombie: 'z' }[t] || '');
 let centerTimer;
+// ---------- 💀 게임 오버 창 (좀비 웨이브) ----------
+let reviveTimer = null;
+function showGameOver(html) {
+  const el = $('gameover');
+  el.innerHTML = `<div class="go-box">${html}
+    <div class="go-btns"><button type="button" id="go-retry">🔄 다시 하기 <small>(Enter)</small></button><button type="button" id="go-lobby" class="go-sub">🏠 로비로</button></div></div>`;
+  el.style.display = 'flex';
+  mouseDown = false;
+  if (locked()) document.exitPointerLock(); // 마우스로 버튼 누를 수 있게
+  $('go-retry').onclick = e => { e.stopPropagation(); retryWave(); };
+  $('go-lobby').onclick = e => { e.stopPropagation(); location.reload(); };
+}
+function hideGameOver() { $('gameover').style.display = 'none'; }
+function retryWave() { hideGameOver(); send({ t: 'waveRetry' }); startPlaying(); }
+const gameOverOpen = () => $('gameover') && $('gameover').style.display === 'flex';
 function center(text, ms, html) {
   if (html) $('center').innerHTML = text; else $('center').textContent = text;
   clearTimeout(centerTimer);
@@ -978,7 +998,7 @@ function onMessage(m) {
   switch (m.t) {
     case 'welcome':
       myId = m.id; myTeam = m.team; myName = m.name; cfg = m.cfg; map = m.map; mode = m.mode; adminName = m.adminName || '';
-      myWList = m.myWeapons || ['wp_rifle']; myGList = m.myGadgets || [];
+      myWList = m.myWeapons || ['wp_rifle']; myGList = m.myGadgets || []; myUp = m.myUp || myUp;
       buildGadgetButtons();
       setTimeout(() => openPicker(true), 50); // 처음 10초: 무기 고르기
       setWeapon(m.weapon || 'wp_rifle');
@@ -995,9 +1015,12 @@ function onMessage(m) {
       if (mode === 'zombie') {
         $('ov-title').textContent = '🧟 좀비 모드 · ' + tapWord;
         $('ov-text').innerHTML = `인간: 총으로 좀비를 막고 3분 동안 살아남기<br>좀비: ${IS_TOUCH ? '🧟 버튼' : '<kbd>왼쪽 클릭</kbd>'}으로 인간을 잡아서 좀비로 만들기<br><br>` + $('ov-text').innerHTML;
+      } else if (mode === 'range') {
+        $('ov-title').textContent = '🎯 무기 시험장 · ' + tapWord;
+        $('ov-text').innerHTML = `나만 들어온 연습장이에요. 좀비 3마리가 계속 쫓아와요.<br>모든 무기·아이템을 써 볼 수 있어요 (I 키로 바꾸기). 코인·트로피는 없어요.<br><br>` + $('ov-text').innerHTML;
       } else if (mode === 'wave') {
         $('ov-title').textContent = '🧟‍♂️ 좀비 웨이브 · ' + tapWord;
-        $('ov-text').innerHTML = `몰려오는 좀비 떼를 총으로 막아요! 웨이브를 깰 때마다 🪙 5코인, 5웨이브마다 🏆 트로피<br>쓰러지면 다음 웨이브에 부활 · 모두 쓰러지면 게임 오버<br><br>` + $('ov-text').innerHTML;
+        $('ov-text').innerHTML = `몰려오는 좀비 떼를 총으로 막아요! 웨이브를 깰 때마다 🪙 5코인, 5웨이브마다 🏆 트로피<br>쓰러지면 20초 뒤 부활 · 모두 쓰러지면 게임 오버<br><br>` + $('ov-text').innerHTML;
       } else if (mode === 'lava') {
         $('ov-title').textContent = '🌋 용암 타워 · ' + tapWord;
         $('ov-text').innerHTML = `용암이 아래에서 점점 빨리 올라와요! 닿으면 바로 아웃<br>꼭대기 🏁까지 올라가면 🪙 20코인 (2명 이상이면 1등은 🏆 트로피도)<br><br>` + $('ov-text').innerHTML;
@@ -1009,6 +1032,10 @@ function onMessage(m) {
         center(`${TEAM_NAME[myTeam]}이에요!`, 2500);
       }
       break;
+    case 'dm': // 관리자 갠톡 (게임 중이면 알림으로)
+      if (m.msg.who === 'a') { feed(`📩 👑 관리자: ${esc(m.msg.text)}`); center(`📩 관리자 갠톡: ${esc(m.msg.text)}<br><small>답장: 채팅에 /관리자 내용</small>`, 5000, true); }
+      break;
+    case 'dmThread': break;
     case 'chatHist': { // 이 게임에서 예전에 했던 채팅 (채팅 창을 열면 보여요)
       const log = $('chatlog');
       const frag = document.createDocumentFragment();
@@ -1071,6 +1098,7 @@ function onMessage(m) {
       break;
     case 'phase':
       if (mode === 'wave') {
+        if (m.phase === 'break' && gameOverOpen()) { hideGameOver(); startPlaying(); } // 다른 사람이 다시 시작했어요
         if (m.phase === 'break' && !roomInfo.wv) center('🧟‍♂️ 곧 좀비가 몰려와요! 준비하세요', 3000);
         break;
       }
@@ -1107,13 +1135,26 @@ function onMessage(m) {
     case 'waveClear':
       center(`✅ 웨이브 ${m.n} 클리어!${m.record ? ' 🏆 새 최고 기록!' : ''}`, 2400);
       break;
-    case 'wavedead':
-      center('쓰러졌어요! 다음 웨이브에 부활해요 💫', 0);
+    case 'wavedead': { // 20초 뒤 부활 (카운트다운)
+      let left = m.secs || 20;
+      clearInterval(reviveTimer);
+      center(`쓰러졌어요! ${left}초 뒤에 부활해요 💫`, 0);
+      reviveTimer = setInterval(() => {
+        left--;
+        if (me.alive || left <= 0) { clearInterval(reviveTimer); return; }
+        center(`쓰러졌어요! ${left}초 뒤에 부활해요 💫`, 0);
+      }, 1000);
       break;
-    case 'gameover': {
-      const best = m.best ? `<br>🏆 최고 기록: 웨이브 ${m.best.wave} (${m.best.names.map(esc).join(', ')})` : '';
+    }
+    case 'gameover': { // 💀 게임 오버 → 다시 할지 물어보기
+      clearInterval(reviveTimer); center('', 0);
+      const best = m.best ? `🏆 최고 기록: 웨이브 ${m.best.wave} (${m.best.names.map(esc).join(', ')})` : '';
       const top = (m.top || []).slice(0, 5).map(x => `${esc(x.n)} ${x.k}킬`).join(' · ');
-      center(`💀 게임 오버! 웨이브 ${m.wave}까지 버텼어요${top ? '<br>' + top : ''}${best}<br>곧 웨이브 1부터 다시 시작해요`, 7500, true);
+      showGameOver(`<div class="go-t">💀 게임 오버</div>
+        <div class="go-s">웨이브 <b>${m.wave}</b>까지 버텼어요! (클리어 ${m.cleared})</div>
+        ${top ? `<div class="go-k">${m.solo ? '' : '처치: '}${top}</div>` : ''}
+        ${best ? `<div class="go-k">${best}</div>` : ''}
+        <div class="go-q">다시 할까요?</div>`);
       break;
     }
     case 'zstart':
@@ -1130,7 +1171,7 @@ function onMessage(m) {
     case 'respawn':
       Object.assign(me, { x: m.x, y: m.y, z: m.z, yaw: m.yaw, pitch: 0, vy: 0, alive: true, hp: m.hp ?? cfg.maxHp });
       ammo = m.ammo ?? WP().mag; reloadUntil = 0; items = m.items || {}; me.crouch = false; H = STAND_H; touchCrouch = false; dashUntil = 0; knock.x = knock.z = 0; buffUntil = 0; bowCharge = 0; burstLeft = 0; setZoom(false); updateWeaponButtons();
-      if (/부활|일어나요|기다려요/.test($('center').textContent)) center('', 0);
+      clearInterval(reviveTimer); if (/부활|일어나요|기다려요/.test($('center').textContent)) center('', 0);
       break;
     case 'correct':
       me.x = m.x; me.y = m.y; me.z = m.z; me.vy = 0;
@@ -1160,6 +1201,9 @@ function onMessage(m) {
       lastState = m;
       if (mode === 'fps') {
         $('sc-r').textContent = m.s.red; $('sc-b').textContent = m.s.blue; $('sc-t').textContent = `목표 ${m.target}`;
+      } else if (mode === 'range') {
+        $('sc-r').textContent = '🎯'; $('sc-b').textContent = `처치 ${(m.p.find(x => x.id === myId) || {}).k || 0}`; $('sc-b').style.color = '#7fe05a';
+        $('sc-t').textContent = '무기 시험장 · 코인/트로피 없음 · I 키 = 무기 바꾸기';
       } else if (mode === 'wave') {
         $('sc-r').textContent = `🌊 ${m.wv || 0}`; $('sc-r').style.color = '#6fb5ff';
         $('sc-b').textContent = `🧟 ${m.zl || 0}`; $('sc-b').style.color = '#7fe05a';
@@ -1181,10 +1225,10 @@ function onMessage(m) {
       }
       syncOthers(m.p);
       for (const p of m.p) if (p.id === myId) {
-        const lk = (p.lk || []).join(',') + '|' + (p.w || '');
+        const lk = (p.lk || []).join(',') + '|' + (p.w || '') + '|' + (p.wc || '');
         if (!meAv || meAv.team !== p.tm || meAv.look !== lk) {
           if (meAv) scene.remove(meAv.group);
-          meAv = makeAvatar(p.n, p.tm, p.lk || undefined, p.w); meAv.look = lk;
+          meAv = makeAvatar(p.n, p.tm, p.lk || undefined, p.w, p.wc); meAv.look = lk;
           meAv.label.visible = false;
           scene.add(meAv.group);
         }
@@ -1457,6 +1501,12 @@ function frame() {
   const bow = gunModel && gunModel.userData.bow;
   if (bow) { const c = Math.min(1, bowCharge / 0.9); bow.userData.string.position.z = 0.09 + c * 0.18; bow.userData.arrow.position.z = -0.18 + c * 0.18; }
   if (burstLeft > 0) fire(); // 점사 나머지 발
+  { // 🌈 무지개 무기는 색이 계속 바뀌어요
+    const hue = (performance.now() / 3000) % 1;
+    if (gunModel && gunModel.userData.rainbow) tintWeapon(gunModel, 'rainbow', hue);
+    for (const o of others.values()) if (o.weaponParts && o.weaponParts.userData.rainbow) tintWeapon(o.weaponParts, 'rainbow', hue);
+    if (meAv && meAv.weaponParts && meAv.weaponParts.userData.rainbow) tintWeapon(meAv.weaponParts, 'rainbow', hue);
+  }
   if (lavaMesh && roomInfo.lv !== undefined) {
     const ty = roomInfo.lv / 100;
     lavaMesh.position.y += (ty - lavaMesh.position.y) * Math.min(1, dt * 5);

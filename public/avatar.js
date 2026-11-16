@@ -29,7 +29,7 @@ export const DEFAULT_HAIR = { m: 'h_short', f: 'h_long', n: 'h_bob' };
 const DEFAULT_SKIN = 0xffdcc0;
 const DEFAULT_HAIR_COLOR = 0x6b4423;
 // 머리 윗부분을 덮는 모자 (이 모자를 쓰면 위로 솟은 머리카락은 모자 속에 들어가요)
-const COVER_HATS = new Set(['cap', 'beanie', 'helmet', 'tophat']);
+const COVER_HATS = new Set(['cap', 'beanie', 'helmet', 'tophat', 'octopus', 'santa']);
 
 const lam = (c, extra = {}) => new THREE.MeshLambertMaterial({ color: c, ...extra });
 const shadow = g => g.traverse(o => { if (o.isMesh) o.castShadow = true; });
@@ -205,6 +205,47 @@ export function makeHat(id) {
       const tip = new THREE.Mesh(new THREE.ConeGeometry(0.042, 0.13, 10), lam(0x8e1b1b));
       tip.position.set(s * 0.025, 0.17, 0); tip.rotation.z = -s * 0.35; hg.add(tip);
       hg.position.set(s * 0.17, HTOP - 0.01, -0.03); hg.rotation.z = -s * 0.35; add(hg);
+    }
+  } else if (id === 'santa') { // 🎅 산타 모자: 빨간 고깔이 옆으로 축 처지고, 하얀 털 테두리 + 방울
+    add(wrap(R + 0.065, HH + 0.07, 0.16, 0.06, 0xd62828));               // 머리를 감싸는 빨간 부분
+    const fur = add(new THREE.Mesh(new THREE.TorusGeometry(R + 0.075, 0.05, 10, 32), lam(0xfafafa)));
+    fur.rotation.x = Math.PI / 2; fur.position.y = HY + 0.07;
+    // 위로 올라가다가 옆으로 처지는 고깔 (마디 4개를 조금씩 꺾어서)
+    let parent = new THREE.Group(); parent.position.set(0, HTOP + 0.02, 0.02); add(parent);
+    const seg = [[0.25, 0.19, 0.14, 0.15], [0.19, 0.13, 0.13, 0.5], [0.13, 0.08, 0.12, 0.65], [0.08, 0.035, 0.11, 0.6]];
+    for (const [r0, r1, h, bend] of seg) {
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, h, 16), lam(0xd62828)); m.position.y = h / 2;
+      parent.add(m);
+      const next = new THREE.Group(); next.position.y = h; next.rotation.z = -bend; parent.add(next); parent = next;
+    }
+    const pom = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 10), lam(0xffffff)); pom.position.y = 0.02; parent.add(pom);
+  } else if (id === 'sprout') { // 🌱 새싹: 머리 꼭대기에서 쏙
+    const sg = new THREE.Group(); sg.position.set(0.02, HTOP + 0.02, 0); sg.rotation.z = -0.12;
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.018, 0.15, 8), lam(0x4caf3a)); stem.position.y = 0.075; sg.add(stem);
+    for (const s of [-1, 1]) {
+      const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 8), lam(0x6edc4f));
+      leaf.scale.set(1.25, 0.32, 0.7); leaf.position.set(s * 0.065, 0.16, 0); leaf.rotation.z = s * 0.45; sg.add(leaf);
+      const vein = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.004, 0.006), lam(0x3e9a2f));
+      vein.position.set(s * 0.06, 0.168, 0); vein.rotation.z = s * 0.45; sg.add(vein);
+    }
+    add(sg);
+  } else if (id === 'octopus') { // 🐙 문어가 머리 위에 앉아 있어요
+    const PINK = 0xff6b8a, cy = HY + 0.1; // 눈썹은 안 가리게
+    const dome = add(new THREE.Mesh(new THREE.SphereGeometry(0.32, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2), lam(PINK, { side: THREE.DoubleSide })));
+    dome.position.y = cy; dome.scale.y = 1.15;
+    for (const s of [-1, 1]) { // 눈
+      ball(g, 0.055, 0xffffff, s * 0.11, cy + 0.2, -0.255);
+      ball(g, 0.028, 0x1b1b1b, s * 0.11, cy + 0.2, -0.3);
+      ball(g, 0.01, 0xffffff, s * 0.11 + 0.01, cy + 0.21, -0.325);
+    }
+    ball(g, 0.03, 0xff8fb0, -0.19, cy + 0.12, -0.2, 1, 0.5, 0.4); ball(g, 0.03, 0xff8fb0, 0.19, cy + 0.12, -0.2, 1, 0.5, 0.4); // 볼터치
+    // 다리 6개 (얼굴은 안 가리게 옆이랑 뒤로)
+    for (const deg of [70, 112, 155, 205, 248, 290]) {
+      const a = deg * Math.PI / 180, dx = Math.sin(a), dz = -Math.cos(a);
+      const P = (r, y) => new THREE.Vector3(dx * r, cy + y, dz * r);
+      const curve = new THREE.CatmullRomCurve3([P(0.29, 0.02), P(0.32, -0.1), P(0.35, -0.22), P(0.42, -0.27), P(0.47, -0.21)]);
+      add(new THREE.Mesh(new THREE.TubeGeometry(curve, 20, 0.04, 8, false), lam(PINK)));
+      const tip = curve.getPoint(1); ball(g, 0.04, PINK, tip.x, tip.y, tip.z);
     }
   } else if (id === 'crown') { // 왕관: 머리 위에 딱 앉아요
     const rr = 0.25, y = HTOP + 0.1;
@@ -448,14 +489,15 @@ function makeTail(id, hairColor) {
     const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 4, 10), lam(c)); m.position.set(x, y, z); m.rotation.x = rx; root.add(m); return m;
   };
   if (id === 't_devil') { // 매끄럽게 동그랗게 말린 꼬리 + 끝은 둥근 하트 모양 화살촉
+    // 그림처럼: 아래로 처졌다가(U) → S자로 길게 올라가서 → 끝이 바깥(뒤쪽)으로 꺾여요
     const curve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(0, 0, 0.02), new THREE.Vector3(0, -0.16, 0.2), new THREE.Vector3(0, -0.12, 0.42),
-      new THREE.Vector3(0, 0.08, 0.55), new THREE.Vector3(0, 0.3, 0.5), new THREE.Vector3(0, 0.38, 0.32),
-      new THREE.Vector3(0, 0.3, 0.2),
+      new THREE.Vector3(0, 0, 0.02), new THREE.Vector3(0, -0.14, 0.12), new THREE.Vector3(0, -0.17, 0.27),
+      new THREE.Vector3(0, -0.05, 0.38), new THREE.Vector3(0, 0.15, 0.4), new THREE.Vector3(0, 0.34, 0.35),
+      new THREE.Vector3(0, 0.52, 0.36), new THREE.Vector3(0, 0.64, 0.44), new THREE.Vector3(0, 0.66, 0.56),
     ]);
-    root.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 40, 0.028, 8, false), lam(0xc0392b)));
+    root.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 48, 0.038, 8, false), lam(0xc0392b))); // 조금 더 두껍게
     const end = curve.getPoint(1), dir = curve.getTangent(1);
-    const tip = new THREE.Mesh(new THREE.ShapeGeometry(heartShape(0.09), 16), lam(0xc0392b, { side: THREE.DoubleSide }));
+    const tip = new THREE.Mesh(new THREE.ShapeGeometry(heartShape(0.11), 16), lam(0xc0392b, { side: THREE.DoubleSide }));
     tip.rotation.y = Math.PI / 2;                                   // 옆에서 보이게
     const tg = new THREE.Group(); tg.add(tip);
     tg.position.copy(end);
@@ -480,7 +522,7 @@ function makeTail(id, hairColor) {
 // ---------- 캐릭터 전체 ----------
 // look = [모자, 얼굴, 피부, 머리스타일, 머리색, 성별, 눈 색, 날개, 꼬리, 윗옷 색, 바지 색]
 export function buildCharacter(look = [], opts = {}) {
-  const [hatId, faceId, skinId, hairId, hcolorId, gender = 'n', ecolorId = '', wingId = '', tailId = '', bcolorId = '', pcolorId = ''] = look;
+  const [hatId, faceId, skinId, hairId, hcolorId, gender = 'n', ecolorId = '', wingId = '', tailId = '', bcolorId = '', pcolorId = '', glassesId = ''] = look;
   const zombie = !!opts.zombie;
   const skin = zombie ? 0x8fd16a : SKIN_COLOR[skinId] ?? DEFAULT_SKIN;
   // 옷 색(윗옷): 팀전에서는 팀 색, 나머지는 고른 색. 바지는 조금 어두운 색
@@ -509,7 +551,7 @@ export function buildCharacter(look = [], opts = {}) {
   // 팔: 어깨를 기준으로 돌아요. 총 들 때(게임)는 앞으로, 미리보기에서는 아래로
   const arm = new THREE.Group(); arm.position.set(0, 1.38, 0);
   const wp = opts.weapon || 'wp_rifle';
-  let muzzle = null;
+  let muzzle = null, weaponParts = null;
   const forward = zombie || (opts.gun !== false && wp !== 'none');
   const oneArm = (s, yaw) => {
     const pivot = new THREE.Group(); pivot.position.x = s * 0.54; pivot.rotation.y = yaw;
@@ -525,7 +567,7 @@ export function buildCharacter(look = [], opts = {}) {
     const lp = new THREE.Group(); lp.position.x = -0.54; arm.add(lp);
     const la = new THREE.Group(); la.rotation.x = 0.15; lp.add(la); // 왼팔은 거의 내리기
     box(la, 0.34, 0.3, 0.36, bodyColor, 0, -0.09, 0); box(la, 0.33, 0.44, 0.35, skin, 0, -0.45, 0);
-    const blade = new THREE.Group(); blade.position.set(0.48, 0, -0.68); blade.rotation.x = -0.6; arm.add(blade); // 칼끝이 위쪽 앞으로
+    const blade = new THREE.Group(); blade.position.set(0.48, 0, -0.68); blade.rotation.x = -0.6; arm.add(blade); weaponParts = blade; // 칼끝이 위쪽 앞으로
     if (wp === 'wp_shield') { // 방패는 몸 앞에 세워서
       blade.rotation.x = 0; blade.position.set(0.2, -0.25, -0.75);
       box(blade, 0.75, 0.95, 0.06, 0x3d4a5c, 0, 0, 0); box(blade, 0.5, 0.14, 0.065, 0x9fd0ff, 0, 0.25, 0);
@@ -551,21 +593,102 @@ export function buildCharacter(look = [], opts = {}) {
       wp_rifle: [0.75, 0.13, 0x2b2f38], wp_smg: [0.5, 0.12, 0x30343e], wp_shotgun: [0.8, 0.12, 0x6b4a2b],
       wp_sniper: [1.05, 0.11, 0x3a4a2e], wp_minigun: [0.8, 0.22, 0x3d3f45], wp_burst: [0.72, 0.13, 0x4a3b2a], wp_rpg: [1.1, 0.18, 0x4f5d3a],
     }[wp] || [0.75, 0.13, 0x2b2f38];
-    const rifle = box(arm, G[1] * 0.8, G[1], G[0], G[2], 0.3, 0.02, -0.35 - G[0] / 2);
-    box(arm, 0.06, 0.16, 0.08, G[2], 0.3, -0.1, -0.6); // 손잡이
+    const gunG = new THREE.Group(); arm.add(gunG); weaponParts = gunG;
+    const rifle = box(gunG, G[1] * 0.8, G[1], G[0], G[2], 0.3, 0.02, -0.35 - G[0] / 2);
+    box(gunG, 0.06, 0.16, 0.08, G[2], 0.3, -0.1, -0.6); // 손잡이
     if (wp === 'wp_sniper') box(arm, 0.06, 0.06, 0.26, 0x111111, 0.3, 0.12, -0.7); // 조준경
     muzzle = new THREE.Group(); muzzle.position.set(0.3, 0.02, -0.38 - G[0]); arm.add(muzzle); // 총구 (총알이 나오는 곳)
     rifle.castShadow = true;
   } else { oneArm(1, 0); oneArm(-1, 0); }
   inner.add(arm);
   if (hatId) inner.add(makeHat(hatId));
+  if (glassesId && !zombie) inner.add(makeGlasses(glassesId)); // 👓
   let wings = null, tail = null;
   if (wingId) { const w = makeWings(wingId); inner.add(w.root); wings = w.pivots; }
   if (tailId) { tail = makeTail(tailId, hairColor); inner.add(tail); }
+  if (weaponParts && opts.weaponColor) tintWeapon(weaponParts, opts.weaponColor);
   shadow(inner);
-  return { inner, arm, body, wings, tail, legs, muzzle };
+  return { inner, arm, body, wings, tail, legs, muzzle, weaponParts };
 }
 
+// ---------- 👓 안경 (얼굴 앞에 써요) ----------
+export function makeGlasses(id) {
+  const g = new THREE.Group();
+  if (!id) return g;
+  const EYE_Y = HY + 0.02, Z = -0.282; // 눈 높이, 얼굴 바로 앞
+  g.position.set(0, EYE_Y, Z);
+  const box = (w, h, d, c, x, y, z, mat) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat || lam(c)); m.position.set(x, y, z); g.add(m); return m; };
+  const frameCol = { g_round: 0x2b2b2b, g_sun: 0x111111, g_heart: 0xff4fa0, g_pixel: 0x111111, g_alien: 0x1d1d1d }[id] ?? 0x222222;
+  // 안경다리: 렌즈 바깥에서 귀까지
+  for (const s of [-1, 1]) {
+    box(0.1, 0.014, 0.014, frameCol, s * 0.22, 0.01, 0.015);
+    box(0.014, 0.014, 0.24, frameCol, s * 0.272, 0.01, 0.13);
+  }
+  if (id === 'g_round') { // 동그란 안경
+    for (const s of [-1, 1]) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.068, 0.011, 8, 28), lam(frameCol)); ring.position.set(s * 0.1, 0, 0); g.add(ring);
+      const lens = new THREE.Mesh(new THREE.CircleGeometry(0.066, 24), new THREE.MeshLambertMaterial({ color: 0xcfe9ff, transparent: true, opacity: 0.25 }));
+      lens.position.set(s * 0.1, 0, 0.002); g.add(lens);
+    }
+    box(0.065, 0.012, 0.012, frameCol, 0, 0.015, 0);
+  } else if (id === 'g_sun') { // 선글라스
+    for (const s of [-1, 1]) {
+      const lens = new THREE.Mesh(new THREE.ShapeGeometry(roundRect(0.155, 0.1, 0.035), 6), new THREE.MeshLambertMaterial({ color: 0x15171c, transparent: true, opacity: 0.92, side: THREE.DoubleSide }));
+      lens.position.set(s * 0.1, -0.005, 0); g.add(lens);
+      box(0.03, 0.012, 0.004, 0xffffff, s * 0.1 - 0.035, 0.025, -0.004).rotation.z = 0.5; // 반짝
+    }
+    box(0.38, 0.02, 0.016, frameCol, 0, 0.045, 0);
+  } else if (id === 'g_heart') { // 하트 안경
+    for (const s of [-1, 1]) {
+      const h = new THREE.Mesh(new THREE.ShapeGeometry(heartShape(0.075), 16), new THREE.MeshLambertMaterial({ color: 0xff4fa0, transparent: true, opacity: 0.85, side: THREE.DoubleSide }));
+      h.position.set(s * 0.1, 0.02, 0); h.rotation.y = Math.PI; g.add(h);
+    }
+    box(0.06, 0.012, 0.012, frameCol, 0, 0.02, 0);
+  } else if (id === 'g_pixel') { // 😎 픽셀 선글라스 (네모 블록으로)
+    const P = 0.028, black = lam(0x0b0b0b), white = lam(0xffffff);
+    box(P * 14, P, 0.02, 0, 0, 0.035, 0, black); // 위쪽 가로줄
+    const rows = [[0, 5], [0, 5], [1, 4]];      // 렌즈 모양 (한 줄씩: 시작 칸, 끝 칸)
+    for (const s of [-1, 1]) {
+      rows.forEach(([a, b], r) => {
+        for (let k = a; k <= b; k++) box(P, P, 0.02, 0, s * (0.03 + P * (k + 0.5)), 0.035 - P * (r + 1), 0, black);
+      });
+      box(P * 0.9, P * 0.9, 0.022, 0, s * (0.03 + P * 1.5), 0.035 - P, -0.002, white);   // 하얀 픽셀 반짝
+      box(P * 0.9, P * 0.9, 0.022, 0, s * (0.03 + P * 2.5), 0.035 - P * 2, -0.002, white);
+    }
+  } else if (id === 'g_alien') { // 👽 외계인 안경 (위로 쭉 올라간 큰 눈)
+    for (const s of [-1, 1]) {
+      const lens = new THREE.Mesh(new THREE.SphereGeometry(0.1, 20, 14), new THREE.MeshLambertMaterial({ color: 0x0b2a14 }));
+      lens.scale.set(1.0, 0.55, 0.22); lens.position.set(s * 0.105, 0.01, 0); lens.rotation.z = s * 0.45; g.add(lens);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.008, 6, 28), lam(0x1d1d1d));
+      rim.scale.set(1.0, 0.55, 1); rim.position.set(s * 0.105, 0.01, 0.005); rim.rotation.z = s * 0.45; g.add(rim);
+      ball(g, 0.015, 0x9dffb0, s * 0.105 - 0.03, 0.035, -0.022); // 초록 반짝
+    }
+    box(0.04, 0.012, 0.012, frameCol, 0, 0.0, 0.005);
+  }
+  shadow(g);
+  return g;
+}
+function roundRect(w, h, r) {
+  const s = new THREE.Shape(), x = -w / 2, y = -h / 2;
+  s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r); s.lineTo(x + w, y + h - r);
+  s.quadraticCurveTo(x + w, y + h, x + w - r, y + h); s.lineTo(x + r, y + h); s.quadraticCurveTo(x, y + h, x, y + h - r);
+  s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y);
+  return s;
+}
+
+// 🎨 무기 색: 원래 색에 고른 색을 70% 섞어요 (명암은 남게). 'rainbow'는 매 프레임 색이 바뀌어요
+export const WEAPON_COLOR_HEX = { red: 0xd63c3c, blue: 0x3d7bff, green: 0x3cbf5a, pink: 0xff7ac8, purple: 0x8a5cd6, white: 0xf2f2f2, black: 0x1c1d22, gold: 0xe0b23a };
+export function tintWeapon(group, colorId, hue) {
+  const hex = colorId === 'rainbow' ? new THREE.Color().setHSL(hue ?? 0, 0.85, 0.55).getHex() : WEAPON_COLOR_HEX[colorId];
+  if (hex === undefined) return;
+  const target = new THREE.Color(hex);
+  group.traverse(o => {
+    if (!o.isMesh || !o.material || !o.material.color || !o.material.color.clone || o.userData.noTint) return;
+    if (!o.userData.baseColor) o.userData.baseColor = o.material.color.clone();
+    o.material.color.copy(o.userData.baseColor).lerp(target, 0.7);
+  });
+  group.userData.rainbow = colorId === 'rainbow';
+}
 // 날개 파닥, 꼬리 살랑 (t = 밀리초)
 export function animateExtras(c, t, phase = 0) {
   if (c.wings) c.wings.forEach((p, i) => (p.rotation.y = (i ? -1 : 1) * (0.35 + Math.sin(t * 0.006 + phase) * 0.3)));

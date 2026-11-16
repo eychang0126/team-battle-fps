@@ -120,6 +120,15 @@ const SHOP = [
   { id: 'bunny', type: 'hat', name: '토끼 귀', icon: '🐰', price: 120 },
   { id: 'halo', type: 'hat', name: '천사 링', icon: '😇', price: 80 },
   { id: 'horns', type: 'hat', name: '악마 뿔', icon: '😈', price: 80 },
+  { id: 'santa', type: 'hat', name: '산타 모자', icon: '🎅', price: 60 },
+  { id: 'sprout', type: 'hat', name: '새싹', icon: '🌱', price: 30 },
+  { id: 'octopus', type: 'hat', name: '문어', icon: '🐙', price: 120 },
+  // 안경
+  { id: 'g_round', type: 'glasses', name: '동그란 안경', icon: '👓', price: 30 },
+  { id: 'g_sun', type: 'glasses', name: '선글라스', icon: '🕶️', price: 50 },
+  { id: 'g_heart', type: 'glasses', name: '하트 안경', icon: '💗', price: 60 },
+  { id: 'g_pixel', type: 'glasses', name: '픽셀 선글라스', icon: '😎', price: 80 },
+  { id: 'g_alien', type: 'glasses', name: '외계인 안경', icon: '👽', price: 80 },
   { id: 'crown', type: 'hat', name: '왕관', icon: '👑', price: 99999999999999999999999999, priceText: '99999999999999999999999999' },
   { id: 's_1', type: 'skin', name: '피부색 1', color: '#ffe3cf', price: 0 },
   { id: 's_2', type: 'skin', name: '피부색 2', color: '#c68a5a', price: 0 },
@@ -246,11 +255,13 @@ const ADMIN_COINS = Number.MAX_SAFE_INTEGER; // 관리자는 코인 무한
 const coinsOf = name => isAdminName(name) ? ADMIN_COINS : (acct(name)?.coins ?? 0);
 function meInfo(name) {
   const a = acct(name);
-  return { t: 'me', coins: coinsOf(name), inf: isAdminName(name), owned: a.admin ? SHOP.map(i => i.id) : a.owned, equip: a.equip, gender: a.gender, trophies: a.trophies || 0, rank: rankOf(name), bestWave: a.bestWave || 0, mgBest: a.mgBest || {} };
+  return { t: 'me', coins: coinsOf(name), inf: isAdminName(name), owned: a.admin ? SHOP.map(i => i.id) : a.owned, equip: a.equip, gender: a.gender, trophies: a.trophies || 0, rank: rankOf(name), bestWave: a.bestWave || 0, mgBest: a.mgBest || {},
+    wpUp: a.wpUp || {}, wpColors: isAdminName(name) ? Object.fromEntries(Object.keys(WEAPONS).map(w => [w, Object.keys(WEAPON_COLORS)])) : (a.wpColors || {}), wpColor: a.wpColor || {},
+    upCosts: UP_COSTS, upStep: UP_STEP, weaponColors: WEAPON_COLORS, weapons: WEAPONS };
 }
 function lookOf(name) {
   const a = acct(name);
-  return a ? [a.equip.hat || '', a.equip.face || '', a.equip.skin || '', a.equip.hair || '', a.equip.hcolor || '', a.gender, a.equip.ecolor || '', a.equip.wing || '', a.equip.tail || '', a.equip.bcolor || '', a.equip.pcolor || '']
+  return a ? [a.equip.hat || '', a.equip.face || '', a.equip.skin || '', a.equip.hair || '', a.equip.hcolor || '', a.gender, a.equip.ecolor || '', a.equip.wing || '', a.equip.tail || '', a.equip.bcolor || '', a.equip.pcolor || '', a.equip.glasses || '']
     : ['', '', '', '', '', 'n', '', '', '', '', ''];
 }
 function handleShop(c, msg) {
@@ -271,7 +282,7 @@ function handleShop(c, msg) {
     saveAccounts();
   } else if (msg.t === 'equip') {
     const type = String(msg.type);
-    if (!['hat', 'face', 'ecolor', 'skin', 'hair', 'hcolor', 'wing', 'tail', 'bcolor', 'pcolor', 'weapon'].includes(type)) return;
+    if (!['hat', 'face', 'ecolor', 'skin', 'hair', 'hcolor', 'wing', 'tail', 'bcolor', 'pcolor', 'glasses', 'weapon'].includes(type)) return;
     if (msg.item == null) a.equip[type] = null;
     else {
       const item = SHOP_BY_ID.get(String(msg.item));
@@ -652,7 +663,7 @@ function countTeam(room, team) { let n = 0; for (const p of room.players.values(
 function pickTeam(room) {
   if (room.mode === 'zombie') return room.phase === 'playing' ? 'zombie' : 'human';
   if (room.mode === 'obby' || room.mode === 'lava') return 'runner';
-  if (room.mode === 'wave') return 'human';
+  if (room.mode === 'wave' || room.mode === 'range') return 'human';
   const r = countTeam(room, 'red'), b = countTeam(room, 'blue');
   if (r !== b) return r < b ? 'red' : 'blue';
   return Math.random() < 0.5 ? 'red' : 'blue';
@@ -683,7 +694,7 @@ function refillGadgets(room, p) {
   const newMatch = p.matchNo !== room.roundNo;
   p.matchNo = room.roundNo;
   p.items = {};
-  for (const id of myGadgets(p.name)) {
+  for (const id of room.mode === 'range' ? Object.keys(GADGETS) : myGadgets(p.name)) {
     const G = GADGETS[id];
     p.items[id] = !can ? 0 : G.per === 'match' && !newMatch ? (old[id] ?? 0) : G.n;
   }
@@ -694,7 +705,29 @@ function setRole(p, role) {
 }
 
 // ---------- 방 들어가기 / 나가기 ----------
+// 🎯 시험장: 나만 들어가는 방 (좀비 3마리, 모든 무기, 코인/트로피 없음)
+function makeRange(c) {
+  const id = 'range:' + c.name;
+  if (!rooms.has(id)) rooms.set(id, {
+    id, mode: 'range', icon: '🎯', title: '무기 시험장', desc: '', players: new Map(), map: CITY, mapId: 'city', mapVoteUntil: 0,
+    votes: new Map(), adminPick: null, scores: { red: 0, blue: 0 }, killTarget: 5, roundOver: false,
+    phase: 'range', phaseEnd: 0, wins: {}, roundNo: 1, grenades: [], projs: [], zones: [], pads: [], bots: new Map(), waveNum: 1,
+  });
+  return id;
+}
+function rangeTick(room, t) {
+  if (!room.bots) room.bots = new Map();
+  if (!room.players.size) return;
+  room.waveNum = 1;
+  for (const [id, b] of room.bots) if (!b.alive && t > b.removeAt) room.bots.delete(id);
+  // 항상 3마리 (쓰러뜨리면 2초 뒤 새로 와요)
+  if (botsAlive(room).length + [...room.bots.values()].filter(b => !b.alive).length < 3 && t >= (room.nextSpawn || 0)) {
+    spawnBot(room); room.nextSpawn = t + 2000;
+  }
+  moveBots(room, t);
+}
 function joinRoom(c, roomId) {
+  if (roomId === 'range') roomId = makeRange(c);
   const room = rooms.get(roomId);
   if (!room || c.room) return;
   if (room.players.size >= MAX_PLAYERS) return sendTo(c, { t: 'notice', text: `방이 꽉 찼어요 (최대 ${MAX_PLAYERS}명).` });
@@ -711,9 +744,11 @@ function joinRoom(c, roomId) {
     t: 'welcome', id: c.id, name: c.name, team: c.team, map: room.map, adminName: ADMIN_NAME,
     mode: room.mode, roomTitle: room.title,
     cfg: { maxHp: MAX_HP, zombieHp: ZOMBIE_HP, mag: MAG_SIZE, reloadMs: RELOAD_MS, fireMs: FIRE_INTERVAL, attackMs: ATTACK_MS, weapons: WEAPONS, gadgets: GADGETS },
-    weapon: c.weapon, myWeapons: myWeapons(c.name), myGadgets: myGadgets(c.name),
+    weapon: c.weapon, myWeapons: myWeapons(c.name, room), myGadgets: room.mode === 'range' ? Object.keys(GADGETS) : myGadgets(c.name),
+    myUp: upgradesOf(c.name),
   });
   spawn(room, c);
+  if (room.mode === 'wave' && room.phase === 'over') waveReset(room); // 게임 오버 화면에서 누가 들어오면 새 게임
   sendChatHist(c, room.id);
   if (room.mode === 'lava' && room.phase === 'rising' && room.lavaY > OBBY.checkpoints[0].y - 0.5) {
     c.alive = false; c.respawnAt = Infinity; // 용암이 이미 출발점보다 높으면 다음 판부터
@@ -733,6 +768,7 @@ function leaveRoom(c) {
   if (room.votes.delete(c.name)) roomBroadcast(room, voteInfo(room));
   c.room = null;
   roomBroadcast(room, { t: 'left', name: c.name });
+  if (room.mode === 'range' && !room.players.size) rooms.delete(room.id); // 시험장은 나가면 없어져요
 }
 
 // =====================================================
@@ -1061,7 +1097,58 @@ const ZONE_MS = 20000, BUFF_MS = 8000, PAD_MS = 30000;
 const myGadgets = name => { const a = acct(name); return Object.keys(GADGETS).filter(id => a && owns(a, SHOP_BY_ID.get(id))); };
 const GRENADE_RADIUS = 4, GRENADE_DMG = 90, DASH_COOLDOWN = 3000;
 const weaponOf = p => WEAPONS[p.weapon] || WEAPONS.wp_rifle;
-function myWeapons(name) {
+// 🔧 재장전 업그레이드: 단계마다 15%씩 빨라져요 (최대 3단계 = 45%)
+const UP_COSTS = [50, 100, 200], UP_STEP = 0.15;
+// 🎨 무기 색 (무기마다 따로 사요)
+const WEAPON_COLORS = {
+  red: { name: '빨강', hex: 0xd63c3c, price: 30 }, blue: { name: '파랑', hex: 0x3d7bff, price: 30 }, green: { name: '초록', hex: 0x3cbf5a, price: 30 },
+  pink: { name: '분홍', hex: 0xff7ac8, price: 30 }, purple: { name: '보라', hex: 0x8a5cd6, price: 30 }, white: { name: '하양', hex: 0xf2f2f2, price: 30 },
+  black: { name: '검정', hex: 0x1c1d22, price: 30 }, gold: { name: '금색', hex: 0xe0b23a, price: 100 }, rainbow: { name: '무지개', hex: -1, price: 300 },
+};
+function upgradesOf(name) {
+  const a = acct(name);
+  if (!a) return {};
+  return { lv: a.wpUp || {}, colors: a.wpColors || {}, color: a.wpColor || {} };
+}
+const upLevel = p => (acct(p.name) && (acct(p.name).wpUp || {})[p.weapon]) || 0;
+const reloadMsOf = p => Math.round(weaponOf(p).reload * (1 - UP_STEP * (p.room && p.room.mode === 'range' ? 0 : upLevel(p))));
+const weaponColorOf = (name, w) => { const a = acct(name); return (a && a.wpColor && a.wpColor[w]) || ''; };
+function handleArmory(c, msg) {
+  const a = acct(c.name), note = text => sendTo(c, { t: 'notice', text });
+  if (!a) return;
+  const w = String(msg.w || '');
+  if (!WEAPONS[w]) return;
+  if (!myWeapons(c.name).includes(w)) return note('가지고 있는 무기만 바꿀 수 있어요.');
+  const admin = isAdminName(c.name);
+  if (msg.t === 'upgrade') {
+    if (!WEAPONS[w].reload) return note('이 무기는 재장전이 없어서 업그레이드할 게 없어요.');
+    a.wpUp = a.wpUp || {};
+    const lv = a.wpUp[w] || 0;
+    if (lv >= UP_COSTS.length) return note('이미 최고 단계예요!');
+    const cost = UP_COSTS[lv];
+    if (!admin && a.coins < cost) return note(`코인이 부족해요. (🪙 ${cost} 필요)`);
+    if (!admin) a.coins -= cost;
+    a.wpUp[w] = lv + 1;
+    note(`🔧 ${WEAPONS[w].name} 재장전 업그레이드 ${lv + 1}단계! (${Math.round(UP_STEP * (lv + 1) * 100)}% 빨라졌어요)`);
+  } else if (msg.t === 'wcolor') { // 색 사기 / 고르기 ('' = 기본 색)
+    const col = String(msg.color || '');
+    a.wpColors = a.wpColors || {}; a.wpColor = a.wpColor || {};
+    const have = a.wpColors[w] || [];
+    if (col && !WEAPON_COLORS[col]) return;
+    if (col && !have.includes(col) && !admin) {
+      const price = WEAPON_COLORS[col].price;
+      if (a.coins < price) return note(`코인이 부족해요. (🪙 ${price} 필요)`);
+      a.coins -= price;
+      a.wpColors[w] = have.concat(col);
+      note(`🎨 ${WEAPONS[w].name} ${WEAPON_COLORS[col].name} 색을 샀어요!`);
+    }
+    a.wpColor[w] = col;
+  } else return;
+  saveAccounts();
+  sendTo(c, meInfo(c.name));
+}
+function myWeapons(name, room) {
+  if (room && room.mode === 'range') return Object.keys(WEAPONS); // 시험장에서는 전부 써 볼 수 있어요
   const a = acct(name);
   return Object.keys(WEAPONS).filter(id => a && owns(a, SHOP_BY_ID.get(id)));
 }
@@ -1072,7 +1159,7 @@ function startWeapon(name) {
 }
 function handleWeapon(c, w) {
   w = String(w);
-  if (!c.room || !WEAPONS[w] || w === c.weapon || !myWeapons(c.name).includes(w)) return;
+  if (!c.room || !WEAPONS[w] || w === c.weapon || !myWeapons(c.name, c.room).includes(w)) return;
   c.ammoW = c.ammoW || {};
   c.ammoW[c.weapon] = c.ammo;
   c.weapon = w; c.reloadUntil = 0;
@@ -1084,7 +1171,7 @@ function handleWeapon(c, w) {
 // =====================================================
 //  좀비 웨이브 (봇 좀비, 혼자서도 OK)
 // =====================================================
-const WAVE_BREAK_MS = 6000, WAVE_OVER_MS = 8000, MAX_BOTS_ALIVE = 24, WAVE_COINS = 5;
+const WAVE_BREAK_MS = 6000, WAVE_OVER_MS = 120000, WAVE_REVIVE_MS = 20000, MAX_BOTS_ALIVE = 24, WAVE_COINS = 5;
 const WAVE_SPAWNS = [[-36, -36], [36, -36], [-36, 36], [36, 36], [0, -37], [0, 37], [-37, 0], [37, 0],
   [-20, -37], [20, -37], [-20, 37], [20, 37], [-37, -20], [37, -20], [-37, 20], [37, 20]];
 const BOT_HAIRS = ['h_short', 'h_spiky', 'h_curly', 'h_bald', 'h_long', 'h_bob'];
@@ -1134,6 +1221,13 @@ function spawnBot(room) {
     const d = alive.length ? Math.min(...alive.map(p => Math.hypot(p.x - x, p.z - z))) : 99;
     if (d > bestD) { bestD = d; best = [x, z]; }
   }
+  if (room.mode === 'range' && alive.length) { // 시험장: 내 주변 14m쯤에 나타나요
+    const p = alive[0];
+    for (let i = 0; i < 20; i++) {
+      const ang = Math.random() * Math.PI * 2, x = p.x + Math.cos(ang) * 14, z = p.z + Math.sin(ang) * 14;
+      if (!waveBlocked(room.map, x, z, 0)) { best = [x, z]; break; }
+    }
+  }
   const cfg = waveCfg(room.waveNum);
   const b = {
     id: nextBotId++, name: '좀비', team: 'zombie', isBot: true,
@@ -1145,9 +1239,16 @@ function spawnBot(room) {
   room.bots.set(b.id, b);
 }
 function wavePlayerDie(room, q) {
-  q.alive = false; q.hp = 0; q.deaths++; q.respawnAt = Infinity; // 다음 웨이브에 부활
+  if (room.mode === 'range') { // 시험장: 3초 뒤 다시
+    q.alive = false; q.hp = 0; q.deaths++; q.respawnAt = now() + RESPAWN_MS;
+    sendTo(q, { t: 'wavedead', secs: RESPAWN_MS / 1000 });
+    return;
+  }
+  q.alive = false; q.hp = 0; q.deaths++;
+  const alone = ![...room.players.values()].some(p => p.alive);
+  q.respawnAt = alone ? Infinity : now() + WAVE_REVIVE_MS; // 20초 뒤 부활 (모두 쓰러지면 게임 오버라서 부활 없음)
   roomBroadcast(room, { t: 'kill', killer: '좀비', kteam: 'zombie', victim: q.name, vteam: 'human', head: false });
-  sendTo(q, { t: 'wavedead' });
+  if (!alone) sendTo(q, { t: 'wavedead', secs: WAVE_REVIVE_MS / 1000 });
 }
 function moveBots(room, t) {
   const dt = TICK_MS / 1000;
@@ -1226,7 +1327,8 @@ function waveClear(room) {
 function waveGameOver(room) {
   const cleared = room.waveNum - 1;
   const top = [...room.players.values()].sort((a, b) => b.kills - a.kills).map(p => ({ n: p.name, k: p.kills }));
-  roomBroadcast(room, { t: 'gameover', wave: room.waveNum, cleared, top, best: waveRecord(room) });
+  for (const p of room.players.values()) { p.alive = false; p.respawnAt = Infinity; }
+  roomBroadcast(room, { t: 'gameover', wave: room.waveNum, cleared, top, best: waveRecord(room), solo: room.players.size === 1 });
   setPhase(room, 'over', WAVE_OVER_MS);
 }
 function waveTick(room, t) {
@@ -1249,7 +1351,7 @@ function waveTick(room, t) {
       else if (room.toSpawn === 0 && !botsAlive(room).length) waveClear(room);
       break;
     }
-    case 'over': if (t >= room.phaseEnd) waveReset(room); break;
+    case 'over': if (t >= room.phaseEnd) waveReset(room); break; // 아무도 '다시 하기'를 안 누르면 2분 뒤 자동으로
   }
 }
 
@@ -1343,10 +1445,12 @@ function canHurt(room, p, q) {
   if (q === p || !q.alive) return false;
   if (room.mode === 'fps') return q.team !== p.team;
   if (room.mode === 'wave') return room.phase === 'wave' && !!q.isBot;
+  if (room.mode === 'range') return !!q.isBot;
   if (room.mode === 'zombie') return room.phase === 'playing' && q.team === 'zombie';
   return false;
 }
-function targetsOf(room) { return room.mode === 'wave' && room.bots ? [...room.bots.values()] : [...room.players.values()]; }
+const hasBots = room => room.mode === 'wave' || room.mode === 'range';
+function targetsOf(room) { return hasBots(room) && room.bots ? [...room.bots.values()] : [...room.players.values()]; }
 // 데미지 주기 (총, 칼, 수류탄 공통)
 function applyDamage(room, p, q, amount, head, t) {
   if (q.protectUntil > t || !q.alive) return;
@@ -1657,6 +1761,45 @@ function entryOk(code) {
 }
 
 // ---------- 관리자에게 문자 ----------
+// ---------- 💬 관리자 갠톡 (플레이어마다 대화방 하나) ----------
+const DM_KEEP = 100;
+function dmThread(a) { if (!Array.isArray(a.dm)) a.dm = []; return a.dm; }
+// who: 'u' = 플레이어가 보냄, 'a' = 관리자가 보냄
+function dmAdd(name, who, text) {
+  const a = acct(name);
+  if (!a) return null;
+  const th = dmThread(a);
+  const m = { who, text, at: Date.now(), seenU: who === 'u', seenA: who === 'a' };
+  th.push(m);
+  while (th.length > DM_KEEP) th.shift();
+  saveAccounts();
+  // 플레이어 화면으로
+  for (const x of clients.values()) if (x.name === name) sendTo(x, { t: 'dm', msg: dmOut(m), unread: dmUnread(a) });
+  // 관리자 페이지로 (열어 둔 대화방이 바로 바뀌어요)
+  for (const w of admins) { try { w.send(JSON.stringify({ t: 'dmNew', name, msg: dmOut(m) })); } catch { } }
+  return m;
+}
+const dmOut = m => ({ who: m.who, text: m.text, at: m.at });
+const dmUnread = a => dmThread(a).filter(m => m.who === 'a' && !m.seenU).length;
+function sendDmThread(c) {
+  const a = acct(c.name);
+  if (!a) return;
+  sendTo(c, { t: 'dmThread', list: dmThread(a).map(dmOut), unread: dmUnread(a) });
+}
+function dmSeenByUser(c) {
+  const a = acct(c.name);
+  if (!a) return;
+  let ch = false;
+  for (const m of dmThread(a)) if (m.who === 'a' && !m.seenU) { m.seenU = true; ch = true; }
+  if (ch) saveAccounts();
+}
+// 관리자 페이지: 대화방 목록 (최근 대화 순, 안 읽은 수)
+function dmList() {
+  return Object.entries(accounts).filter(([n, a]) => Array.isArray(a.dm) && a.dm.length && !isAdminName(n))
+    .map(([n, a]) => ({ name: n, last: a.dm[a.dm.length - 1].text.slice(0, 40), at: a.dm[a.dm.length - 1].at, unread: a.dm.filter(m => m.who === 'u' && !m.seenA).length }))
+    .sort((x, y) => y.at - x.at).slice(0, 60);
+}
+
 function adminInbox() {
   const a = acct(ADMIN_NAME);
   if (!Array.isArray(a.inbox)) a.inbox = [];
@@ -1673,7 +1816,7 @@ function handleToAdmin(c, raw) {
   const inbox = adminInbox();
   inbox.push({ id: crypto.randomBytes(5).toString('hex'), time: new Date().toISOString(), from: c.name, text, read: false });
   while (inbox.length > 200) inbox.shift();
-  saveAccounts();
+  dmAdd(c.name, 'u', text); // 갠톡 대화방에도
   note('📨 관리자에게 문자를 보냈어요!');
   for (const x of clients.values()) if (isAdminName(x.name)) sendTo(x, { t: 'notice', text: `📨 ${c.name} 님의 문자: ${text}` });
 }
@@ -1761,7 +1904,7 @@ function kickClient(c, reason, block) {
 function lobbyInfo() {
   return {
     t: 'lobby', top: ranking().slice(0, 10),
-    rooms: [...rooms.values()].map(r => {
+    rooms: [...rooms.values()].filter(r => r.mode !== 'range').map(r => {
       const o = { id: r.id, icon: r.icon, title: r.title, desc: r.desc, count: r.players.size, max: MAX_PLAYERS };
       if (r.mode === 'wave') { const wb = waveRecord(r); if (wb) o.note = `🏆 최고 기록: 웨이브 ${wb.wave} (${wb.names.join(', ')})`; }
       if (r.mode === 'lava') { const lb = lavaRecord(); if (lb) o.note = `🏆 최고 기록: ${lb.time}초 (${lb.name})`; }
@@ -1785,15 +1928,16 @@ setInterval(() => {
     if (room.mode === 'obby') obbyTick(room, t);
     if (room.mode === 'lava') lavaTick(room, t);
     if (room.mode === 'wave') waveTick(room, t);
+    if (room.mode === 'range') rangeTick(room, t);
     objectsTick(room, t);
     for (const p of room.players.values()) {
       if (!p.alive && t >= p.respawnAt && !(room.mode === 'fps' && room.roundOver)) spawn(room, p);
     }
     if (!room.players.size) continue;
     // 1) 명단: 바뀌었을 때만
-    const everyone = room.bots && room.mode === 'wave' ? [...room.players.values(), ...room.bots.values()] : [...room.players.values()];
+    const everyone = room.bots && hasBots(room) ? [...room.players.values(), ...room.bots.values()] : [...room.players.values()];
     const roster = everyone.map(p => p.isBot ? { id: p.id, n: p.name, tm: 'zombie', lk: p.lk, k: 0, d: 0, c: 0 }
-      : { id: p.id, n: p.name, tm: p.team, lk: lookOf(p.name), k: p.kills, d: p.deaths, c: p.cp || 0, w: p.weapon });
+      : { id: p.id, n: p.name, tm: p.team, lk: lookOf(p.name), k: p.kills, d: p.deaths, c: p.cp || 0, w: p.weapon, wc: weaponColorOf(p.name, p.weapon) });
     const rosterKey = JSON.stringify(roster);
     if (rosterKey !== room.lastRoster || room.forceFull) {
       room.lastRoster = rosterKey;
@@ -1812,6 +1956,7 @@ setInterval(() => {
     // 3) 점수/시간: 바뀌었을 때만
     const info = room.mode === 'fps' ? { s: room.scores, target: room.killTarget }
       : room.mode === 'lava' ? { ph: room.phase, tl: Math.max(0, Math.ceil((room.phaseEnd - t) / 1000)), lv: Math.round((room.lavaY ?? LAVA_START) * 100) }
+      : room.mode === 'range' ? { ph: 'range' }
       : room.mode === 'wave' ? { ph: room.phase, tl: Math.max(0, Math.ceil((room.phaseEnd - t) / 1000)), wv: room.waveNum,
         zl: (room.toSpawn || 0) + (room.bots ? botsAlive(room).length : 0) }
       : { ph: room.phase, w: room.wins, tl: Math.max(0, Math.ceil((room.phaseEnd - t) / 1000)) };
@@ -1838,7 +1983,7 @@ function adminSnapshot() {
     t: 'admin',
     shutdown,
     accounts: Object.keys(accounts).length,
-    rooms: [...rooms.values()].map(r => ({
+    rooms: [...rooms.values()].filter(r => r.mode !== 'range').map(r => ({
       id: r.id, title: r.title, mode: r.mode, count: r.players.size,
       scores: r.scores, killTarget: r.killTarget, phase: r.phase, wins: r.wins, wv: r.waveNum || 0, best: r.mode === 'wave' ? waveRecord(r) : null,
       ...(hasVote(r) ? { vote: voteInfo(r) } : {}),
@@ -1850,6 +1995,7 @@ function adminSnapshot() {
       coins: isAdminName(c.name) ? '∞' : coinsOf(c.name), muted: !!(acct(c.name) && acct(c.name).muted),
     })),
     chat: chatLog.slice(-40),
+    dms: dmList(),
     rps: [...rpsGames.values()].map(g => ({ name: g.name, state: g.state, round: g.round, userPicked: !!g.userPick, adminPicked: !!g.adminPick, online: !!clientByName(g.name) })),
     invite: inviteCode(),
     inbox: adminInbox().slice(-60).reverse(),
@@ -1953,10 +2099,16 @@ function handleAdminCommand(ws, msg) {
     case 'giveCoins': {
       if (isAdminName(msg.name)) break;
       const a = acct(String(msg.name || ''));
-      const n = Math.round(Number(msg.n));
+      const n = msg.all ? -(a ? Math.max(0, a.coins) : 0) : Math.round(Number(msg.n)); // all = 가진 코인 전부 (0개로)
       if (a && Number.isFinite(n) && Math.abs(n) <= 1e12) {
-        a.coins = Math.max(0, a.coins + n); saveAccounts();
-        for (const c of clients.values()) if (c.name === msg.name) { sendTo(c, meInfo(c.name)); sendTo(c, { t: 'coins', delta: n, coins: a.coins }); }
+        const before = a.coins;
+        a.coins = a.coins + n; saveAccounts(); // 마이너스까지 갈 수 있어요 (빚)
+        const real = a.coins - before;
+        for (const c of clients.values()) if (c.name === msg.name) {
+          sendTo(c, meInfo(c.name)); sendTo(c, { t: 'coins', delta: real, coins: a.coins });
+          if (real < 0) sendTo(c, { t: 'notice', text: `👑 관리자가 코인 ${-real}개를 가져갔어요.` });
+        }
+        chatLog.push({ time: new Date().toISOString(), from: '관리자', where: '코인', text: `${msg.name}: ${real >= 0 ? '+' : ''}${real}코인` });
       }
       break;
     }
@@ -1996,11 +2148,22 @@ function handleAdminCommand(ws, msg) {
       const to = String(msg.to || ''), text = String(msg.text || '').trim().slice(0, 200);
       const a = acct(to);
       if (!a || !text) break;
-      if (!Array.isArray(a.mail)) a.mail = [];
-      a.mail.push({ time: new Date().toISOString(), text });
       for (const m of adminInbox()) if (m.id === msg.id) { m.read = true; m.replied = text; }
+      dmAdd(to, 'a', text); // 갠톡으로 보내요 (접속 안 했으면 다음에 들어올 때 보여요)
+      break;
+    }
+    case 'dm': { // 관리자가 먼저 갠톡 보내기
+      const to = String(msg.to || '').trim(), text = String(msg.text || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+      if (!acct(to) || isAdminName(to) || !text) break;
+      dmAdd(to, 'a', text);
+      break;
+    }
+    case 'dmOpen': { // 관리자가 대화방 열기 (읽음 처리)
+      const a = acct(String(msg.name || ''));
+      if (!a) break;
+      for (const m of dmThread(a)) if (m.who === 'u') m.seenA = true;
       saveAccounts();
-      deliverMail(to);
+      ws.send(JSON.stringify({ t: 'dmThread', name: msg.name, list: dmThread(a).map(dmOut) }));
       break;
     }
     case 'setTrophies': {
@@ -2104,16 +2267,22 @@ function handlePlayer(ws, token, ip) {
   ws.send(lobbyInfo());
   sendChatHist(c, 'lobby');
   sendTo(c, rpsInfo(c));
+  sendDmThread(c);
 
   ws.onmessage = raw => {
     let msg; try { msg = JSON.parse(raw); } catch { return; }
     const room = c.room;
-    if (msg.t === 'join') joinRoom(c, String(msg.room));
+    if (msg.t === 'join') {
+      joinRoom(c, String(msg.room));
+      if (msg.room === 'range' && c.room && WEAPONS[msg.weapon]) handleWeapon(c, String(msg.weapon)); // 시험해 볼 무기 들고 시작
+    }
     else if (msg.t === 'buy' || msg.t === 'equip' || msg.t === 'gender') handleShop(c, msg);
+    else if (msg.t === 'upgrade' || msg.t === 'wcolor') handleArmory(c, msg);
     else if (msg.t === 'chat') handleChat(c, msg);
     else if (msg.t === 'toAdmin') handleToAdmin(c, msg.text);
     else if (msg.t === 'mgStart' || msg.t === 'mgEnd') handleMinigame(c, msg);
     else if (msg.t === 'rpsReq' || msg.t === 'rpsCancel' || msg.t === 'rpsPick') handleRpsUser(c, msg);
+    else if (msg.t === 'dmSeen') dmSeenByUser(c);
     else if (msg.t === 'vote') handleVote(c, String(msg.map));
     else if (msg.t === 'give') { // 코인 보내기 버튼
       const to = String(msg.to || '').trim().replace(/\s+/g, ''), n = Math.floor(Number(msg.n));
@@ -2127,9 +2296,13 @@ function handlePlayer(ws, token, ip) {
     else if (msg.t === 'weapon') handleWeapon(c, msg.w);
     else if (msg.t === 'gadget') useGadget(room, c, msg);
     else if (msg.t === 'dash') handleDash(c);
+    else if (msg.t === 'waveRetry' && room.mode === 'wave' && room.phase === 'over') { // 🔄 다시 하기
+      roomBroadcast(room, { t: 'notice', text: `🔄 ${c.name} 님이 다시 시작했어요!` });
+      waveReset(room);
+    }
     else if (msg.t === 'reload') {
       const W = weaponOf(c);
-      if (!c.reloadUntil && c.ammo < W.mag) c.reloadUntil = now() + W.reload;
+      if (!c.reloadUntil && c.ammo < W.mag) c.reloadUntil = now() + reloadMsOf(c);
     }
   };
   ws.onclose = () => {
