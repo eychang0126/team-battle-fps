@@ -1029,7 +1029,7 @@ function onMessage(m) {
         $('ov-text').innerHTML = `나만 들어온 연습장이에요. 좀비 3마리가 계속 쫓아와요.<br>모든 무기·아이템을 써 볼 수 있어요 (I 키로 바꾸기). 코인·트로피는 없어요.<br><br>` + $('ov-text').innerHTML;
       } else if (mode === 'wave') {
         $('ov-title').textContent = '🧟‍♂️ 좀비 웨이브 · ' + tapWord;
-        $('ov-text').innerHTML = `몰려오는 좀비 떼를 총으로 막아요! 웨이브를 깰 때마다 🪙 5코인, 5웨이브마다 🏆 트로피<br>쓰러지면 10초 뒤 부활 · 모두 쓰러지면 게임 오버<br><br>` + $('ov-text').innerHTML;
+        $('ov-text').innerHTML = `몰려오는 좀비 떼를 총으로 막아요! 웨이브를 깰 때마다 🪙 5코인 + 웨이브 숫자만큼 🏆 트로피<br>쓰러지면 10초 뒤 부활 · 모두 쓰러지면 게임 오버<br><br>` + $('ov-text').innerHTML;
       } else if (mode === 'lava') {
         $('ov-title').textContent = '🌋 용암 타워 · ' + tapWord;
         $('ov-text').innerHTML = `용암이 아래에서 점점 빨리 올라와요! 닿으면 바로 아웃<br>꼭대기 🏁까지 올라가면 🪙 20코인 (2명 이상이면 1등은 🏆 트로피도)<br><br>` + $('ov-text').innerHTML;

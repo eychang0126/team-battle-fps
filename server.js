@@ -412,8 +412,8 @@ function handleRpsAdmin(msg) {
 // ---------- 🎮 미니게임 (플래피 버드, 공룡 달리기) ----------
 // 화면에서 게임을 하고 점수를 보내요. 서버는 걸린 시간을 보고 진짜인지 확인해요.
 const MINIGAMES = {
-  flappy: { name: '플래피 버드', goal: 20, coins: 20, secPerPoint: 1.2 },  // 토관 하나에 최소 1.2초
-  dino: { name: '공룡 달리기', goal: 1000, coins: 20, secPerPoint: 1 / 26 }, // 1초에 최대 26점쯤
+  flappy: { name: '플래피 버드', goal: 10, coins: 20, trophies: 1, secPerPoint: 1.2 },  // 토관 하나에 최소 1.2초
+  dino: { name: '공룡 달리기', goal: 200, coins: 20, trophies: 1, secPerPoint: 1 / 26 }, // 1초에 최대 26점쯤
 };
 function handleMinigame(c, msg) {
   const G = MINIGAMES[msg.g], a = acct(c.name);
@@ -425,14 +425,17 @@ function handleMinigame(c, msg) {
   c.mg = null;
   const real = secs >= score * G.secPerPoint * 0.9; // 너무 빨리 끝난 점수는 무시
   a.mgBest = a.mgBest || {};
-  let coins = 0;
+  let coins = 0, trophy = 0;
   if (real) {
     if (score > (a.mgBest[msg.g] || 0)) a.mgBest[msg.g] = score;
-    if (score >= G.goal) { coins = G.coins; if (!isAdminName(c.name)) a.coins += coins; } // 트로피는 없어요
+    if (score >= G.goal) { // 목표를 넘으면 코인 + 트로피
+      coins = G.coins; if (!isAdminName(c.name)) a.coins += coins;
+      trophy = G.trophies || 0; a.trophies = (a.trophies || 0) + trophy;
+    }
     saveAccounts();
   }
-  sendTo(c, { t: 'mgResult', g: msg.g, score, best: a.mgBest[msg.g] || 0, coins, goal: G.goal, ok: real });
-  if (coins) sendTo(c, meInfo(c.name));
+  sendTo(c, { t: 'mgResult', g: msg.g, score, best: a.mgBest[msg.g] || 0, coins, trophy, goal: G.goal, ok: real });
+  if (coins || trophy) sendTo(c, meInfo(c.name));
 }
 
 // ---------- 트로피 순위 ----------
@@ -1331,12 +1334,12 @@ function waveClear(room) {
   const n = room.waveNum;
   // 웨이브를 깨면 쓰러져 있던 사람도 바로 부활
   for (const p of room.players.values()) if (!p.alive && p.respawnAt !== Infinity) spawn(room, p);
-  const trophy = n % 5 === 0 ? 1 : 0;
+  const trophy = n; // 웨이브 n을 깨면 트로피 n개 (1웨이브 1개, 2웨이브 2개 …)
   for (const p of room.players.values()) {
     const a = acct(p.name);
     if (!a) continue;
     if (!isAdminName(p.name)) a.coins += WAVE_COINS;
-    if (trophy) a.trophies = (a.trophies || 0) + 1;
+    if (trophy) a.trophies = (a.trophies || 0) + trophy;
     a.bestWave = Math.max(a.bestWave || 0, n);
     sendTo(p, { t: 'coins', delta: isAdminName(p.name) ? 0 : WAVE_COINS, coins: coinsOf(p.name), inf: isAdminName(p.name), trophy, trophies: a.trophies || 0 });
     sendTo(p, meInfo(p.name));

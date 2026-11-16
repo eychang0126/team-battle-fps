@@ -123,7 +123,7 @@ function flappyGame(ctx) {
       if (state === 'ready') {
         text(ctx, '🐤 플래피 버드', W / 2, 190, 40, '#fff');
         text(ctx, '누르거나 Space로 날갯짓!', W / 2, 250, 22);
-        text(ctx, '토관 20개 넘으면 🪙 20코인', W / 2, 290, 22, '#ffe066');
+        text(ctx, '토관 10개 넘으면 🪙 20 + 🏆 1', W / 2, 290, 22, '#ffe066');
       }
       if (state === 'over') {
         text(ctx, '게임 오버', W / 2, 220, 46, '#ff6b6b');
@@ -232,7 +232,7 @@ function dinoGame(ctx) {
       if (state === 'ready') {
         text(ctx, '🦖 공룡 달리기', GW / 2, 70, 34, '#45b649');
         text(ctx, '누르거나 Space/↑ 점프 · ↓ 숙이기', GW / 2, 110, 18, night ? '#fff' : '#333');
-        text(ctx, '1000점 넘으면 🪙 20코인', GW / 2, 140, 18, '#e0a800');
+        text(ctx, '200점 넘으면 🪙 20 + 🏆 1', GW / 2, 140, 18, '#e0a800');
       }
       if (state === 'over') {
         text(ctx, '게임 오버', GW / 2, 80, 36, '#e05a5a');
