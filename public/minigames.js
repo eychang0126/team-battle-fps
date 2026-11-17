@@ -58,7 +58,7 @@ function text(ctx, s, x, y, size, color = '#fff', align = 'center') {
 
 // ---------- 🐤 플래피 버드 ----------
 function flappyGame(ctx) {
-  const GAP = 160, SPACING = 230, SPEED = 165, GRAV = 1500, FLAP = -430, GROUND = 70;
+  const GAP = 200, SPACING = 230, SPEED = 165, GRAV = 1500, FLAP = -430, GROUND = 70;
   let bird, pipes, passed, scroll, flapT;
   const g = {
     w: W, h: H,
