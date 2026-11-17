@@ -191,6 +191,7 @@ const SHOP = [
   { id: 'e_purple', type: 'ecolor', name: '보라', color: '#8a4fd8', price: 20 },
   { id: 'e_red', type: 'ecolor', name: '빨강', color: '#d12b2b', price: 20 },
   { id: 'e_sky', type: 'ecolor', name: '하늘색', color: '#4dc3ff', price: 20 },
+  { id: 'e_pink', type: 'ecolor', name: '핑크', color: '#ff5fa8', price: 20 },
   { id: 'e_gold', type: 'ecolor', name: '금색', color: '#e0a800', price: 50 },
   // 옷 색 (팀 배틀 FPS에서는 팀 색)
   { id: 'b_red', type: 'bcolor', name: '빨강', color: '#e84848', price: 0 },
@@ -221,6 +222,14 @@ const SHOP = [
   { id: 'w_devil', type: 'wing', name: '악마 날개', icon: '🦇', price: 150 },
   { id: 'w_fairy', type: 'wing', name: '요정 날개', icon: '🧚', price: 120 },
   // 꼬리
+  // 옷 (다시 돌아왔어요!)
+  { id: 'o_hoodie', type: 'outfit', name: '후드티', icon: '🧥', price: 40 },
+  { id: 'o_sweater', type: 'outfit', name: '줄무늬 스웨터', icon: '🧶', price: 40 },
+  { id: 'o_overalls', type: 'outfit', name: '멜빵바지', icon: '👖', price: 50 },
+  { id: 'o_dress', type: 'outfit', name: '원피스', icon: '👗', price: 60 },
+  { id: 'o_suit', type: 'outfit', name: '정장', icon: '👔', price: 80 },
+  { id: 'o_cape', type: 'outfit', name: '망토', icon: '🦸', price: 120 },
+  { id: 'o_astro', type: 'outfit', name: '우주복', icon: '👨‍🚀', price: 200 },
   { id: 't_devil', type: 'tail', name: '악마 꼬리', icon: '😈', price: 60 },
   { id: 't_cat', type: 'tail', name: '고양이 꼬리', icon: '🐱', price: 50 },
   { id: 't_dino', type: 'tail', name: '공룡 꼬리', icon: '🦖', price: 70 },
@@ -260,11 +269,11 @@ function acct(name) {
   if (!Array.isArray(a.owned)) a.owned = [];
   if (!a.equip) a.equip = { hat: null, face: null, skin: null };
   if (!['m', 'f', 'n'].includes(a.gender)) a.gender = 'n';
-  // 없어진 고글/옷은 산 값을 돌려주기
-  const REFUND = { v_red: 30, v_blue: 30, v_pink: 30, v_gold: 80, o_hoodie: 40, o_sweater: 40, o_overalls: 50, o_dress: 60, o_suit: 80, o_cape: 120, o_astro: 200 };
+  // 없어진 고글은 산 값을 돌려주기 (옷은 다시 돌아왔어요)
+  const REFUND = { v_red: 30, v_blue: 30, v_pink: 30, v_gold: 80 };
   for (const id of a.owned.filter(x => REFUND[x] !== undefined)) a.coins += REFUND[id];
   a.owned = a.owned.filter(x => REFUND[x] === undefined);
-  delete a.equip.visor; delete a.equip.outfit;
+  delete a.equip.visor;
   // 예전 나비 날개는 요정 날개로 바꿔 주기
   if (a.owned.includes('w_butterfly')) a.owned = a.owned.map(x => x === 'w_butterfly' ? 'w_fairy' : x);
   if (a.equip.wing === 'w_butterfly') a.equip.wing = 'w_fairy';
@@ -282,7 +291,7 @@ function meInfo(name) {
 }
 function lookOf(name) {
   const a = acct(name);
-  return a ? [a.equip.hat || '', a.equip.face || '', a.equip.skin || '', a.equip.hair || '', a.equip.hcolor || '', a.gender, a.equip.ecolor || '', a.equip.wing || '', a.equip.tail || '', a.equip.bcolor || '', a.equip.pcolor || '', a.equip.glasses || '']
+  return a ? [a.equip.hat || '', a.equip.face || '', a.equip.skin || '', a.equip.hair || '', a.equip.hcolor || '', a.gender, a.equip.ecolor || '', a.equip.wing || '', a.equip.tail || '', a.equip.bcolor || '', a.equip.pcolor || '', a.equip.glasses || '', a.equip.outfit || '']
     : ['', '', '', '', '', 'n', '', '', '', '', ''];
 }
 function handleShop(c, msg) {
@@ -303,7 +312,7 @@ function handleShop(c, msg) {
     saveAccounts();
   } else if (msg.t === 'equip') {
     const type = String(msg.type);
-    if (!['hat', 'face', 'ecolor', 'skin', 'hair', 'hcolor', 'wing', 'tail', 'bcolor', 'pcolor', 'glasses', 'weapon'].includes(type)) return;
+    if (!['hat', 'face', 'ecolor', 'skin', 'hair', 'hcolor', 'wing', 'tail', 'bcolor', 'pcolor', 'glasses', 'outfit', 'weapon'].includes(type)) return;
     if (msg.item == null) a.equip[type] = null;
     else {
       const item = SHOP_BY_ID.get(String(msg.item));

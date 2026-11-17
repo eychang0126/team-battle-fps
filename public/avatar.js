@@ -18,7 +18,7 @@ export const PANTS_COLOR = {
 };
 export const EYE_COLOR = {
   e_brown: 0x6b3e1f, e_blue: 0x2f6fd6, e_green: 0x2f9e44, e_purple: 0x8a4fd8,
-  e_red: 0xd12b2b, e_sky: 0x4dc3ff, e_gold: 0xe0a800,
+  e_red: 0xd12b2b, e_sky: 0x4dc3ff, e_pink: 0xff5fa8, e_gold: 0xe0a800,
 };
 export const SKIN_COLOR = { s_1: 0xffe3cf, s_2: 0xc68a5a, s_3: 0x8a5a3a, s_robot: 0xb8c2cc, s_alien: 0x7fd4ff, s_gold: 0xffc83d };
 export const HAIR_COLOR = {
@@ -510,6 +510,44 @@ function makeWings(id) {
   return { root, pivots };
 }
 
+// ---------- 옷 (몸 위에 겹쳐 입어요. 앞쪽은 -z) ----------
+function makeOutfit(id, bodyColor, hasHat) {
+  const g = new THREE.Group();
+  const dark = new THREE.Color(bodyColor).multiplyScalar(0.7).getHex();
+  const FZ = -0.185; // 몸통 앞면
+  if (id === 'o_hoodie') { // 후드티: 목 뒤 후드 + 앞주머니 + 끈
+    if (!hasHat) box(g, 0.62, 0.22, 0.16, dark, 0, 1.5, 0.2);
+    box(g, 0.44, 0.18, 0.02, dark, 0, 0.88, FZ);
+    for (const s of [-1, 1]) box(g, 0.03, 0.2, 0.02, 0xffffff, s * 0.08, 1.3, FZ);
+  } else if (id === 'o_sweater') { // 줄무늬 스웨터
+    for (const y of [0.86, 1.06, 1.26]) box(g, 0.74, 0.07, 0.38, 0xffffff, 0, y, 0);
+    box(g, 0.4, 0.06, 0.38, dark, 0, 1.43, 0); // 목 둘레
+  } else if (id === 'o_overalls') { // 멜빵바지
+    box(g, 0.46, 0.36, 0.02, 0x4f74a8, 0, 0.94, FZ);
+    for (const s of [-1, 1]) {
+      box(g, 0.08, 0.38, 0.02, 0x4f74a8, s * 0.2, 1.25, FZ); box(g, 0.08, 0.5, 0.02, 0x4f74a8, s * 0.2, 1.2, 0.185);
+      box(g, 0.06, 0.06, 0.025, 0xffd34d, s * 0.2, 1.08, FZ - 0.005);
+    }
+  } else if (id === 'o_dress') { // 원피스: 아래로 퍼지는 치마
+    const sk = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.56, 0.42, 20), lam(bodyColor)); sk.position.y = 0.6; g.add(sk);
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.565, 0.565, 0.05, 20), lam(0xffffff)); rim.position.y = 0.41; g.add(rim);
+  } else if (id === 'o_suit') { // 정장: 흰 셔츠 + 빨간 넥타이
+    box(g, 0.2, 0.5, 0.02, 0xffffff, 0, 1.2, FZ);
+    box(g, 0.08, 0.38, 0.025, 0xd63031, 0, 1.17, FZ - 0.005);
+    for (const s of [-1, 1]) box(g, 0.05, 0.05, 0.02, 0xd8d8d8, s * 0.06, 0.95, FZ);
+  } else if (id === 'o_cape') { // 망토 (등 뒤) + 금색 단추
+    const c = box(g, 0.86, 1.15, 0.04, 0xc0392b, 0, 0.95, 0.24); c.rotation.x = 0.12;
+    for (const s of [-1, 1]) ball(g, 0.05, 0xe0b23a, s * 0.3, 1.42, FZ);
+  } else if (id === 'o_astro') { // 우주복: 가슴 판 + 배낭
+    box(g, 0.36, 0.22, 0.02, 0x4a6fa5, 0, 1.18, FZ);
+    for (const [x, c] of [[-0.1, 0xff6b6b], [0, 0xffd34d], [0.1, 0x69db7c]]) ball(g, 0.03, c, x, 1.18, FZ - 0.02);
+    box(g, 0.56, 0.6, 0.2, 0xd0d4dc, 0, 1.12, 0.28);
+    box(g, 0.74, 0.06, 0.38, 0xff9f1c, 0, 0.76, 0); // 허리띠
+  }
+  shadow(g);
+  return g;
+}
+
 // ---------- 꼬리 ----------
 function makeTail(id, hairColor) {
   const root = new THREE.Group(); root.position.set(0, 0.78, 0.2); // 엉덩이 쪽
@@ -531,11 +569,15 @@ function makeTail(id, hairColor) {
     tg.position.copy(end);
     tg.rotation.x = Math.atan2(-dir.z, -dir.y);                     // 뾰족한 끝이 꼬리가 가는 방향으로
     root.add(tg);
-  } else if (id === 't_cat') { // 위로 동그랗게 말린 고양이 꼬리 (머리색)
-    seg(0.05, 0.18, hairColor, 0, 0, 0.1, 1.2);
-    seg(0.05, 0.18, hairColor, 0, 0.12, 0.24, 0.5);
-    seg(0.05, 0.14, hairColor, 0, 0.3, 0.27, -0.2);
-    ball(root, 0.055, 0xffffff, 0, 0.42, 0.24);
+  } else if (id === 't_cat') { // 악마 꼬리와 같은 S자 모양 (머리색, 더 통통하고 끝은 하얀 털뭉치)
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, 0, 0.02), new THREE.Vector3(0, -0.14, 0.12), new THREE.Vector3(0, -0.17, 0.27),
+      new THREE.Vector3(0, -0.05, 0.38), new THREE.Vector3(0, 0.15, 0.4), new THREE.Vector3(0, 0.34, 0.35),
+      new THREE.Vector3(0, 0.52, 0.36), new THREE.Vector3(0, 0.64, 0.44), new THREE.Vector3(0, 0.66, 0.56),
+    ]);
+    root.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 48, 0.05, 10, false), lam(hairColor)));
+    const end = curve.getPoint(1);
+    ball(root, 0.065, 0xffffff, end.x, end.y, end.z);
   } else if (id === 't_dino') { // 통통한 공룡 꼬리 + 등 가시
     const t = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.6, 14), lam(0x3ccf6e));
     t.rotation.x = Math.PI / 2 + 0.35; t.position.set(0, -0.08, 0.27); root.add(t);
@@ -550,12 +592,15 @@ function makeTail(id, hairColor) {
 // ---------- 캐릭터 전체 ----------
 // look = [모자, 얼굴, 피부, 머리스타일, 머리색, 성별, 눈 색, 날개, 꼬리, 윗옷 색, 바지 색]
 export function buildCharacter(look = [], opts = {}) {
-  const [hatId, faceId, skinId, hairId, hcolorId, gender = 'n', ecolorId = '', wingId = '', tailId = '', bcolorId = '', pcolorId = '', glassesId = ''] = look;
+  const [hatId, faceId, skinId, hairId, hcolorId, gender = 'n', ecolorId = '', wingId = '', tailId = '', bcolorId = '', pcolorId = '', glassesId = '', outfitId = ''] = look;
+  const outfit = opts.zombie ? '' : outfitId;
   const zombie = !!opts.zombie;
   const skin = zombie ? 0x8fd16a : SKIN_COLOR[skinId] ?? DEFAULT_SKIN;
   // 옷 색(윗옷): 팀전에서는 팀 색, 나머지는 고른 색. 바지는 조금 어두운 색
-  const bodyColor = zombie ? 0x4a7a35 : (opts.teamColor ?? BODY_COLOR[bcolorId] ?? opts.bodyColor ?? 0x3d8bff);
-  const pantsColor = zombie ? 0x3b4a7a : PANTS_COLOR[pcolorId] ?? new THREE.Color(bodyColor).multiplyScalar(0.55).getHex();
+  const OUTFIT_BODY = { o_suit: 0x23283a, o_astro: 0xf1f3f7 }; // 정장/우주복은 옷 색이 정해져 있어요 (팀전에서는 팀 색)
+  const bodyColor = zombie ? 0x4a7a35 : (opts.teamColor ?? OUTFIT_BODY[outfit] ?? BODY_COLOR[bcolorId] ?? opts.bodyColor ?? 0x3d8bff);
+  const OUTFIT_PANTS = { o_suit: 0x23283a, o_astro: 0xe4e7ee, o_overalls: 0x4f74a8 };
+  const pantsColor = zombie ? 0x3b4a7a : OUTFIT_PANTS[outfit] ?? PANTS_COLOR[pcolorId] ?? new THREE.Color(bodyColor).multiplyScalar(0.55).getHex();
   const hairColor = HAIR_COLOR[hcolorId] ?? DEFAULT_HAIR_COLOR;
   const hairStyle = hairId || DEFAULT_HAIR[gender] || 'h_bob';
   const inner = new THREE.Group();
@@ -631,6 +676,7 @@ export function buildCharacter(look = [], opts = {}) {
   inner.add(arm);
   if (hatId) inner.add(makeHat(hatId));
   if (glassesId && !zombie) inner.add(makeGlasses(glassesId)); // 👓
+  if (outfit) inner.add(makeOutfit(outfit, bodyColor, !!hatId)); // 👗 옷
   let wings = null, tail = null;
   if (wingId) { const w = makeWings(wingId); inner.add(w.root); wings = w.pivots; }
   if (tailId) { tail = makeTail(tailId, hairColor); inner.add(tail); }

@@ -394,6 +394,7 @@
           <button type="button" data-type="skin">🎨 피부</button>
           <button type="button" data-type="hair">💇 머리</button>
           <button type="button" data-type="hcolor">🌈 머리 색</button>
+          <button type="button" data-type="outfit">👗 옷</button>
           <button type="button" data-type="bcolor">👕 윗옷 색</button>
           <button type="button" data-type="pcolor">👖 바지 색</button>
           <button type="button" data-type="glasses">👓 안경</button>
@@ -1005,6 +1006,7 @@ const NONE = {
   bcolor: { icon: '<div class="sw" style="background:#3d8bff"></div>', name: '기본 파랑' },
   pcolor: { icon: '👕', name: '윗옷 색에 맞추기' },
   glasses: { icon: '🚫', name: '안경 없음' },
+  outfit: { icon: '👕', name: '기본 티셔츠' },
 };
 document.querySelectorAll('#gsel button').forEach(b => b.onclick = () => ws && ws.send(JSON.stringify({ t: 'gender', g: b.dataset.g })));
 
@@ -1039,7 +1041,7 @@ async function initPreview() {
 function updatePreview() {
   if (!pv || !me) return;
   const e = me.equip;
-  const look = [e.hat || '', e.face || '', e.skin || '', e.hair || '', e.hcolor || '', me.gender || 'n', e.ecolor || '', e.wing || '', e.tail || '', e.bcolor || '', e.pcolor || '', e.glasses || ''];
+  const look = [e.hat || '', e.face || '', e.skin || '', e.hair || '', e.hcolor || '', me.gender || 'n', e.ecolor || '', e.wing || '', e.tail || '', e.bcolor || '', e.pcolor || '', e.glasses || '', e.outfit || ''];
   const key = look.join(',');
   if (key === pvKey) return; pvKey = key;
   if (pv.char) pv.sc.remove(pv.char);
