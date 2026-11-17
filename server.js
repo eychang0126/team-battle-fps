@@ -218,7 +218,7 @@ const SHOP = [
   { id: 'p_mint', type: 'pcolor', name: '민트', color: '#6ee7c8', price: 20 },
   { id: 'p_gold', type: 'pcolor', name: '금색', color: '#e0b23a', price: 100 },
   // 날개
-  { id: 'w_angel', type: 'wing', name: '천사 날개', icon: '🕊️', price: 150 },
+  { id: 'w_angel', type: 'wing', name: '스켈레톤 날개', icon: '💀', price: 150 },
   { id: 'w_devil', type: 'wing', name: '악마 날개', icon: '🦇', price: 150 },
   { id: 'w_fairy', type: 'wing', name: '요정 날개', icon: '🧚', price: 120 },
   // 꼬리
@@ -657,7 +657,7 @@ const ZSPAWNS = {
   human: [[-10, -4], [10, -4], [-10, 4], [10, 4], [0, -6], [0, 6], [-18, 0], [18, 0]].map(([x, z]) => ({ x, z, yaw: Math.random() * 6.28 })),
   zombie: [...MAP.spawns.red, ...MAP.spawns.blue],
 };
-const ZOMBIE_HP = 250;
+const ZOMBIE_HP = 150;
 const ZOMBIE_ROUND_MS = 3 * 60 * 1000;
 const ZOMBIE_COUNTDOWN_MS = 10 * 1000;
 const ZOMBIE_END_MS = 7 * 1000;
@@ -1212,7 +1212,7 @@ const BOT_HAIR_COLORS = ['hc_black', 'hc_black', 'hc_red', 'hc_blonde'];
 let nextBotId = 1000000;
 // 웨이브가 올라갈수록 많이, 빠르게, 튼튼하게
 function waveCfg(n) {
-  return { count: 3 + n * 2, speed: Math.min(6.0, 2.6 + n * 0.25), hp: 50 + n * 15, dmg: Math.min(35, 12 + n * 2) };
+  return { count: 3 + n * 2, speed: Math.min(6.0, 2.6 + n * 0.25), hp: ZOMBIE_HP, dmg: Math.min(35, 12 + n * 2) };
 }
 const botsAlive = room => [...room.bots.values()].filter(b => b.alive);
 // 봇이 서 있을 수 있는 높이 (발밑에 있는 제일 높은 상자 위, 없으면 땅)
